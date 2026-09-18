@@ -1,0 +1,467 @@
+// Prisma schema for RailSetu
+// SIH 2026 - SIH26027: AI-Powered Automatic Block Planning
+// Database: PostgreSQL (TIMESTAMPTZ), Prisma ORM
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// 1. ZONES
+// ============================================================
+model Zone {
+  zone_id   BigInt    @id @default(autoincrement())
+  zone_code String    @unique @map("zone_code") @db.VarChar(20)
+  zone_name String    @map("zone_name") @db.VarChar(100)
+  created_at DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updated_at DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  divisions Division[]
+
+  @@map("zones")
+}
+
+// ============================================================
+// 2. DIVISIONS
+// ============================================================
+model Division {
+  division_id   BigInt   @id @default(autoincrement())
+  zone_id       BigInt   @map("zone_id")
+  zone          Zone     @relation(fields: [zone_id], references: [zone_id], onDelete: Restrict)
+  division_code String   @unique @map("division_code") @db.VarChar(20)
+  division_name String   @map("division_name") @db.VarChar(100)
+  created_at    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updated_at    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  sections Section[]
+
+  @@map("divisions")
+}
+
+// ============================================================
+// 3. SECTIONS
+// ============================================================
+model Section {
+  section_id     BigInt   @id @default(autoincrement())
+  division_id    BigInt   @map("division_id")
+  division       Division @relation(fields: [division_id], references: [division_id], onDelete: Restrict)
+  section_code   String   @unique @map("section_code") @db.VarChar(20)
+  section_name   String   @map("section_name") @db.VarChar(100)
+  start_chainage Decimal  @map("start_chainage") @db.Decimal(12, 2)
+  end_chainage   Decimal  @map("end_chainage") @db.Decimal(12, 2)
+  created_at     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updated_at     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  stations          Station[]
+  tracks            Track[]
+  assets            Asset[]
+  maintenance_tasks MaintenanceTask[]
+  goods_forecasts  GoodsTrainForecast[]
+
+  @@map("sections")
+}
+
+// ============================================================
+// 4. STATIONS
+// ============================================================
+model Station {
+  station_id   BigInt    @id @default(autoincrement())
+  section_id   BigInt    @map("section_id")
+  section      Section   @relation(fields: [section_id], references: [section_id], onDelete: Restrict)
+  station_code String    @unique @map("station_code") @db.VarChar(10)
+  station_name String    @map("station_name") @db.VarChar(100)
+  latitude     Decimal?  @db.Decimal(10, 6)
+  longitude    Decimal?  @db.Decimal(10, 6)
+  created_at   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updated_at   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  origin_trains      Train[] @relation("OriginStation")
+  destination_trains Train[] @relation("DestinationStation")
+  train_routes       TrainRoute[]
+
+  @@map("stations")
+}
+
+// ============================================================
+// 5. TRACKS
+// ============================================================
+model Track {
+  track_id   BigInt   @id @default(autoincrement())
+  section_id BigInt   @map("section_id")
+  section    Section  @relation(fields: [section_id], references: [section_id], onDelete: Restrict)
+  track_code String   @unique @map("track_code") @db.VarChar(20)
+  track_name String   @map("track_name") @db.VarChar(100)
+  track_type String   @map("track_type") @db.VarChar(50)
+  gauge      String?  @db.VarChar(20)
+  status     String   @map("status") @db.VarChar(30)
+  created_at DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updated_at DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  blocks Block[]
+
+  @@map("tracks")
+}
+
+// ============================================================
+// 6. BLOCKS (physical infrastructure segment - "where?")
+// ============================================================
+model Block {
+  block_id            BigInt                 @id @default(autoincrement())
+  track_id            BigInt                 @map("track_id")
+  track               Track                  @relation(fields: [track_id], references: [track_id], onDelete: Restrict)
+  block_code          String                 @unique @map("block_code") @db.VarChar(20)
+  start_chainage      Decimal                @map("start_chainage") @db.Decimal(12, 2)
+  end_chainage        Decimal                @map("end_chainage") @db.Decimal(12, 2)
+  status              String                 @map("status") @db.VarChar(30)
+  availability        Boolean                @default(true)
+  created_at          DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updated_at          DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  assets                Asset[]
+  train_block_movements TrainBlockMovement[]
+  maintenance_tasks     MaintenanceTask[]
+  block_plans           BlockPlan[]
+  source_records        SourceRecord[]
+
+  @@index([status])
+  @@index([availability])
+
+  @@map("blocks")
+}
+
+// ============================================================
+// 7. TRAINS
+// ============================================================
+model Train {
+  train_id                BigInt   @id @default(autoincrement())
+  train_number            String   @unique @map("train_number") @db.VarChar(20)
+  train_name              String   @map("train_name") @db.VarChar(100)
+  train_type              String   @map("train_type") @db.VarChar(30)
+  origin_station_id       BigInt?  @map("origin_station_id")
+  origin_station          Station? @relation("OriginStation", fields: [origin_station_id], references: [station_id], onDelete: SetNull)
+  destination_station_id  BigInt?  @map("destination_station_id")
+  destination_station     Station? @relation("DestinationStation", fields: [destination_station_id], references: [station_id], onDelete: SetNull)
+  priority                Int?
+  status                  String   @map("status") @db.VarChar(30)
+  created_at              DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updated_at              DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  train_routes          TrainRoute[]
+  train_block_movements TrainBlockMovement[]
+  plan_train_impacts    PlanTrainImpact[]
+  block_conflicts       BlockConflict[]
+  source_records        SourceRecord[]
+
+  @@map("trains")
+}
+
+// ============================================================
+// 8. TRAIN ROUTES
+// ============================================================
+model TrainRoute {
+  train_route_id      BigInt    @id @default(autoincrement())
+  train_id            BigInt    @map("train_id")
+  train               Train     @relation(fields: [train_id], references: [train_id], onDelete: Cascade)
+  station_id          BigInt?   @map("station_id")
+  station             Station?  @relation(fields: [station_id], references: [station_id], onDelete: SetNull)
+  sequence_number     Int
+  scheduled_arrival   DateTime? @map("scheduled_arrival") @db.Timestamptz(3)
+  scheduled_departure DateTime? @map("scheduled_departure") @db.Timestamptz(3)
+  created_at          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([train_id])
+
+  @@map("train_routes")
+}
+
+// ============================================================
+// 9. TRAIN BLOCK MOVEMENTS
+// (maintenance-vs-train conflict detection)
+// ============================================================
+model TrainBlockMovement {
+  movement_id     BigInt    @id @default(autoincrement())
+  train_id        BigInt    @map("train_id")
+  train           Train     @relation(fields: [train_id], references: [train_id], onDelete: Cascade)
+  block_id        BigInt    @map("block_id")
+  block           Block     @relation(fields: [block_id], references: [block_id], onDelete: Restrict)
+  scheduled_entry DateTime  @map("scheduled_entry") @db.Timestamptz(3)
+  scheduled_exit  DateTime  @map("scheduled_exit") @db.Timestamptz(3)
+  actual_entry    DateTime? @map("actual_entry") @db.Timestamptz(3)
+  actual_exit     DateTime? @map("actual_exit") @db.Timestamptz(3)
+  created_at      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updated_at      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([train_id])
+  @@index([block_id])
+  @@index([scheduled_entry])
+  @@index([scheduled_exit])
+
+  @@map("train_block_movements")
+}
+
+// ============================================================
+// 10. ASSETS
+// ============================================================
+model Asset {
+  asset_id    BigInt   @id @default(autoincrement())
+  asset_code  String   @unique @map("asset_code") @db.VarChar(30)
+  asset_name  String   @map("asset_name") @db.VarChar(100)
+  asset_type  String   @map("asset_type") @db.VarChar(50)
+  block_id    BigInt   @map("block_id")
+  block       Block    @relation(fields: [block_id], references: [block_id], onDelete: Restrict)
+  section_id  BigInt   @map("section_id")
+  section     Section  @relation(fields: [section_id], references: [section_id], onDelete: Restrict)
+  status      String   @map("status") @db.VarChar(30)
+  criticality Int?
+  latitude    Decimal? @db.Decimal(10, 6)
+  longitude   Decimal? @db.Decimal(10, 6)
+  created_at  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updated_at  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  maintenance_tasks MaintenanceTask[]
+  source_records    SourceRecord[]
+
+  // PostGIS geography column intentionally omitted for now so the app
+  // stays independent of PostGIS; latitude/longitude are the prototype location.
+  @@index([asset_type])
+  @@index([status])
+
+  @@map("assets")
+}
+
+// ============================================================
+// 11. MAINTENANCE TASKS
+// ============================================================
+model MaintenanceTask {
+  maintenance_task_id BigInt    @id @default(autoincrement())
+  asset_id            BigInt    @map("asset_id")
+  asset               Asset     @relation(fields: [asset_id], references: [asset_id], onDelete: Restrict)
+  block_id            BigInt?   @map("block_id")
+  block               Block?    @relation(fields: [block_id], references: [block_id], onDelete: SetNull)
+  section_id          BigInt?   @map("section_id")
+  section             Section?  @relation(fields: [section_id], references: [section_id], onDelete: SetNull)
+  department          String    @map("department") @db.VarChar(50)
+  maintenance_type    String    @map("maintenance_type") @db.VarChar(100)
+  description         String?
+  source              String?   @map("source") @db.VarChar(20)
+  external_ref        String?   @map("external_ref") @db.VarChar(64)
+  priority            Int       @default(1)
+  criticality         Int       @default(1)
+  urgency             Int       @default(1)
+  duration_minutes    Int
+  requested_at        DateTime  @default(now()) @map("requested_at") @db.Timestamptz(3)
+  preferred_start     DateTime? @map("preferred_start") @db.Timestamptz(3)
+  deadline            DateTime? @map("deadline") @db.Timestamptz(3)
+  status              String    @default("PENDING") @map("status") @db.VarChar(30)
+  created_at          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updated_at          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  plan_links    PlanMaintenanceTask[]
+  source_records SourceRecord[]
+
+  @@index([status])
+  @@index([department])
+  @@index([block_id])
+  @@index([section_id])
+  @@index([deadline])
+  @@index([priority])
+  @@index([criticality])
+  @@index([urgency])
+  @@unique([source, external_ref])
+
+  @@map("maintenance_tasks")
+}
+
+// ============================================================
+// 12. BLOCK PLANS (one planned maintenance closure - "when?")
+// ============================================================
+model BlockPlan {
+  plan_id                  BigInt    @id @default(autoincrement())
+  block_id                 BigInt    @map("block_id")
+  block                    Block     @relation(fields: [block_id], references: [block_id], onDelete: Cascade)
+  planned_start            DateTime  @map("planned_start") @db.Timestamptz(3)
+  planned_end              DateTime  @map("planned_end") @db.Timestamptz(3)
+  optimization_score       Decimal?  @map("optimization_score") @db.Decimal(10, 4)
+  affected_train_count     Int       @default(0) @map("affected_train_count")
+  expected_delay_minutes   Decimal   @default(0) @map("expected_delay_minutes") @db.Decimal(10, 2)
+  asset_availability_score Decimal?  @map("asset_availability_score") @db.Decimal(10, 4)
+  status                   String    @default("PROPOSED") @map("status") @db.VarChar(30)
+  created_at               DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  plan_maintenance_tasks PlanMaintenanceTask[]
+  plan_train_impacts     PlanTrainImpact[]
+  block_conflicts        BlockConflict[]
+  block_operations       BlockOperation[]
+
+  @@index([planned_start])
+  @@index([planned_end])
+  @@index([status])
+
+  @@map("block_plans")
+}
+
+// ============================================================
+// 13. PLAN MAINTENANCE TASKS (Mega/Shadow block junction table)
+// ============================================================
+model PlanMaintenanceTask {
+  plan_maintenance_task_id BigInt          @id @default(autoincrement())
+  plan_id                  BigInt          @map("plan_id")
+  plan                     BlockPlan       @relation(fields: [plan_id], references: [plan_id], onDelete: Cascade)
+  maintenance_task_id      BigInt          @map("maintenance_task_id")
+  maintenance_task         MaintenanceTask @relation(fields: [maintenance_task_id], references: [maintenance_task_id], onDelete: Cascade)
+  created_at               DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([plan_id, maintenance_task_id])
+
+  @@map("plan_maintenance_tasks")
+}
+
+// ============================================================
+// 14. PLAN TRAIN IMPACTS
+// ============================================================
+model PlanTrainImpact {
+  impact_id                BigInt    @id @default(autoincrement())
+  plan_id                  BigInt    @map("plan_id")
+  plan                     BlockPlan @relation(fields: [plan_id], references: [plan_id], onDelete: Cascade)
+  train_id                 BigInt    @map("train_id")
+  train                    Train     @relation(fields: [train_id], references: [train_id], onDelete: Cascade)
+  estimated_delay_minutes  Decimal   @default(0) @map("estimated_delay_minutes") @db.Decimal(10, 2)
+  impact_type              String?   @map("impact_type") @db.VarChar(50)
+  created_at               DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([plan_id, train_id])
+
+  @@map("plan_train_impacts")
+}
+
+// ============================================================
+// 15. BLOCK CONFLICTS
+// ============================================================
+model BlockConflict {
+  conflict_id   BigInt    @id @default(autoincrement())
+  plan_id       BigInt    @map("plan_id")
+  plan          BlockPlan @relation(fields: [plan_id], references: [plan_id], onDelete: Cascade)
+  train_id      BigInt?   @map("train_id")
+  train         Train?    @relation(fields: [train_id], references: [train_id], onDelete: SetNull)
+  conflict_type String    @map("conflict_type") @db.VarChar(100)
+  severity      Int       @default(1)
+  description   String?
+  resolved      Boolean   @default(false)
+  created_at    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([train_id])
+  @@index([resolved])
+  @@index([severity])
+
+  @@map("block_conflicts")
+}
+
+// ============================================================
+// 16. BLOCK OPERATIONS (actual post-execution record)
+// ============================================================
+model BlockOperation {
+  operation_id           BigInt    @id @default(autoincrement())
+  plan_id                BigInt    @map("plan_id")
+  plan                   BlockPlan @relation(fields: [plan_id], references: [plan_id], onDelete: Cascade)
+  actual_start           DateTime? @map("actual_start") @db.Timestamptz(3)
+  actual_end             DateTime? @map("actual_end") @db.Timestamptz(3)
+  completion_status      String?   @map("completion_status") @db.VarChar(50)
+  actual_affected_trains Int?      @map("actual_affected_trains")
+  actual_delay_minutes   Decimal?  @map("actual_delay_minutes") @db.Decimal(10, 2)
+  remarks                String?
+  created_at             DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@map("block_operations")
+}
+
+// ============================================================
+// 17. SOURCE SYNC RUNS (data-integration ledger)
+//     One row per ingestion/sync run across source systems.
+// ============================================================
+model SourceSyncRun {
+  sync_run_id   BigInt    @id @default(autoincrement())
+  triggered_by  String    @default("MANUAL") @map("triggered_by") @db.VarChar(30)
+  status        String    @default("RUNNING") @map("status") @db.VarChar(30)
+  started_at    DateTime  @default(now()) @map("started_at") @db.Timestamptz(3)
+  completed_at  DateTime? @map("completed_at") @db.Timestamptz(3)
+  summary       Json?     @map("summary")
+  errors        Json?     @map("errors")
+  created_at    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  source_records SourceRecord[]
+
+  @@index([status])
+  @@index([started_at])
+
+  @@map("source_sync_runs")
+}
+
+// ============================================================
+// 18. SOURCE RECORDS (provenance ledger for EVERY imported item)
+//     Preserves source (TMS / SMMS / TDMS / COA), the external
+//     reference from the source system and the imported payload.
+// ============================================================
+model SourceRecord {
+  source_record_id    BigInt          @id @default(autoincrement())
+  sync_run_id         BigInt?         @map("sync_run_id")
+  sync_run            SourceSyncRun?  @relation(fields: [sync_run_id], references: [sync_run_id], onDelete: SetNull)
+  source              String          @map("source") @db.VarChar(20)
+  record_type         String          @map("record_type") @db.VarChar(50)
+  source_ref          String          @map("source_ref") @db.VarChar(64)
+  status              String          @default("IMPORTED") @map("status") @db.VarChar(30)
+  maintenance_task_id BigInt?         @map("maintenance_task_id")
+  maintenance_task    MaintenanceTask? @relation(fields: [maintenance_task_id], references: [maintenance_task_id], onDelete: SetNull)
+  block_id            BigInt?         @map("block_id")
+  block               Block?          @relation(fields: [block_id], references: [block_id], onDelete: SetNull)
+  asset_id            BigInt?         @map("asset_id")
+  asset               Asset?          @relation(fields: [asset_id], references: [asset_id], onDelete: SetNull)
+  train_id            BigInt?         @map("train_id")
+  train               Train?          @relation(fields: [train_id], references: [train_id], onDelete: SetNull)
+  payload             Json?           @map("payload")
+  imported_at         DateTime        @default(now()) @map("imported_at") @db.Timestamptz(3)
+  created_at          DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([source])
+  @@index([record_type])
+  @@index([source_ref])
+  @@index([maintenance_task_id])
+  @@index([imported_at])
+
+  @@map("source_records")
+}
+
+// ============================================================
+// 19. GOODS TRAIN FORECASTS (COA source)
+//     Freight/corridor forecast published by the Corridor
+//     Operations & Availability source system.
+// ============================================================
+model GoodsTrainForecast {
+  goods_forecast_id       BigInt   @id @default(autoincrement())
+  source                  String   @default("COA") @map("source") @db.VarChar(20)
+  external_ref            String   @unique @map("external_ref") @db.VarChar(64)
+  forecast_date           DateTime @map("forecast_date") @db.Date
+  section_id              BigInt?  @map("section_id")
+  section                 Section? @relation(fields: [section_id], references: [section_id], onDelete: SetNull)
+  train_number            String?  @map("train_number") @db.VarChar(20)
+  service                 String?  @map("service") @db.VarChar(50)
+  direction               String?  @map("direction") @db.VarChar(10)
+  origin_station_code     String?  @map("origin_station_code") @db.VarChar(10)
+  destination_station_code String? @map("destination_station_code") @db.VarChar(10)
+  planned_tonnes          Int?
+  rake_count              Int?
+  start_window            DateTime? @map("start_window") @db.Timestamptz(3)
+  end_window              DateTime? @map("end_window") @db.Timestamptz(3)
+  status                  String   @default("ACTIVE") @map("status") @db.VarChar(30)
+  created_at              DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updated_at              DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([forecast_date])
+  @@index([section_id])
+
+  @@map("goods_train_forecasts")
+}

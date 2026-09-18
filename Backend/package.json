@@ -1,0 +1,37 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "Backend foundation for SIH 2026 project - AI-Powered Automatic Block Planning to Maximize Asset Availability for Train Operations on Indian Railways",
+  "main": "server.js",
+  "scripts": {
+    "dev": "nodemon server.js",
+    "start": "node server.js",
+    "test": "node --test",
+    "db:seed": "npx prisma db seed",
+    "seed:sanghamitra": "node prisma/seed-sanghamitra.js",
+    "seed:longdistance": "node prisma/seed-longdistance.js",
+    "seed:priority": "node prisma/seed-priority.js"
+  },
+  "keywords": [
+    "sih",
+    "indian-railways",
+    "block-planning",
+    "express"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "prisma": "^6.19.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  }
+}
