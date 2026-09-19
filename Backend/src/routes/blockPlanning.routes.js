@@ -28,4 +28,13 @@ router.post("/cluster-only", ctrl.clusterOnly);
 router.get("/tasks", ctrl.getRawTasks);
 router.get("/windows", ctrl.getWindows);
 
+// Two-Horizon Planning Endpoints
+router.get("/monthly", ctrl.getMonthly);
+router.get("/weekly", ctrl.getWeekly);
+router.post("/generate/monthly", ctrl.generateMonthly);
+router.post("/generate/weekly", ctrl.generateWeekly);
+router.post("/:id/approve", ctrl.approvePlan);
+router.post("/:id/cancel", ctrl.cancelPlan);
+
 module.exports = router;
+

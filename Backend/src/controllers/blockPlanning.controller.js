@@ -93,4 +93,113 @@ async function clusterOnly(req, res) {
   });
 }
 
-module.exports = { optimize, getRawTasks, getWindows, clusterOnly };
+const {
+  generateMonthlyBlueprint,
+  generateWeeklyRefinement,
+  getMonthlyPlans,
+  getWeeklyPlans,
+  approvePlan: approvePlanService,
+  cancelPlan: cancelPlanService,
+} = require("../services/twoHorizonPlanning.service");
+
+
+/**
+ * GET /api/v1/block-planning/monthly
+ * Returns the 30-day strategic blueprint block plans.
+ */
+async function getMonthly(req, res) {
+  const plans = await getMonthlyPlans();
+  return res.json({
+    success: true,
+    plan_horizon: "MONTHLY",
+    count: plans.length,
+    data: plans,
+  });
+}
+
+/**
+ * GET /api/v1/block-planning/weekly
+ * Returns the 7-day operational refinement block plans.
+ */
+async function getWeekly(req, res) {
+  const plans = await getWeeklyPlans();
+  return res.json({
+    success: true,
+    plan_horizon: "WEEKLY",
+    count: plans.length,
+    data: plans,
+  });
+}
+
+/**
+ * POST /api/v1/block-planning/generate/monthly
+ * Generates the 30-day strategic blueprint with resource requirements.
+ */
+async function generateMonthly(req, res) {
+  const days = Number(req.body?.days) || 30;
+  const maxDistanceKm = Number(req.body?.maxDistanceKm) || 2.0;
+  const result = await generateMonthlyBlueprint({ days, maxDistanceKm });
+  return res.status(200).json(result);
+}
+
+/**
+ * POST /api/v1/block-planning/generate/weekly
+ * Derives 7-day operational plan from monthly blueprint, detecting train conflicts
+ * and re-optimizing with alternative windows.
+ */
+async function generateWeekly(req, res) {
+  const days = Number(req.body?.days) || 7;
+  const result = await generateWeeklyRefinement({ days });
+  return res.status(200).json(result);
+}
+
+/**
+ * POST /api/v1/block-planning/:id/approve
+ * Official approval workflow (PROPOSED -> APPROVED).
+ */
+async function approvePlan(req, res) {
+  const planId = req.params.id;
+  try {
+    const updated = await approvePlanService(planId);
+    return res.json({
+      success: true,
+      message: `Block Plan #${planId} has been officially approved.`,
+      data: updated,
+    });
+  } catch (err) {
+    return res.status(404).json({ success: false, message: err.message });
+  }
+}
+
+/**
+ * POST /api/v1/block-planning/:id/cancel
+ * Official cancellation workflow (PROPOSED -> CANCELLED).
+ */
+async function cancelPlan(req, res) {
+  const planId = req.params.id;
+  const reason = req.body?.reason;
+  try {
+    const updated = await cancelPlanService(planId, reason);
+    return res.json({
+      success: true,
+      message: `Block Plan #${planId} has been cancelled.`,
+      data: updated,
+    });
+  } catch (err) {
+    return res.status(404).json({ success: false, message: err.message });
+  }
+}
+
+module.exports = {
+  optimize,
+  getRawTasks,
+  getWindows,
+  clusterOnly,
+  getMonthly,
+  getWeekly,
+  generateMonthly,
+  generateWeekly,
+  approvePlan,
+  cancelPlan,
+};
+

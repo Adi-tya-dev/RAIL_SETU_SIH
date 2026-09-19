@@ -291,6 +291,14 @@ model BlockPlan {
   expected_delay_minutes   Decimal   @default(0) @map("expected_delay_minutes") @db.Decimal(10, 2)
   asset_availability_score Decimal?  @map("asset_availability_score") @db.Decimal(10, 4)
   status                   String    @default("PROPOSED") @map("status") @db.VarChar(30)
+  plan_horizon             String    @default("WEEKLY") @map("plan_horizon") @db.VarChar(20)
+  parent_plan_id           BigInt?   @map("parent_plan_id")
+  parent_plan              BlockPlan? @relation("PlanDerivation", fields: [parent_plan_id], references: [plan_id], onDelete: SetNull)
+  child_plans              BlockPlan[] @relation("PlanDerivation")
+  work_package_code        String?   @map("work_package_code") @db.VarChar(50)
+  original_window          String?   @map("original_window")
+  adjustment_reason        String?   @map("adjustment_reason")
+  resource_requirements    Json?     @map("resource_requirements")
   created_at               DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
   plan_maintenance_tasks PlanMaintenanceTask[]
@@ -301,6 +309,8 @@ model BlockPlan {
   @@index([planned_start])
   @@index([planned_end])
   @@index([status])
+  @@index([plan_horizon])
+  @@index([parent_plan_id])
 
   @@map("block_plans")
 }
