@@ -4,6 +4,7 @@ const { ApiError, parsePagination, optionalString, parseRange } = require("../ut
 const logger = require("../utils/logger");
 const { registry } = require("../integration/sources/registry");
 const { SOURCE_NAMES, SOURCE_META, MODE, DISCLAIMER } = require("../integration/config");
+const { coaSimulator } = require("../integration/simulators/coa.simulator");
 
 const MAINTENANCE_SOURCES = ["TMS", "SMMS", "TDMS"];
 const MAINTENANCE_SOURCE_DEPARTMENTS = {
@@ -413,14 +414,14 @@ async function getCoaData() {
       }),
     ]);
 
-    if (blocks.length > 0 || timetable.length > 0) {
+    if (blocks.length > 0 || timetable.length > 0 || goods.length > 0) {
       const raw = (payload) => (payload && typeof payload === "object" ? payload : null);
       return {
         last_sync: lastSync,
         mode: MODE,
         disclaimer: DISCLAIMER,
-        blocks: blocks.map((b) => raw(b.payload)),
-        timetable: timetable.map((t) => raw(t.payload)),
+        blocks: blocks.map((b) => raw(b.payload)).filter(Boolean),
+        timetable: timetable.map((t) => raw(t.payload)).filter(Boolean),
         goods_forecast: goods.map((g) => ({
           external_ref: g.external_ref,
           forecast_date: g.forecast_date,
@@ -439,51 +440,52 @@ async function getCoaData() {
         })),
       };
     }
-  } catch (err) {}
+  } catch (err) {
+    logger.warn(`[integration] DB fetch for COA failed: ${err.message}`);
+  }
 
-  // Fallback to seed data representations
-  const blocks = seedData.blocks.map((b) => ({
-    block_code: b.block_code,
-    status: b.status,
-    availability: b.availability,
-    start_chainage: b.start_chainage,
-    end_chainage: b.end_chainage,
-    track_code: b.track?.track_code,
-  }));
-
-  const timetable = seedData.trains.slice(0, 15).map((t) => ({
-    train_number: t.train_number,
-    train_name: t.train_name,
-    train_type: t.train_type,
-    priority: t.priority,
-    origin_code: t.origin_station?.station_code,
-    destination_code: t.destination_station?.station_code,
-  }));
-
+  // Fallback to high-fidelity COA simulator dataset
+  const sim = await coaSimulator.getData();
   return {
     last_sync: lastSync,
-    mode: MODE,
-    disclaimer: DISCLAIMER,
-    blocks,
-    timetable,
-    goods_forecast: [
-      {
-        external_ref: "COA-GDS-001",
-        forecast_date: new Date().toISOString().slice(0, 10),
-        section_code: "SEC-DLAM",
-        section_name: "Delhi-Ambala Section",
-        train_number: "G-BOXN-401",
-        service: "COAL",
-        direction: "UP",
-        origin_station_code: "UMB",
-        destination_station_code: "DLI",
-        planned_tonnes: 3800,
-        rake_count: 58,
-        start_window: "04:00",
-        end_window: "08:00",
-        status: "CONFIRMED",
-      },
-    ],
+    mode: sim.mode || MODE,
+    disclaimer: sim.disclaimer || DISCLAIMER,
+    blocks: (sim.blocks || []).map((b) => ({
+      block_code: b.block_code,
+      track_code: b.track_code || "TR-001",
+      section_code: b.section_code || "SEC-DLJP",
+      status: b.status || (b.availability === "AVAILABLE" ? "AVAILABLE" : "UNDER_REPAIR"),
+      availability: b.availability || (b.status === "AVAILABLE" ? "AVAILABLE" : "UNAVAILABLE"),
+      effective_from: b.effective_from || "2026-09-19",
+      effective_to: b.effective_to || "2026-09-19",
+      reason: b.reason || "Corridor slot available",
+    })),
+    timetable: (sim.timetable || []).map((t) => ({
+      train_number: t.train_number,
+      train_name: t.train_name,
+      train_type: t.train_type || "EXPRESS",
+      schedule_day: t.schedule_day || "2026-09-19",
+      sequence_number: t.sequence_number || 1,
+      station_code: t.station_code || "NDLS",
+      scheduled_arrival: t.scheduled_arrival,
+      scheduled_departure: t.scheduled_departure,
+    })),
+    goods_forecast: (sim.goods_forecast || []).map((g) => ({
+      external_ref: g.external_ref,
+      forecast_date: g.forecast_date,
+      section_code: g.section_code,
+      section_name: g.section_name || g.sectionCode || "Corridor Line",
+      train_number: g.train_number,
+      service: g.service,
+      direction: g.direction,
+      origin_station_code: g.origin_station_code,
+      destination_station_code: g.destination_station_code,
+      planned_tonnes: g.planned_tonnes,
+      rake_count: g.rake_count,
+      start_window: g.start_window,
+      end_window: g.end_window,
+      status: g.status,
+    })),
   };
 }
 

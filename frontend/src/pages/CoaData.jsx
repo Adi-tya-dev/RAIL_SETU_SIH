@@ -29,8 +29,9 @@ export default function CoaData() {
   const timetable = coa?.timetable ?? [];
   const goods = coa?.goods_forecast ?? [];
 
-  const availableBlocks = blocks.filter((b) => b?.availability === "AVAILABLE").length;
-  const unavailableBlocks = blocks.filter((b) => b?.availability && b.availability !== "AVAILABLE").length;
+  const isAvailable = (b) => b?.availability === "AVAILABLE" || b?.availability === true || b?.status === "AVAILABLE";
+  const availableBlocks = blocks.filter(isAvailable).length;
+  const unavailableBlocks = blocks.filter((b) => !isAvailable(b)).length;
 
   const filteredTimetable = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -59,7 +60,10 @@ export default function CoaData() {
       {
         key: "availability",
         label: "Availability",
-        render: (r) => <Badge tone={statusTone(r.availability)} dot>{r.availability || "—"}</Badge>,
+        render: (r) => {
+          const availStr = isAvailable(r) ? "AVAILABLE" : "UNAVAILABLE";
+          return <Badge tone={statusTone(availStr)} dot>{availStr}</Badge>;
+        },
       },
       {
         key: "effective",
@@ -134,11 +138,15 @@ export default function CoaData() {
       {
         key: "window",
         label: "Slot Window",
-        render: (r) => (
-          <span>
-            <strong>{formatDateTime(r.start_window)} → {formatDateTime(r.end_window)}</strong>
-          </span>
-        ),
+        render: (r) => {
+          const s = r.start_window ? (r.start_window.length <= 8 ? r.start_window : formatDateTime(r.start_window)) : "—";
+          const e = r.end_window ? (r.end_window.length <= 8 ? r.end_window : formatDateTime(r.end_window)) : "—";
+          return (
+            <span>
+              <strong>{s} → {e}</strong>
+            </span>
+          );
+        },
       },
       { key: "status", label: "Status", render: (r) => <Badge tone={statusTone(r.status)} dot>{r.status}</Badge> },
     ],
