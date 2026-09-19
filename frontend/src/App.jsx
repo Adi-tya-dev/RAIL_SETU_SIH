@@ -43,7 +43,9 @@ export default function App() {
 
   return (
     <AppLayout currentPath={path} noPadding={noPadding}>
-      <div key={path}>{resolvePage(segment)}</div>
+      <div key={path} style={noPadding ? { height: "100%", overflow: "hidden" } : undefined}>
+        {resolvePage(segment)}
+      </div>
     </AppLayout>
   );
 }
