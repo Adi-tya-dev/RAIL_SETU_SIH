@@ -84,18 +84,41 @@ Each raw task $T_i$ is mapped into a normalized structure:
 
 **Source Code:** [`Backend/src/algorithms/clusteringEngine.js`](file:///d:/Rail_Setu-main/Rail_Setu-main/Backend/src/algorithms/clusteringEngine.js)
 
-### 4.1 Physical Principle
-Instead of granting 21 independent track closures (which halts rail traffic 21 separate times), maintenance crews from Engineering, Signalling, and Traction can work **simultaneously** within the same protected section if their jobs are physically close together.
+### 4.2 Algorithm Steps & Mathematical Formulation
 
-### 4.2 Algorithm Steps
-1. **Chainage Resolution:** Map every task to its linear track coordinate $K_i$ (in kilometres). Tasks lacking coordinates are treated as isolated singletons.
-2. **Coordinate Sorting:** Sort tasks along the linear track axis:
-   $$K_{(1)} \le K_{(2)} \le \dots \le K_{(N)}$$
-3. **Neighborhood Sweep ($\epsilon = 2.0\text{ km}$):**
-   - For an active cluster starting at reference coordinate $K_\text{ref} = K_{(1)}$, iterate forward.
-   - If $|K_{(i)} - K_\text{ref}| \le \epsilon$, include $T_{(i)}$ in the current Work Package.
-   - If distance exceeds $\epsilon$, close the active package and initialize a new cluster with $K_\text{ref} = K_{(i)}$.
-   - Time Complexity: $\mathcal{O}(N \log N)$ for sorting + $\mathcal{O}(N)$ for sweeping $\rightarrow \mathcal{O}(N \log N)$.
+#### 1. Deadpoint Origin (Route KP 0.000 Datum) & Dual Coordinate Normalization
+In Indian Railways permanent-way engineering, corridors have a designated **Deadpoint** (the route origin / buffer stop at $Km = 0.000$). Tracks advance strictly forward in increasing kilometer posts ($KP$).
+
+Tasks can arrive with coordinates expressed in one of two formats:
+- **Global Continuous Route Chainage:** Expressed directly from the line's deadpoint (e.g., $Km = 14.500$ in Block 1, $Km = 15.500$ in Block 2).
+- **Block-Local Relative Offset:** Measured from the start of the specific block ($Km_\text{local} \in [0, L_\text{block}]$).
+
+To eliminate spatial miscalculations, the engine executes dual-coordinate resolution:
+$$\text{RouteKm}(T_i) = \begin{cases} 
+K_i & \text{if } K_i \in [B_\text{start}, B_\text{end}] \quad \text{(Absolute Chainage)} \\
+B_\text{start} + K_i & \text{if } K_i < B_\text{start} \text{ and } K_i \le (B_\text{end} - B_\text{start}) \quad \text{(Local Offset)} \\
+B_\text{start} & \text{fallback to block boundary}
+\end{cases}$$
+
+#### 2. Section Partitioning (Corridor Isolation)
+Tasks are strictly partitioned by their physical track corridor ($\text{SectionCode}$). Tasks on separate corridors (e.g. `SEC-DLJP` vs `SEC-DLAM`) are isolated, preventing invalid cross-corridor aggregation.
+
+#### 3. Coordinate Sorting along Corridor
+Within each corridor, tasks are sorted monotonically along the linear track axis:
+$$\text{RouteKm}_{(1)} \le \text{RouteKm}_{(2)} \le \dots \le \text{RouteKm}_{(N)}$$
+
+#### 4. Neighborhood Proximity Sweep & Adjacent Block Boundary Clustering ($\epsilon = 2.0\text{ km}$)
+For an active cluster starting at reference coordinate $K_\text{ref} = \text{RouteKm}_{(1)}$:
+- If $|\text{RouteKm}_{(i)} - K_\text{ref}| \le \epsilon$, include $T_{(i)}$ in the active cluster.
+- **Contiguous Block Boundary Case:**
+  Suppose `Block 1` spans $[0.0, 15.0]\text{ km}$ and `Block 2` spans $[15.0, 30.0]\text{ km}$ (or $[16.0, 30.0]\text{ km}$).
+  If Task $A$ is at $Km = 14.5$ (near the end of Block 1) and Task $B$ is at $Km = 15.5$ (or offset $0.5\text{ km}$ in Block 2):
+  $$d(A, B) = |15.500 - 14.500| = 1.000\text{ km} \le 2.0\text{ km}$$
+  The engine clubs both tasks into a **single unified Work Package** with:
+  - $\text{block\_codes} = [\text{B001}, \text{B002}]$
+  - $\text{is\_multi\_block} = \text{true}$ (tagged for Joint Corridor Block possession)
+  - $\text{km\_span} = \text{"14.500 to 15.500 (1.0 km)"}$
+- If distance exceeds $\epsilon$, close the active cluster and initialize a new Work Package.
 
 ### 4.3 Multi-Crew Concurrent Duration Formula
 Because crews work in parallel, the total block duration is **not** the sum of individual durations. It is dictated by the longest individual operation, augmented with a safety buffer for inter-department coordination:

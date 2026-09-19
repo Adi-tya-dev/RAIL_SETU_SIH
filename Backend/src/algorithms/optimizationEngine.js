@@ -80,12 +80,27 @@ function optimizeBlockSchedule(workPackages, coaWindows) {
     for (const window of sortedWindows) {
       // CONSTRAINT: The package must physically fit within the remaining window time.
       if (pkg.total_duration_required <= windowCapacities[window.id]) {
-        // Optionally check section/block compatibility if window declares it
+        // Section compatibility check
         if (window.section_codes && window.section_codes.length > 0) {
           const overlap = pkg.section_codes && pkg.section_codes.some(
             (sc) => window.section_codes.includes(sc)
           );
           if (!overlap) continue; // Window serves a different section
+        }
+
+        // Block compatibility check
+        if (window.block_code && pkg.block_codes && pkg.block_codes.length > 0) {
+          if (pkg.block_codes.length === 1) {
+            // Single block package: window must match or be generic
+            if (window.block_code !== pkg.block_codes[0]) continue;
+          } else {
+            // Multi-block package: requires either a joint window covering all blocks or a section corridor window
+            const winBlocks = window.block_codes || [window.block_code];
+            const coversAll = pkg.block_codes.every((bc) => winBlocks.includes(bc));
+            if (!coversAll && !window.is_corridor_window && !window.is_section_window) {
+              continue; // Window only covers a single block, cannot safely host joint boundary work
+            }
+          }
         }
 
         finalizedSchedule.push({
@@ -94,6 +109,7 @@ function optimizeBlockSchedule(workPackages, coaWindows) {
           departments_involved: pkg.departments_involved,
           block_codes: pkg.block_codes,
           section_codes: pkg.section_codes,
+          is_multi_block: pkg.is_multi_block || false,
           km_span: pkg.km_span,
           task_count: pkg.task_count,
           duration_needed: `${pkg.total_duration_required} mins`,
@@ -117,7 +133,10 @@ function optimizeBlockSchedule(workPackages, coaWindows) {
     }
 
     if (!assigned) {
-      finalizedSchedule.push(makeUnassigned(pkg, "DEFICIT_WINDOW_CONFLICT"));
+      const reason = pkg.is_multi_block
+        ? "JOINT_CORRIDOR_BLOCK_REQUIRED"
+        : "DEFICIT_WINDOW_CONFLICT";
+      finalizedSchedule.push(makeUnassigned(pkg, reason));
     }
   }
 

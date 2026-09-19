@@ -136,6 +136,7 @@ async function fetchMaintenanceTasks() {
         duration: Number(t.duration_minutes),
         duration_minutes: Number(t.duration_minutes),
         start_km: t.block ? Number(t.block.start_chainage) : null,
+        end_km: t.block ? Number(t.block.end_chainage) : null,
         block_start_chainage: t.block ? Number(t.block.start_chainage) : null,
         block_end_chainage: t.block ? Number(t.block.end_chainage) : null,
         block_code: t.block ? t.block.block_code : null,

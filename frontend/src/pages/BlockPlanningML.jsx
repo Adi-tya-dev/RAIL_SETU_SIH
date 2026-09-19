@@ -180,10 +180,13 @@ function PackageCard({ pkg, index, defaultOpen = false }) {
             <span style={{ color: "var(--text-3)" }}>•</span>
             <span>{pkg.task_count} tasks clubbed</span>
             <span style={{ color: "var(--text-3)" }}>•</span>
-            <span>Span: {pkg.km_span} km</span>
+            <span>Span: {pkg.km_span || "UNKNOWN"}</span>
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+          {pkg.is_multi_block && (
+            <Badge tone="purple" dot>Joint Corridor</Badge>
+          )}
           {isEmergency && (
             <Badge tone="red" dot>Emergency</Badge>
           )}
@@ -222,13 +225,18 @@ function PackageCard({ pkg, index, defaultOpen = false }) {
               <div className="text-xs text-faint">Corridor Location</div>
               <div style={{ fontWeight: 600, marginTop: 2, fontSize: 13 }}>
                 <MapPin size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />
-                {pkg.km_span ? `Km ${pkg.km_span}` : "—"}
+                {pkg.km_span ? (pkg.km_span.startsWith("Km") || pkg.km_span.includes("to") || pkg.km_span === "UNKNOWN" ? pkg.km_span : `Km ${pkg.km_span}`) : "—"}
               </div>
             </div>
             <div>
               <div className="text-xs text-faint">Affected Blocks</div>
               <div style={{ fontWeight: 600, marginTop: 2, fontSize: 13, fontFamily: "monospace" }}>
                 {(pkg.block_codes || []).join(", ") || "—"}
+                {pkg.is_multi_block && (
+                  <span style={{ color: "var(--purple)", marginLeft: 6, fontSize: 11 }}>
+                    (Boundary Multi-Block)
+                  </span>
+                )}
               </div>
             </div>
             <div>
@@ -243,19 +251,21 @@ function PackageCard({ pkg, index, defaultOpen = false }) {
           {!isAssigned && pkg.unassigned_reason && (
             <div
               style={{
-                background: "rgba(239, 68, 68, 0.08)",
-                border: "1px solid rgba(239, 68, 68, 0.25)",
+                background: pkg.unassigned_reason === "JOINT_CORRIDOR_BLOCK_REQUIRED" ? "rgba(168, 85, 247, 0.08)" : "rgba(239, 68, 68, 0.08)",
+                border: `1px solid ${pkg.unassigned_reason === "JOINT_CORRIDOR_BLOCK_REQUIRED" ? "rgba(168, 85, 247, 0.25)" : "rgba(239, 68, 68, 0.25)"}`,
                 borderRadius: 8,
                 padding: "10px 14px",
                 marginBottom: 12,
                 fontSize: 12,
               }}
             >
-              <div style={{ fontWeight: 600, color: "var(--red)", marginBottom: 2 }}>
+              <div style={{ fontWeight: 600, color: pkg.unassigned_reason === "JOINT_CORRIDOR_BLOCK_REQUIRED" ? "var(--purple)" : "var(--red)", marginBottom: 2 }}>
                 Reason: {pkg.unassigned_reason}
               </div>
               <div style={{ color: "var(--text-2)" }}>
-                Total duration required ({pkg.duration_needed}) exceeds available inter-train gap slots in this section. Escalate to Chief Controller for dynamic train diversion or block slot extension.
+                {pkg.unassigned_reason === "JOINT_CORRIDOR_BLOCK_REQUIRED"
+                  ? `Boundary work spans adjacent blocks (${(pkg.block_codes || []).join(" + ")}), requiring coordinated joint block possession. Escalate to Chief Controller to grant a contiguous corridor window.`
+                  : `Total duration required (${pkg.duration_needed}) exceeds available inter-train gap slots in this section. Escalate to Chief Controller for dynamic train diversion or block slot extension.`}
               </div>
             </div>
           )}

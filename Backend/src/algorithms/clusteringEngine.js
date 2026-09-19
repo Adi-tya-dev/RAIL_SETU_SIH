@@ -43,15 +43,57 @@ function clusterPriorityScore(tasks) {
  * Extract a numeric km value from a task.
  * Tries start_km first (explicit), then falls back to block chainage data.
  */
-function resolveKm(task) {
+/**
+ * resolveRouteKm
+ *
+ * Resolves the absolute physical track coordinate (in km) measured in the
+ * forward direction from the section's deadpoint (Origin / KP 0.000).
+ *
+ * Handles:
+ * 1. Global Continuous Route Chainage (e.g. 14.5 km in Block 1, 15.5 km in Block 2)
+ * 2. Block-Local Relative Offsets (e.g. 0.5 km inside Block 2 where Block 2 starts at 15.0 km -> resolves to 15.5 km)
+ * 3. Textual extraction from description or asset name (e.g. "B001-KM5" -> 5.0 km, "2.4 km" -> 2.4 km)
+ * 4. Fallback: Block start chainage
+ */
+function resolveRouteKm(task) {
+  const bStart = task.block_start_chainage != null ? Number(task.block_start_chainage) : null;
+  const bEnd = task.block_end_chainage != null ? Number(task.block_end_chainage) : null;
+
+  // 1. If explicit numeric start_km is given
   if (task.start_km != null && !Number.isNaN(Number(task.start_km))) {
-    return Number(task.start_km);
+    const rawKm = Number(task.start_km);
+    if (bStart != null && bEnd != null && bEnd > bStart) {
+      // Case A: Absolute route chainage within/near block boundary
+      if (rawKm >= bStart && rawKm <= bEnd) {
+        return rawKm;
+      }
+      // Case B: Relative block offset: 0 <= rawKm <= blockLength, and block starts > 0
+      const blockLen = bEnd - bStart;
+      if (rawKm >= 0 && rawKm <= blockLen && bStart > 0) {
+        return bStart + rawKm; // normalize to continuous forward chainage from deadpoint
+      }
+    }
+    return rawKm;
   }
-  // Fallback: use block start_chainage if available
-  if (task.block_start_chainage != null) {
-    return Number(task.block_start_chainage);
+
+  // 2. Extract kilometer from description or asset code if present
+  const desc = `${task.description || ""} ${task.asset_code || ""}`;
+  const kmMatch = desc.match(/(?:KM|km)\s*[-:]?\s*(\d+(?:\.\d+)?)/i) || desc.match(/(\d+(?:\.\d+)?)\s*(?:KM|km)/i);
+  if (kmMatch) {
+    const parsedKm = parseFloat(kmMatch[1]);
+    if (!Number.isNaN(parsedKm)) {
+      if (bStart != null && bEnd != null && bEnd > bStart) {
+        if (parsedKm >= bStart && parsedKm <= bEnd) return parsedKm;
+        const blockLen = bEnd - bStart;
+        if (parsedKm >= 0 && parsedKm <= blockLen && bStart > 0) return bStart + parsedKm;
+      }
+      return parsedKm;
+    }
   }
-  // No position data — assign to end so it doesn't disrupt real clusters
+
+  // 3. Fallback: block start chainage
+  if (bStart != null) return bStart;
+
   return Infinity;
 }
 
@@ -66,59 +108,90 @@ function generateWorkPackages(tasks, maxDistanceKm = DEFAULT_MAX_DISTANCE_KM) {
   if (!Array.isArray(tasks) || tasks.length === 0) return [];
 
   // -----------------------------------------------------------------
-  // Step 1: Sort tasks by physical track location (km)
+  // Step 1: Partition tasks by section/corridor.
+  // Real-world rule: Tasks on different geographical sections (e.g.
+  // Delhi-Jaipur vs Mumbai-Ahmedabad) must NEVER be clustered together.
   // -----------------------------------------------------------------
-  const sortedTasks = [...tasks].sort((a, b) => resolveKm(a) - resolveKm(b));
+  const sectionMap = new Map();
+  for (const t of tasks) {
+    const sec = t.section_code || "GENERIC";
+    if (!sectionMap.has(sec)) sectionMap.set(sec, []);
+    sectionMap.get(sec).push(t);
+  }
+
+  const rawClusters = [];
 
   // -----------------------------------------------------------------
-  // Step 2: Proximity sweep — build clusters
+  // Step 2: For each corridor, sort by forward chainage from deadpoint
+  // and run proximity sweep (adjacent blocks allowed if within radius).
   // -----------------------------------------------------------------
-  const packages = [];
-  let currentCluster = [];
+  for (const [, secTasks] of sectionMap.entries()) {
+    const enrichedTasks = secTasks.map((t) => ({
+      ...t,
+      _resolvedKm: resolveRouteKm(t),
+    }));
 
-  for (let i = 0; i < sortedTasks.length; i++) {
-    if (currentCluster.length === 0) {
-      currentCluster.push(sortedTasks[i]);
-    } else {
-      // Distance check: compare against the FIRST task in the cluster
-      const referenceTask = currentCluster[0];
-      const refKm = resolveKm(referenceTask);
-      const curKm = resolveKm(sortedTasks[i]);
-      const distance = Math.abs(curKm - refKm);
+    // Sort strictly by forward route chainage: 0 -> 14.5 -> 15.5 -> 30...
+    enrichedTasks.sort((a, b) => a._resolvedKm - b._resolvedKm);
 
-      if (refKm === Infinity || curKm === Infinity) {
-        // Tasks without position go into their own packages
-        packages.push(currentCluster);
-        currentCluster = [sortedTasks[i]];
-      } else if (distance <= maxDistanceKm) {
-        // Within proximity — club into same package
-        currentCluster.push(sortedTasks[i]);
+    let currentCluster = [];
+
+    for (let i = 0; i < enrichedTasks.length; i++) {
+      const cur = enrichedTasks[i];
+      if (currentCluster.length === 0) {
+        currentCluster.push(cur);
       } else {
-        // Distance exceeded — close current cluster, start new one
-        packages.push(currentCluster);
-        currentCluster = [sortedTasks[i]];
+        const refTask = currentCluster[0];
+        const refKm = refTask._resolvedKm;
+        const curKm = cur._resolvedKm;
+        const distance = Math.abs(curKm - refKm);
+
+        if (refKm === Infinity || curKm === Infinity) {
+          // Unpositioned tasks form their own isolated packages
+          rawClusters.push(currentCluster);
+          currentCluster = [cur];
+        } else if (distance <= maxDistanceKm) {
+          // Within proximity window (e.g. 14.5 km in Block 1 and 15.5 km in Block 2:
+          // distance is 1.0 km <= 2.0 km -> successfully clubbed into single slot)
+          currentCluster.push(cur);
+        } else {
+          // Distance threshold exceeded -> close cluster, start new one
+          rawClusters.push(currentCluster);
+          currentCluster = [cur];
+        }
       }
     }
+
+    if (currentCluster.length > 0) {
+      rawClusters.push(currentCluster);
+    }
   }
-  if (currentCluster.length > 0) packages.push(currentCluster);
 
   // -----------------------------------------------------------------
   // Step 3: Aggregate each cluster into a structured Work Package
   // -----------------------------------------------------------------
-  return packages.map((cluster, index) => {
-    const kms = cluster
-      .map(resolveKm)
-      .filter((k) => k !== Infinity);
+  return rawClusters.map((cluster, index) => {
+    const resolvedKms = cluster
+      .map((t) => t._resolvedKm)
+      .filter((k) => k != null && k !== Infinity && !Number.isNaN(k));
 
-    const minKm = kms.length > 0 ? Math.min(...kms) : null;
-    const maxKm = kms.length > 0 ? Math.max(...kms) : null;
-    const kmSpan = minKm != null && maxKm != null
-      ? `${minKm.toFixed(3)} to ${maxKm.toFixed(3)}`
-      : "UNKNOWN";
+    const minKm = resolvedKms.length > 0 ? Math.min(...resolvedKms) : null;
+    const maxKm = resolvedKms.length > 0 ? Math.max(...resolvedKms) : null;
+
+    let kmSpan;
+    if (minKm == null || maxKm == null) {
+      kmSpan = "UNKNOWN";
+    } else if (maxKm > minKm) {
+      const lengthKm = (maxKm - minKm).toFixed(1);
+      kmSpan = `${minKm.toFixed(3)} to ${maxKm.toFixed(3)} (${lengthKm} km)`;
+    } else {
+      kmSpan = `${minKm.toFixed(3)} (Spot Task)`;
+    }
 
     const departmentsInvolved = [...new Set(cluster.map((t) => t.department).filter(Boolean))];
     const blockCodes = [...new Set(cluster.map((t) => t.block_code).filter(Boolean))];
     const sectionCodes = [...new Set(cluster.map((t) => t.section_code).filter(Boolean))];
+    const isMultiBlock = blockCodes.length > 1;
 
     // CRITICAL: Total duration = MAX task duration because all crews work simultaneously.
     // Adding a 15-min coordination buffer per additional department.
@@ -154,9 +227,10 @@ function generateWorkPackages(tasks, maxDistanceKm = DEFAULT_MAX_DISTANCE_KM) {
       ? new Date(Math.min(...prefStarts)).toISOString()
       : null;
 
-    const description =
-      `Clubbed Operations [${departmentsInvolved.join(", ")}]` +
-      (blockCodes.length > 0 ? ` — Blocks: ${blockCodes.join(", ")}` : "");
+    const description = isMultiBlock
+      ? `Clubbed Operations [${departmentsInvolved.join(", ")}] — Multi-Block Corridor: ${blockCodes.join(" + ")}`
+      : `Clubbed Operations [${departmentsInvolved.join(", ")}]` +
+        (blockCodes.length > 0 ? ` — Block: ${blockCodes[0]}` : "");
 
     const rawDurationSum = cluster.reduce(
       (sum, t) => sum + (Number(t.duration) || Number(t.duration_minutes) || 0),
@@ -182,13 +256,15 @@ function generateWorkPackages(tasks, maxDistanceKm = DEFAULT_MAX_DISTANCE_KM) {
         block_code: t.block_code,
         section_code: t.section_code,
         asset_code: t.asset_code,
-        start_km: t.start_km,
+        start_km: t._resolvedKm != null && t._resolvedKm !== Infinity ? t._resolvedKm : t.start_km,
         deadline: t.deadline,
         preferred_start: t.preferred_start,
       })),
       task_count: cluster.length,
       block_codes: blockCodes,
       section_codes: sectionCodes,
+      is_multi_block: isMultiBlock,
+      requires_joint_possession: isMultiBlock,
       km_span: kmSpan,
       km_min: minKm,
       km_max: maxKm,
