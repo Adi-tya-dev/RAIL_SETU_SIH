@@ -180,7 +180,13 @@ function PackageCard({ pkg, index, defaultOpen = false }) {
             <span style={{ color: "var(--text-3)" }}>•</span>
             <span>{pkg.task_count} tasks clubbed</span>
             <span style={{ color: "var(--text-3)" }}>•</span>
-            <span>Span: {pkg.km_span || "UNKNOWN"}</span>
+            <span style={{ color: "#38bdf8" }}>
+              Track Range: <strong>{pkg.range_label || (pkg.km_span?.includes("to") ? pkg.km_span.split("(")[0].trim() : pkg.km_span) || "Corridor"}</strong>
+            </span>
+            <span style={{ color: "var(--text-3)" }}>•</span>
+            <span style={{ color: "#c084fc" }}>
+              Work Distance: <strong>{pkg.distance_label || (pkg.span_km ? `${pkg.span_km} km` : "Corridor Block")}</strong>
+            </span>
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
@@ -222,10 +228,10 @@ function PackageCard({ pkg, index, defaultOpen = false }) {
               </div>
             </div>
             <div>
-              <div className="text-xs text-faint">Corridor Location</div>
-              <div style={{ fontWeight: 600, marginTop: 2, fontSize: 13 }}>
+              <div className="text-xs text-faint">Repair Range & Distance</div>
+              <div style={{ fontWeight: 600, marginTop: 2, fontSize: 13, color: "#38bdf8" }}>
                 <MapPin size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />
-                {pkg.km_span ? (pkg.km_span.startsWith("Km") || pkg.km_span.includes("to") || pkg.km_span === "UNKNOWN" ? pkg.km_span : `Km ${pkg.km_span}`) : "—"}
+                {pkg.km_span || (pkg.range_label ? `${pkg.range_label} (${pkg.distance_label})` : "Corridor Location")}
               </div>
             </div>
             <div>

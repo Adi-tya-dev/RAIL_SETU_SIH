@@ -123,35 +123,41 @@ async function fetchMaintenanceTasks() {
     });
 
     if (tasks && tasks.length > 0) {
-      return tasks.map((t) => ({
-        id: String(t.maintenance_task_id),
-        external_ref: t.external_ref,
-        department: t.department,
-        maintenance_type: t.maintenance_type,
-        description: t.description,
-        source: t.source || "MANUAL",
-        priority: t.priority || 1,
-        criticality: t.criticality || 1,
-        urgency: t.urgency || 1,
-        duration: Number(t.duration_minutes),
-        duration_minutes: Number(t.duration_minutes),
-        start_km: t.block ? Number(t.block.start_chainage) : null,
-        end_km: t.block ? Number(t.block.end_chainage) : null,
-        block_start_chainage: t.block ? Number(t.block.start_chainage) : null,
-        block_end_chainage: t.block ? Number(t.block.end_chainage) : null,
-        block_code: t.block ? t.block.block_code : null,
-        block_id: t.block_id ? String(t.block_id) : null,
-        section_code: t.section
-          ? t.section.section_code
-          : t.block && t.block.track && t.block.track.section
-            ? t.block.track.section.section_code
-            : null,
-        asset_code: t.asset ? t.asset.asset_code : null,
-        preferred_start: t.preferred_start,
-        deadline: t.deadline,
-        status: t.status,
-        category: t.maintenance_type ? "DEFECT" : "ROUTINE",
-      }));
+      return tasks.map((t) => {
+        const blockCode = t.block ? t.block.block_code : (t.block_code || null);
+        const meta = BLOCK_META[blockCode] || null;
+        const bStart = t.block && t.block.start_chainage != null ? Number(t.block.start_chainage) : (meta ? meta.start_km : null);
+        const bEnd = t.block && t.block.end_chainage != null ? Number(t.block.end_chainage) : (meta ? meta.end_km : null);
+        const trueSec = (meta && meta.section)
+          || (t.block && t.block.track && t.block.track.section ? t.block.track.section.section_code : null)
+          || (t.section ? t.section.section_code : null);
+
+        return {
+          id: String(t.maintenance_task_id),
+          external_ref: t.external_ref,
+          department: t.department,
+          maintenance_type: t.maintenance_type,
+          description: t.description,
+          source: t.source || "MANUAL",
+          priority: t.priority || 1,
+          criticality: t.criticality || 1,
+          urgency: t.urgency || 1,
+          duration: Number(t.duration_minutes),
+          duration_minutes: Number(t.duration_minutes),
+          start_km: bStart,
+          end_km: bEnd,
+          block_start_chainage: bStart,
+          block_end_chainage: bEnd,
+          block_code: blockCode,
+          block_id: t.block_id ? String(t.block_id) : (blockCode || null),
+          section_code: trueSec,
+          asset_code: t.asset ? t.asset.asset_code : null,
+          preferred_start: t.preferred_start,
+          deadline: t.deadline,
+          status: t.status,
+          category: t.maintenance_type ? "DEFECT" : "ROUTINE",
+        };
+      });
     }
   } catch (err) {
     logger.warn(`[blockPlanning] DB task fetch skipped or failed: ${err.message}. Using simulated multi-source catalog.`);
@@ -163,34 +169,14 @@ async function fetchMaintenanceTasks() {
 /**
  * fetchCoaWindows
  *
- * Reads COA-published maintenance time windows from the DB or returns
- * high-fidelity COA timetable gap windows.
+ * Reads COA-published maintenance time windows from the DB and unions with
+ * high-fidelity COA daily availability and timetable gap windows.
  */
 async function fetchCoaWindows() {
+  const windows = [];
+
+  // 1. Train movement gap windows from DB
   try {
-    const blockAvailability = await prisma.sourceRecord.findMany({
-      where: { source: "COA", record_type: "BLOCK_AVAILABILITY" },
-      orderBy: { imported_at: "desc" },
-      take: 100,
-    });
-
-    const windows = [];
-
-    for (const record of blockAvailability) {
-      const payload = record.payload;
-      if (!payload || typeof payload !== "object") continue;
-      if (String(payload.availability || "").toUpperCase() !== "AVAILABLE") continue;
-      const durationMins = payload.window_duration_mins || 240;
-      windows.push({
-        id: `COA_BA_${record.source_record_id}`,
-        duration_mins: Number(durationMins),
-        label: `${payload.effective_from || "TBD"} (Block ${payload.block_code || "?"})`,
-        section_codes: payload.section_code ? [payload.section_code] : [],
-        block_code: payload.block_code || null,
-        source: "COA_BLOCK_AVAILABILITY",
-      });
-    }
-
     const blockMovements = await prisma.trainBlockMovement.findMany({
       include: { block: { include: { track: { include: { section: true } } } } },
       orderBy: [{ block_id: "asc" }, { scheduled_entry: "asc" }],
@@ -215,7 +201,7 @@ async function fetchCoaWindows() {
           const sectionCode =
             block && block.track && block.track.section
               ? block.track.section.section_code
-              : null;
+              : (BLOCK_META[block?.block_code]?.section || null);
           windows.push({
             id: `GAP_${blockId}_${i}`,
             duration_mins: Math.floor(gapMins),
@@ -229,12 +215,36 @@ async function fetchCoaWindows() {
         }
       }
     }
-
-    if (windows.length > 0) return windows;
   } catch (err) {
-    logger.warn(`[blockPlanning] DB COA window fetch skipped: ${err.message}. Using simulated COA windows.`);
+    logger.warn(`[blockPlanning] DB train gap fetch skipped: ${err.message}.`);
   }
 
+  // 2. Official COA daily block maintenance availability from coaSimulator
+  try {
+    const { coaSimulator } = require("../integration/simulators/coa.simulator");
+    const coaData = await coaSimulator.getData();
+    if (coaData && Array.isArray(coaData.blocks)) {
+      for (const b of coaData.blocks) {
+        if (b.availability === "AVAILABLE" || b.status === "AVAILABLE") {
+          const sectionCode = b.section_code || (BLOCK_META[b.block_code]?.section || "SEC-DLJP");
+          windows.push({
+            id: `COA_AVAIL_${b.block_code}`,
+            duration_mins: 360, // Standard 6-hour daily corridor maintenance slot
+            label: `COA Maintenance Slot (Block ${b.block_code}, ${sectionCode})`,
+            section_codes: [sectionCode],
+            block_code: b.block_code,
+            is_corridor_window: true,
+            is_section_window: true,
+            source: "COA_BLOCK_AVAILABILITY",
+          });
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn(`[blockPlanning] COA simulator window fetch skipped: ${err.message}`);
+  }
+
+  if (windows.length > 0) return windows;
   return getFallbackWindows();
 }
 

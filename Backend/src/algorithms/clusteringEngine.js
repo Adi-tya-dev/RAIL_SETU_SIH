@@ -178,14 +178,49 @@ function generateWorkPackages(tasks, maxDistanceKm = DEFAULT_MAX_DISTANCE_KM) {
     const minKm = resolvedKms.length > 0 ? Math.min(...resolvedKms) : null;
     const maxKm = resolvedKms.length > 0 ? Math.max(...resolvedKms) : null;
 
-    let kmSpan;
-    if (minKm == null || maxKm == null) {
-      kmSpan = "UNKNOWN";
-    } else if (maxKm > minKm) {
-      const lengthKm = (maxKm - minKm).toFixed(1);
-      kmSpan = `${minKm.toFixed(3)} to ${maxKm.toFixed(3)} (${lengthKm} km)`;
+    // Physical block boundaries
+    const blockStarts = cluster
+      .map((t) => (t.block_start_chainage != null ? Number(t.block_start_chainage) : null))
+      .filter((k) => k != null && !Number.isNaN(k));
+    const blockEnds = cluster
+      .map((t) => (t.block_end_chainage != null ? Number(t.block_end_chainage) : null))
+      .filter((k) => k != null && !Number.isNaN(k));
+
+    const bMin = blockStarts.length > 0 ? Math.min(...blockStarts) : minKm;
+    const bMax = blockEnds.length > 0 ? Math.max(...blockEnds) : maxKm;
+    const blockLengthKm = (bMin != null && bMax != null && bMax >= bMin) ? Number((bMax - bMin).toFixed(1)) : null;
+
+    let workSpanKm = 0;
+    let kmSpan = "";
+    let rangeLabel = "";
+    let distanceLabel = "";
+    let startKmVal = minKm != null ? minKm : bMin;
+    let endKmVal = maxKm != null ? maxKm : bMax;
+
+    if (minKm != null && maxKm != null && maxKm > minKm) {
+      workSpanKm = Number((maxKm - minKm).toFixed(2));
+      kmSpan = `Km ${minKm.toFixed(1)} to Km ${maxKm.toFixed(1)} (${workSpanKm} km work stretch)`;
+      rangeLabel = `Km ${minKm.toFixed(1)} – ${maxKm.toFixed(1)}`;
+      distanceLabel = `${workSpanKm} km stretch`;
+      startKmVal = minKm;
+      endKmVal = maxKm;
+    } else if (bMin != null && bMax != null && bMax > bMin) {
+      workSpanKm = blockLengthKm;
+      kmSpan = `Km ${bMin.toFixed(1)} to Km ${bMax.toFixed(1)} (${blockLengthKm} km block corridor)`;
+      rangeLabel = `Km ${bMin.toFixed(1)} – ${bMax.toFixed(1)}`;
+      distanceLabel = `${blockLengthKm} km block corridor`;
+      startKmVal = bMin;
+      endKmVal = bMax;
+    } else if (minKm != null) {
+      kmSpan = `Km ${minKm.toFixed(3)} (Spot Location)`;
+      rangeLabel = `Km ${minKm.toFixed(3)}`;
+      distanceLabel = `Spot Repair (< 100m)`;
+      startKmVal = minKm;
+      endKmVal = minKm;
     } else {
-      kmSpan = `${minKm.toFixed(3)} (Spot Task)`;
+      kmSpan = "Corridor Location Pending";
+      rangeLabel = "Unspecified";
+      distanceLabel = "—";
     }
 
     const departmentsInvolved = [...new Set(cluster.map((t) => t.department).filter(Boolean))];
@@ -266,6 +301,11 @@ function generateWorkPackages(tasks, maxDistanceKm = DEFAULT_MAX_DISTANCE_KM) {
       is_multi_block: isMultiBlock,
       requires_joint_possession: isMultiBlock,
       km_span: kmSpan,
+      range_label: rangeLabel,
+      distance_label: distanceLabel,
+      start_km: startKmVal,
+      end_km: endKmVal,
+      span_km: workSpanKm,
       km_min: minKm,
       km_max: maxKm,
       total_duration_required: totalDurationRequired,
