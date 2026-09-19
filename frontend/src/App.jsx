@@ -7,6 +7,7 @@ import Trains from "./pages/Trains";
 import Assets from "./pages/Assets";
 import Planning from "./pages/Planning";
 import Schedules from "./pages/Schedules";
+import BlockPlanningML from "./pages/BlockPlanningML";
 import IncomingRequests from "./pages/IncomingRequests";
 import CoaData from "./pages/CoaData";
 import Conflicts from "./pages/Conflicts";
@@ -19,20 +20,21 @@ const FULL_HEIGHT_PAGES = new Set(["map"]);
 
 function resolvePage(segment) {
   switch (segment) {
-    case "dashboard":      return <Dashboard />;
-    case "maintenance":    return <Maintenance />;
-    case "blocks":         return <Blocks />;
-    case "trains":         return <Trains />;
-    case "assets":         return <Assets />;
-    case "planning":       return <Planning />;
-    case "schedules":      return <Schedules />;
+    case "dashboard":         return <Dashboard />;
+    case "maintenance":       return <Maintenance />;
+    case "blocks":            return <Blocks />;
+    case "trains":            return <Trains />;
+    case "assets":            return <Assets />;
+    case "planning":          return <Planning />;
+    case "ml-planning":       return <BlockPlanningML />;
+    case "schedules":         return <Schedules />;
     case "incoming-requests": return <IncomingRequests />;
-    case "coa":            return <CoaData />;
-    case "conflicts":      return <Conflicts />;
-    case "simulation":     return <Simulation />;
-    case "map":            return <RailwayMap />;
-    case "train-impacts":  return <TrainImpacts />;
-    default:               return <NotFound />;
+    case "coa":               return <CoaData />;
+    case "conflicts":         return <Conflicts />;
+    case "simulation":        return <Simulation />;
+    case "map":               return <RailwayMap />;
+    case "train-impacts":     return <TrainImpacts />;
+    default:                  return <NotFound />;
   }
 }
 
