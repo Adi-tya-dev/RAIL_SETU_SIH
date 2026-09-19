@@ -12,6 +12,7 @@ const assetsRoutes = require("./routes/assets.routes");
 const schedulesRoutes = require("./routes/schedules.routes");
 const integrationRoutes = require("./routes/integration.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
+const blockPlanningRoutes = require("./routes/blockPlanning.routes");
 
 dotenv.config();
 
@@ -30,6 +31,8 @@ app.use("/api/assets", assetsRoutes);
 app.use("/api/schedules", schedulesRoutes);
 app.use("/api/integration", integrationRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+// ML 2-stage block planning pipeline (clustering + constraint optimization)
+app.use("/api/v1/block-planning", blockPlanningRoutes);
 
 app.use((req, res) => {
   res.status(404).json({

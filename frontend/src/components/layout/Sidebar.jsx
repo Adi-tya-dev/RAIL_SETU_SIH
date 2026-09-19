@@ -12,6 +12,7 @@ import {
   Activity,
   AlertTriangle,
   FlaskConical,
+  BrainCircuit,
 } from "lucide-react";
 import { NAV_SECTIONS } from "../../utils/constants";
 import { Link } from "../../hooks/useRoute";
@@ -30,6 +31,7 @@ const ICONS = {
   Activity,
   AlertTriangle,
   FlaskConical,
+  BrainCircuit,
 };
 
 export default function Sidebar({ currentPath, collapsed }) {
@@ -50,18 +52,16 @@ export default function Sidebar({ currentPath, collapsed }) {
                   key={item.path}
                   to={item.path}
                   className={`nav-item${isActive ? " is-active" : ""}`}
+                  title={collapsed ? item.label : undefined}
                 >
-                  <span className="nav-item__icon">
-                    {Icon && <Icon size={16} />}
-                  </span>
-                  <span className="nav-item__text">{item.label}</span>
+                  {Icon && <Icon size={18} className="nav-item__icon" />}
+                  <span className="nav-item__label">{item.label}</span>
                 </Link>
               );
             })}
           </div>
         ))}
       </nav>
-      <div className="sidebar__foot"><strong><span>रेल</span>Setu</strong><small>Bridging maintenance. Powering progress.</small></div>
     </aside>
   );
 }
