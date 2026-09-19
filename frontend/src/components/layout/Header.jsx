@@ -1,27 +1,28 @@
 import { PanelLeft, RefreshCw } from "lucide-react";
 import { useSystemStatus } from "../../contexts/SystemStatusContext";
+import { useLiveEvents } from "../../contexts/LiveEventsContext";
 import { ROUTE_TITLES, ROUTE_SUBTITLES, APP_NAME } from "../../utils/constants";
 
 const STATUS_CLASS = {
-  online: "status-chip--online",
-  offline: "status-chip--offline",
-  checking: "status-chip--checking",
+  online:        "status-chip--online",
+  offline:       "status-chip--offline",
+  checking:      "status-chip--checking",
   not_connected: "status-chip--not_connected",
-  connected: "status-chip--connected",
-  unknown: "status-chip--unknown",
+  connected:     "status-chip--connected",
+  unknown:       "status-chip--unknown",
 };
 
 const STATUS_LABEL = {
-  online: "Online",
-  offline: "Offline",
-  checking: "Checking...",
+  online:        "Online",
+  offline:       "Offline",
+  checking:      "Checking...",
   not_connected: "Not Connected",
-  connected: "Connected",
-  unknown: "Unknown",
+  connected:     "Connected",
+  unknown:       "Unknown",
 };
 
 function StatusChip({ label, status }) {
-  const cls = STATUS_CLASS[status] || "status-chip--unknown";
+  const cls  = STATUS_CLASS[status] || "status-chip--unknown";
   const text = STATUS_LABEL[status] || "Unknown";
   return (
     <div className={`status-chip ${cls}`}>
@@ -32,11 +33,80 @@ function StatusChip({ label, status }) {
   );
 }
 
+/** Small animated "● LIVE" indicator showing SSE connection state */
+function LiveIndicator({ status, newCount }) {
+  const isLive  = status === "live";
+  const isError = status === "error";
+
+  const dotStyle = {
+    width: 6,
+    height: 6,
+    borderRadius: "50%",
+    background: isLive ? "var(--success, #22c55e)" : isError ? "var(--danger, #ef4444)" : "var(--text-muted, #888)",
+    boxShadow: isLive ? "0 0 6px var(--success, #22c55e)" : "none",
+    animation: isLive ? "livePulse 2s ease-in-out infinite" : "none",
+    flexShrink: 0,
+  };
+
+  const wrapStyle = {
+    display: "flex",
+    alignItems: "center",
+    gap: 5,
+    padding: "2px 8px 2px 6px",
+    borderRadius: 999,
+    border: `1px solid ${isLive ? "rgba(34,197,94,0.28)" : isError ? "rgba(239,68,68,0.28)" : "var(--border, rgba(255,255,255,0.07))"}`,
+    background: isLive ? "rgba(34,197,94,0.07)" : "transparent",
+    fontSize: 10.5,
+    fontWeight: 600,
+    color: isLive ? "var(--success, #22c55e)" : isError ? "var(--danger-bright, #f87171)" : "var(--text-muted, #888)",
+    whiteSpace: "nowrap",
+    userSelect: "none",
+    cursor: "default",
+  };
+
+  const label = isLive ? "Live" : isError ? "Disconnected" : "Connecting…";
+
+  return (
+    <div
+      style={wrapStyle}
+      title={
+        isLive
+          ? `Real-time simulator feed active${newCount ? ` · ${newCount} new request${newCount > 1 ? "s" : ""} received` : ""}`
+          : isError
+          ? "SSE stream disconnected — live updates paused"
+          : "Connecting to live stream…"
+      }
+    >
+      <span style={dotStyle} />
+      <span>{label}</span>
+      {isLive && newCount > 0 && (
+        <span
+          style={{
+            background: "var(--success, #22c55e)",
+            color: "#000",
+            borderRadius: 999,
+            padding: "0 5px",
+            fontSize: 9.5,
+            fontWeight: 700,
+            lineHeight: "15px",
+            minWidth: 15,
+            textAlign: "center",
+          }}
+        >
+          {newCount > 99 ? "99+" : newCount}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function Header({ currentPath, onToggleSidebar, collapsed }) {
   const { backend, database, schedulingEngine, refresh } = useSystemStatus();
-  const path = currentPath.split("?")[0].replace(/\/$/, "") || "/dashboard";
-  const segment = path.split("/")[1] || "dashboard";
-  const title = ROUTE_TITLES[segment] || APP_NAME;
+  const { liveStatus, newRequestCount } = useLiveEvents();
+
+  const path     = currentPath.split("?")[0].replace(/\/$/, "") || "/dashboard";
+  const segment  = path.split("/")[1] || "dashboard";
+  const title    = ROUTE_TITLES[segment]    || APP_NAME;
   const subtitle = ROUTE_SUBTITLES[segment] || "";
 
   return (
@@ -46,7 +116,10 @@ export default function Header({ currentPath, onToggleSidebar, collapsed }) {
           <PanelLeft size={18} />
         </button>
         <div className="brand">
-          <div className="brand-mark" aria-hidden="true"><span className="brand-mark__rail" /><span className="brand-mark__bridge" /></div>
+          <div className="brand-mark" aria-hidden="true">
+            <span className="brand-mark__rail" />
+            <span className="brand-mark__bridge" />
+          </div>
           <div className="brand-name">
             <span className="brand-name__hindi">रेल</span><span className="brand-name__english">Setu</span>
           </div>
@@ -60,10 +133,13 @@ export default function Header({ currentPath, onToggleSidebar, collapsed }) {
       </div>
 
       <div className="topbar__right">
+        {/* Live SSE status indicator */}
+        <LiveIndicator status={liveStatus} newCount={newRequestCount} />
+
         <div className="topbar__status">
-          <StatusChip label="Backend" status={backend} />
+          <StatusChip label="Backend"  status={backend} />
           <StatusChip label="Database" status={database} />
-          <StatusChip label="Planner" status={schedulingEngine} />
+          <StatusChip label="Planner"  status={schedulingEngine} />
         </div>
         <button className="topbar__refresh" onClick={refresh} aria-label="Refresh status">
           <RefreshCw size={14} />

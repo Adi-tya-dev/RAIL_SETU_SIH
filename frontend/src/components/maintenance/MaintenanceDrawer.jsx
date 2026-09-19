@@ -53,7 +53,8 @@ export default function MaintenanceDrawer({ task, onClose }) {
                 { label: "Urgency", value: data.urgency },
                 { label: "Status", value: <Badge tone={statusTone(data.status)} dot>{data.status}</Badge> },
                 { label: "Duration", value: formatDuration(data.duration_minutes) },
-                { label: "Preferred Start", value: formatDateTime(data.preferred_start) },
+                { label: "Ingested in RailSetu", value: formatDateTime(data.created_at || data.requested_at) },
+                { label: "Preferred Start", value: <strong>{formatDateTime(data.preferred_start)}</strong> },
                 { label: "Deadline", value: formatDateTime(data.deadline) },
               ]}
             />
