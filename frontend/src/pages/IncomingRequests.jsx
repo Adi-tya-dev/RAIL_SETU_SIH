@@ -318,11 +318,9 @@ export default function IncomingRequests() {
         key: "external_ref",
         label: "Request",
         render: (r) => (
-          <span style={{ minWidth: 200, display: "inline-block" }}>
-            <strong style={{ display: "block", whiteSpace: "nowrap", fontFamily: "var(--font-mono, monospace)" }}>
-              {r.external_ref || r.maintenance_task_id}
-            </strong>
-            <span className="cell-muted" style={{ whiteSpace: "nowrap" }}>{humanize(r.maintenance_type)}</span>
+          <span>
+            <strong style={{ display: "block" }}>{r.external_ref || r.maintenance_task_id}</strong>
+            <span className="cell-muted">{humanize(r.maintenance_type)}</span>
           </span>
         ),
       },
@@ -335,7 +333,7 @@ export default function IncomingRequests() {
         key: "location",
         label: "Block · Section",
         render: (r) => (
-          <span style={{ whiteSpace: "nowrap", display: "inline-block" }}>
+          <span>
             <strong style={{ display: "block" }}>{r.block?.block_code || r.block_code || "—"}</strong>
             <span className="cell-muted">{r.section?.section_code || r.section_code || r.asset?.asset_code || ""}</span>
           </span>
@@ -355,7 +353,7 @@ export default function IncomingRequests() {
       {
         key: "duration_minutes",
         label: "Duration",
-        render: (r) => <span style={{ whiteSpace: "nowrap" }}>{formatDuration(r.duration_minutes)}</span>,
+        render: (r) => formatDuration(r.duration_minutes),
       },
       {
         key: "received_at",
@@ -365,7 +363,7 @@ export default function IncomingRequests() {
           const rel = formatRelativeTime(rec);
           const isVeryRecent = rec && (Date.now() - new Date(rec).getTime() < 15 * 60 * 1000);
           return (
-            <div style={{ whiteSpace: "nowrap" }}>
+            <div>
               <div style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
                 <span style={{ fontWeight: 600, fontSize: 12, color: isVeryRecent ? "#38bdf8" : "var(--text)" }}>
                   {rel}
@@ -384,7 +382,7 @@ export default function IncomingRequests() {
                   />
                 )}
               </div>
-              <span className="cell-muted" style={{ fontSize: 11, display: "block" }}>
+              <span className="cell-muted" style={{ fontSize: 11 }}>
                 {formatDateTime(rec)}
               </span>
             </div>
@@ -395,7 +393,7 @@ export default function IncomingRequests() {
         key: "preferred_start",
         label: "Preferred Start",
         render: (r) => (
-          <div style={{ whiteSpace: "nowrap" }}>
+          <div>
             <strong style={{ display: "block", color: "#e9d5ff", fontSize: 12 }}>
               {formatDateTime(r.preferred_start)}
             </strong>
