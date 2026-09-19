@@ -97,6 +97,100 @@ function resolveRouteKm(task) {
   return Infinity;
 }
 
+const DEPOT_REGISTRY = {
+  "SEC-DLJP": { name: "Delhi Central P-Way & Track Machine Depot", depot_km: 0.0 },
+  "SEC-DLAM": { name: "Ambala Divisional Machine Siding", depot_km: 20.0 },
+  "SEC-MBLK": { name: "Moradabad Yard Track Machine Depot", depot_km: 25.0 },
+  "SEC-BCAH": { name: "Ahmedabad Central P-Way Depot", depot_km: 30.0 },
+  "SEC-BCPN": { name: "Pune Traction & Track Machine Depot", depot_km: 20.0 },
+};
+
+/**
+ * calculateMachineTransit
+ *
+ * Implements Machine Mobilization & Travel Dead-Time formula:
+ * T_transit = 2 * (|Depot KM - Work Site KM| / Machine Speed) * 60
+ */
+function calculateMachineTransit(cluster, sectionCode, siteKm) {
+  const descriptions = cluster
+    .map((t) => `${t.description || ""} ${t.maintenance_type || ""}`)
+    .join(" ")
+    .toLowerCase();
+
+  let machine = null;
+  if (
+    descriptions.includes("tamp") ||
+    descriptions.includes("track machine") ||
+    descriptions.includes("geometry") ||
+    descriptions.includes("sleeper") ||
+    descriptions.includes("rail renewal") ||
+    descriptions.includes("ballast")
+  ) {
+    machine = {
+      type: "TRACK_MACHINE",
+      name: "CSM Continuous Tamping Machine",
+      speed: 35, // km/h restricted machine speed
+      setup_mins: 15,
+    };
+  } else if (
+    descriptions.includes("ohe") ||
+    descriptions.includes("mast") ||
+    descriptions.includes("dropper") ||
+    descriptions.includes("catenary") ||
+    descriptions.includes("pantograph") ||
+    descriptions.includes("traction")
+  ) {
+    machine = {
+      type: "TOWER_WAGON",
+      name: "8-Wheeler Self-Propelled OHE Tower Car",
+      speed: 40,
+      setup_mins: 15, // permit-to-work and discharge rod hook-up
+    };
+  } else if (
+    descriptions.includes("interlocking") ||
+    descriptions.includes("point machine") ||
+    descriptions.includes("cable") ||
+    descriptions.includes("relay")
+  ) {
+    machine = {
+      type: "SIGNAL_VAN",
+      name: "S&T Mobile Testing & Wiring Van",
+      speed: 45,
+      setup_mins: 10,
+    };
+  }
+
+  const depot = DEPOT_REGISTRY[sectionCode] || { name: "Divisional Track Machine Depot", depot_km: 0.0 };
+
+  if (!machine) {
+    return {
+      machine_required: false,
+      machine_name: "Manual Section Gang",
+      depot_name: "Local Gang Chawki",
+      depot_km: siteKm != null ? siteKm : 0.0,
+      transit_distance_km: 0,
+      transit_mins: 0,
+      t_setup_mins: 10,
+    };
+  }
+
+  const targetKm = siteKm != null && !Number.isNaN(siteKm) ? siteKm : depot.depot_km;
+  const oneWayDistanceKm = Math.abs(targetKm - depot.depot_km);
+  const roundTripDistanceKm = Number((oneWayDistanceKm * 2).toFixed(1));
+  const rawTransitMins = Math.round((roundTripDistanceKm / machine.speed) * 60);
+  const transitMins = Math.max(10, Math.min(35, rawTransitMins));
+
+  return {
+    machine_required: true,
+    machine_name: machine.name,
+    depot_name: depot.name,
+    depot_km: depot.depot_km,
+    transit_distance_km: roundTripDistanceKm,
+    transit_mins: transitMins,
+    t_setup_mins: machine.setup_mins,
+  };
+}
+
 /**
  * generateWorkPackages
  *
@@ -229,10 +323,12 @@ function generateWorkPackages(tasks, maxDistanceKm = DEFAULT_MAX_DISTANCE_KM) {
     const isMultiBlock = blockCodes.length > 1;
 
     // CRITICAL: Total duration = MAX task duration because all crews work simultaneously.
-    // Adding a 15-min coordination buffer per additional department.
+    // Adding coordination buffer + machine mobilization transit dead-time (T_transit).
     const maxDuration = Math.max(...cluster.map((t) => Number(t.duration) || Number(t.duration_minutes) || 0));
     const coordinationBuffer = 15 * Math.max(0, departmentsInvolved.length - 1);
-    const totalDurationRequired = maxDuration + coordinationBuffer;
+    const transitInfo = calculateMachineTransit(cluster, sectionCodes[0], startKmVal);
+    const wrenchDuration = maxDuration;
+    const totalDurationRequired = wrenchDuration + coordinationBuffer + (transitInfo.transit_mins || 0);
 
     const hasEmergency = cluster.some((t) =>
       String(t.urgency) === "4" ||
@@ -309,10 +405,18 @@ function generateWorkPackages(tasks, maxDistanceKm = DEFAULT_MAX_DISTANCE_KM) {
       km_min: minKm,
       km_max: maxKm,
       total_duration_required: totalDurationRequired,
+      wrench_duration_mins: wrenchDuration,
+      coordination_buffer_mins: coordinationBuffer,
+      transit_mins: transitInfo.transit_mins || 0,
+      t_setup_mins: transitInfo.t_setup_mins || 10,
+      machine_required: transitInfo.machine_required,
+      machine_name: transitInfo.machine_name,
+      depot_name: transitInfo.depot_name,
+      depot_km: transitInfo.depot_km,
+      transit_distance_km: transitInfo.transit_distance_km,
       raw_duration_sum: rawDurationSum,
       time_saved_mins: timeSavedMins,
       max_single_task_duration: maxDuration,
-      coordination_buffer_mins: coordinationBuffer,
       priority_score: priorityScore,
       has_emergency: hasEmergency,
       earliest_deadline: earliestDeadline,

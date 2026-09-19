@@ -350,4 +350,8 @@ async function simulate(id, body = {}) {
   });
 }
 
-module.exports = { findAll, findById, generate, simulate };
+async function simulateEmergency(body = {}) {
+  return algorithmService.simulateEmergencyReroute(body);
+}
+
+module.exports = { findAll, findById, generate, simulate, simulateEmergency };

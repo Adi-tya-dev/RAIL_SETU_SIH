@@ -187,6 +187,14 @@ function PackageCard({ pkg, index, defaultOpen = false }) {
             <span style={{ color: "#c084fc" }}>
               Work Distance: <strong>{pkg.distance_label || (pkg.span_km ? `${pkg.span_km} km` : "Corridor Block")}</strong>
             </span>
+            {pkg.machine_required && (
+              <>
+                <span style={{ color: "var(--text-3)" }}>•</span>
+                <span style={{ color: "#fbbf24", fontWeight: 600 }}>
+                  🚜 {pkg.machine_name?.split(" ")[0]} (+{pkg.transit_mins}m transit dead-time)
+                </span>
+              </>
+            )}
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
@@ -232,6 +240,29 @@ function PackageCard({ pkg, index, defaultOpen = false }) {
               <div style={{ fontWeight: 600, marginTop: 2, fontSize: 13, color: "#38bdf8" }}>
                 <MapPin size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />
                 {pkg.km_span || (pkg.range_label ? `${pkg.range_label} (${pkg.distance_label})` : "Corridor Location")}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-faint">Machine & Mobilization Dead-Time</div>
+              <div style={{ fontWeight: 600, marginTop: 2, fontSize: 13, color: pkg.machine_required ? "#fbbf24" : "var(--text-2)" }}>
+                {pkg.machine_required ? (
+                  <>
+                    <div>🚜 {pkg.machine_name}</div>
+                    <div className="text-xs text-faint" style={{ marginTop: 2 }}>
+                      Base: {pkg.depot_name} (Km {pkg.depot_km}) · Transit: <strong>{pkg.transit_mins}m</strong> ({pkg.transit_distance_km} km)
+                    </div>
+                  </>
+                ) : (
+                  <span>Manual Section Gang (0m transit)</span>
+                )}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-faint">Duration Breakdown</div>
+              <div style={{ fontWeight: 600, marginTop: 2, fontSize: 12 }}>
+                Wrench: <strong>{pkg.wrench_duration_mins || pkg.duration_needed_mins}m</strong>
+                {pkg.transit_mins > 0 && <> + Transit: <strong style={{ color: "#fbbf24" }}>{pkg.transit_mins}m</strong></>}
+                {pkg.coordination_buffer_mins > 0 && <> + Coord: <strong>{pkg.coordination_buffer_mins}m</strong></>}
               </div>
             </div>
             <div>

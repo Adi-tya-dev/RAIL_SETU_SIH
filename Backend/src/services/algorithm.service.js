@@ -25,6 +25,10 @@ class AlgorithmService {
     }
     return simulationEngine.simulateWhatIf(input);
   }
+
+  async simulateEmergencyReroute(input) {
+    return simulationEngine.simulateEmergencyBlockAndReroute(input);
+  }
 }
 
 module.exports = new AlgorithmService();

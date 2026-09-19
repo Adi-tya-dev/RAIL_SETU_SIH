@@ -5,6 +5,7 @@ const router = express.Router();
 
 router.get("/", schedulesController.list);
 router.post("/generate", schedulesController.generate);
+router.post("/simulate-emergency", schedulesController.simulateEmergency);
 router.post("/:id/simulate-delay", schedulesController.simulate);
 router.get("/:id", schedulesController.getOne);
 

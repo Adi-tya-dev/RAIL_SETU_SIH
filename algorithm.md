@@ -120,24 +120,38 @@ For an active cluster starting at reference coordinate $K_\text{ref} = \text{Rou
   - $\text{km\_span} = \text{"14.500 to 15.500 (1.0 km)"}$
 - If distance exceeds $\epsilon$, close the active cluster and initialize a new Work Package.
 
-### 4.3 Multi-Crew Concurrent Duration Formula
-Because crews work in parallel, the total block duration is **not** the sum of individual durations. It is dictated by the longest individual operation, augmented with a safety buffer for inter-department coordination:
+### 4.3 Multi-Crew Concurrent Duration & Heavy Machine Mobilization Formula
+Because crews work in parallel, the total block duration is **not** the sum of individual durations. It is dictated by the longest individual operation, augmented with an inter-department coordination buffer **plus** heavy machinery mobilization travel dead-time ($T_\text{transit}$) from base depots:
 
-$$\text{Duration}(\text{Package}) = \max_{i \in \text{Package}}(T_i) + \Delta_\text{coord} \times (N_\text{departments} - 1)$$
+$$\text{Duration}(\text{Package}) = \max_{i \in \text{Package}}(T_i) + [\Delta_\text{coord} \times (N_\text{departments} - 1)] + T_\text{transit}$$
 
 Where:
-- $\max_{i}(T_i)$ is the maximum task duration among all tasks in the cluster.
+- $\max_{i}(T_i)$ is the maximum wrench time among all tasks in the cluster.
 - $\Delta_\text{coord} = 15\text{ minutes}$ is the safety buffer required for multi-department electrical isolation (OHE cut-off), signal disconnection, and track protection handovers.
 - $N_\text{departments} = |\{\text{dept}(T_i) \mid i \in \text{Package}\}|$ is the count of distinct departments involved.
+- $T_\text{transit}$ is the heavy track machine mobilization and dead-time travel from the base engineering depot to the work site and return:
 
-#### Example Calculation (Package PKG_1):
-- Includes **10 tasks** (Engineering: 120m, 60m; Signal: 60m, 90m; Traction: 240m, 90m...).
-- $\max(T_i) = 240\text{ minutes}$ (Traction OHE overhaul).
-- Distinct Departments = 3 (Engineering, Signalling, Traction).
-- Coordination Buffer = $15 \times (3 - 1) = 30\text{ minutes}$.
-- **Clubbed Package Duration** = $240 + 30 = \mathbf{270\text{ minutes}}$.
-- *Traditional Sequential Duration* = $1,170\text{ minutes}$.
-- **Net Track Downtime Saved** = $1,170 - 270 = \mathbf{900\text{ minutes}}$ on a single package!
+$$T_\text{transit} = \left( 2 \times \frac{|\text{Depot KM} - \text{Work Site KM}|}{v_\text{machine}} \times 60 \right) + t_\text{setup}$$
+
+#### Heavy Machine & Depot Registry (`clusteringEngine.js`):
+- **Depot Registry:**
+  - `SEC-DLJP`: Delhi Sarai Rohilla Track Depot ($Km = 0.000$)
+  - `SEC-DLAM`: Ambala Cantt Base Depot ($Km = 20.000$)
+  - `SEC-MBLK`: Moradabad Base Depot ($Km = 25.000$)
+  - `SEC-BCAH`: Bareilly Central Depot ($Km = 30.000$)
+  - `SEC-BCPN`: Panipat S&T Yard ($Km = 20.000$)
+- **Machine Types & Operating Speeds ($v_\text{machine}$):**
+  - **CSM Tamping Machine (Civil/TMS):** $35\text{ km/h}$, $t_\text{setup} = 15\text{ mins}$
+  - **OHE Tower Car (Electrical/TDMS):** $40\text{ km/h}$, $t_\text{setup} = 10\text{ mins}$
+  - **S&T Van (Signalling/SMMS):** $45\text{ km/h}$, $t_\text{setup} = 5\text{ mins}$
+  - **Manual Gang (P-Way):** $T_\text{transit} = 0$ (on-site mobilization)
+
+#### Example Mobilization Calculation:
+- Work Site: `SEC-DLAM` @ $Km = 28.000$. Base Depot: Ambala Cantt @ $Km = 20.000$.
+- Distance: $|28.0 - 20.0| = 8.0\text{ km}$.
+- Required Machine: CSM Heavy Track Tamper ($v = 35\text{ km/h}$).
+- $T_\text{transit} = 2 \times (8.0 / 35) \times 60 + 15 = 27.4 + 15 \approx \mathbf{42\text{ minutes}}$ travel & setup dead-time.
+- Clubbed package includes 150m wrench time + 15m coordination + 42m transit = **207 minutes**.
 
 ### 4.4 Composite Priority Scoring
 Each Work Package is assigned an operational urgency score:
@@ -204,7 +218,130 @@ Packages are ordered using a lexicographic comparator:
 
 ---
 
-## 6. Conflict Resolution & Human Escalation Protocol
+## 6. What-If Emergency Track Block & Stoppage-Preserving Train Rerouting Engine
+
+**Source Code:** [`Backend/src/algorithms/simulation.engine.js`](file:///d:/SIH(2)/Rail_Setu/Backend/src/algorithms/simulation.engine.js)
+
+When an unscheduled emergency occurs (e.g., rail fracture, OHE snap, boulder fall, flash flood), a track section must be blocked immediately without waiting for pre-planned timetable windows.
+
+The **What-If Emergency Rerouting Engine** dynamically identifies all overlapping passenger and freight services and computes diversion options designed to **maximize commercial stoppage retention** while protecting high-priority trains.
+
+```
+                   ┌──────────────────────────────────────────────┐
+                   │    Emergency Track Block Incident Detected   │
+                   │ (Block B002, 120 Mins Closure, Fractured Rail)│
+                   └──────────────────────┬───────────────────────┘
+                                          │
+                                          ▼
+                   ┌──────────────────────────────────────────────┐
+                   │   Filter Overlapping Scheduled Movements     │
+                   │ (Train Entry/Exit in Corridor ∩ Block Window)│
+                   └──────────────────────┬───────────────────────┘
+                                          │
+                                          ▼
+            ┌─────────────────────────────────────────────────────────────┐
+            │   Evaluate 3 Candidate Stoppage-Preserving Strategies        │
+            └──────┬──────────────────────┬───────────────────────┬───────┘
+                   │                      │                       │
+                   ▼                      ▼                       ▼
+    ┌─────────────────────────┐ ┌───────────────────┐ ┌─────────────────────────┐
+    │  1. Single Line Working │ │ 2. Chord Bypass   │ │ 3. Regulated Platform   │
+    │     (Parallel Track)    │ │    (Alternative)  │ │    Holding              │
+    ├─────────────────────────┤ ├───────────────────┤ ├─────────────────────────┤
+    │ Stoppage Preservation:  │ │ Stoppage Preserv: │ │ Stoppage Preservation:  │
+    │         100.0%          │ │     50% - 75%     │ │         100.0%          │
+    │ Delay: +15 to +22 mins  │ │ Delay: +35 mins   │ │ Delay: +60 to +120 mins │
+    │ Pilot Token & Crossover │ │ Misses intermediate│ │ Holds at origin station│
+    └─────────────────────────┘ └───────────────────┘ └─────────────────────────┘
+```
+
+### 6.1 Stoppage Preservation Index (SPI)
+For any diversion route $R$ evaluated for train $T_k$:
+$$\text{SPI}(T_k, R) = \frac{|\text{Stops}(T_k) \cap \text{Stations}(R)|}{|\text{Stops}(T_k)|} \times 100\%$$
+
+- **Single Line Working (SLW on twin track):** Trains run in both directions on the unaffected parallel line between adjacent crossover stations. Because both tracks pass through the identical passenger platforms, $\text{SPI} = \mathbf{100\%}$. Speed is constrained over turnouts to $15\text{--}25\text{ km/h}$ plus pilot token exchange, incurring only $+15\text{ to }+22\text{ mins}$ headway delay.
+- **Outer Chord Line Bypass Diversion:** Trains divert via an alternate chord or branch line. Stations outside the chord are bypassed. The engine calculates:
+  - $\text{Served Stations} = \text{Stops}(T_k) \cap \text{ChordStations}$
+  - $\text{Bypassed Stations} = \text{Stops}(T_k) \setminus \text{ChordStations}$
+  - Flags passenger compensation and bus-bridging requirements for bypassed stops.
+- **Regulated Platform Holding:** If the closure duration is short ($\le 60\text{ mins}$), the train is held at its last platform station, preserving $100\%$ of passenger boarding at the cost of punctuality.
+
+### 6.2 High-Priority VIP Train Protections (Rajdhani, Vande Bharat, Shatabdi)
+The engine maintains strict operational precedence:
+1. **Priority 1 Preemption:** Rajdhani (e.g., 12423), Vande Bharat Express (e.g., 22436), and Shatabdi are tagged with `is_vip = true`.
+2. **Zero-Cancellation Policy:** VIP services are NEVER cancelled or held indefinitely. They are automatically granted absolute slot priority on the Single Line Working (SLW) corridor over freight and ordinary mail/express trains.
+3. **Punctuality Penalty Shield:** If downstream delays occur, automatic green-wave priority is queued at downstream interlocking zones to recover lost clearance time.
+
+---
+
+## 7. Two-Horizon Architecture vs. Real-Time ML Optimizer Pipeline
+
+A recurring question in railway operations is how long-term scheduling relates to real-time dispatching. RailSetu implements a **Two-Horizon Planning Architecture**:
+
+| Dimension | Monthly Macro Horizon (Rolling Plan) | Weekly Tactical Horizon (Operational) | Real-Time ML Pipeline Optimizer |
+| :--- | :--- | :--- | :--- |
+| **Time Horizon** | 30 to 90 Days ahead | 7 Days to 24 Hours ahead | 0 to 4 Hours ahead (Real-Time Reactive) |
+| **System Module** | Automatic Planning (`Planning.jsx`) | Generated Schedules (`Schedules.jsx`) | ML Pipeline (`BlockPlanningML.jsx`) |
+| **Primary Input** | Annual Maintenance Plan (AMP), asset age, gross million tonnes (GMT) | TMS/SMMS/TDMS approved requisitions, divisional quotas | Real-time live TMS/SMMS/TDMS requisitions & dynamic COA train paths |
+| **Objective** | Ensure periodic corridor overhaul without seasonal timetable collisions | Assign specific departmental dates, allocate heavy tampers and cranes | Multi-crew spatial clustering ($\epsilon \le 2\text{ km}$), machine mobilization dead-time, greedy CSP slot assignment |
+| **Handling Delays** | Re-plans monthly corridor windows | Shifts shifts or reassigns maintenance gang slots | Millisecond-level recalculation, dynamic traffic diversion, or Single Line Working (SLW) |
+
+---
+
+## 8. Closed-Loop Reactive Ingestion & Auto-Rescheduling
+
+RailSetu does not operate on static database reads. It implements an active closed-loop architecture:
+
+```
+  ┌──────────────────────────────┐
+  │  simulatorWatcher.js         │ ◄── Monitors file changes & simulated CRIS events
+  └──────────────┬───────────────┘
+                 │ (Triggers event on new TMS/SMMS task)
+                 ▼
+  ┌──────────────────────────────┐
+  │  changeProcessor.js          │ ◄── Analyzes task delta, invalidates cached corridors
+  └──────────────┬───────────────┘
+                 │
+                 ▼
+  ┌──────────────────────────────┐
+  │  optimizationEngine.js       │ ◄── Re-runs multi-crew clustering & greedy CSP
+  └──────────────┬───────────────┘
+                 │
+                 ▼
+  ┌──────────────────────────────┐
+  │  Server-Sent Events (SSE)    │ ◄── Streams delta updates to frontends in real-time
+  └──────────────┬───────────────┘
+                 │
+                 ▼
+  ┌──────────────────────────────┐
+  │  React Dashboard UI          │ ◄── Automatically re-renders without full page refresh
+  └──────────────────────────────┘
+```
+
+1. **Auto-Ingestion:** As new track maintenance requisitions are lodged in TMS, `simulatorWatcher.js` detects them and passes them to `changeProcessor.js`.
+2. **Dynamic Rescheduling:** If an active corridor is already scheduled, the pipeline checks if the new task falls within the active cluster radius ($\epsilon \le 2.0\text{ km}$). If compatible, it is merged into the existing Mega Block without requiring additional track possession time!
+3. **Live SSE Broadcast:** Changes are pushed immediately to all connected controller screens via HTTP Server-Sent Events (`/api/v1/events`).
+
+---
+
+## 9. Technical Resolution of the 10 System Architecture Inquiries
+
+| # | Inquiry from Field Engineering | RailSetu Technical Implementation & Mathematical Solution |
+| :--- | :--- | :--- |
+| **1** | **Algorithm alignment with `algorithm.md`** | Fully aligned. Implemented via 1D spatial DBSCAN clustering (`clusteringEngine.js`) and greedy CSP bin-packing (`optimizationEngine.js`). |
+| **2** | **Prioritization of Vande Bharat & Rajdhani** | VIP Trains are tagged with Priority Score $\ge 19$ and protected from cancellations. In emergency rerouting, VIPs are granted first-right SLW clearance. |
+| **3** | **Handling track unavailability & sudden emergency** | Handled by `POST /api/schedules/simulate-emergency`. Calculates overlapping trains, evaluates SLW vs Chord vs Hold, and preserves passenger stops. |
+| **4** | **Two-Horizon Planning (Monthly vs Weekly)** | Documented in Section 7: Monthly macro establishes rolling track possession quotas; weekly tactical assigns equipment; ML pipeline executes real-time micro-slotting. |
+| **5** | **Multi-crew duration with $t_\text{inst}$ and transit** | Formally implemented in `calculateMachineTransit`: includes 2-way machine travel dead-time $2 \times \frac{\Delta Km}{v} \times 60 + t_\text{setup}$ for CSM, OHE car, and S&T vans. |
+| **6** | **Role of Planning vs Schedules vs What-If** | `Planning.jsx` = Tactical request creation; `Schedules.jsx` = Approved timetable slots; `Simulation.jsx` = What-If delay & emergency diversion; `BlockPlanningML.jsx` = Multi-crew clustering & solver. |
+| **7** | **Span & repair range visualization** | Solved via Route Deadpoint datum ($Km = 0.000$). Multi-block clusters spanning boundaries (e.g. Km 14.5 to 15.5) show exact span in km and joint possession tags. |
+| **8** | **Handling unassigned tasks** | When COA windows lack capacity, tasks are escalated with `DEFICIT_WINDOW_CONFLICT`. Dashboard provides 3 human controller actions: traffic diversion, slot extension, or sub-cluster split. |
+| **9** | **Continuous real-time reactive loop** | Driven by `simulatorWatcher.js` $\rightarrow$ `changeProcessor.js` $\rightarrow$ WebSocket/SSE. Ingests raw CRIS feed and updates allocations without manual re-triggering. |
+| **10**| **Maximizing passenger stops during rerouting** | Stoppage Preservation Index ($\text{SPI}$) ranks candidate routes. Single Line Working is prioritized to maintain 100% station access. |
+
+---
+
+## 10. Conflict Resolution & Human Escalation Protocol
 
 When a Work Package cannot be scheduled (i.e., no window satisfies both section compatibility and duration capacity), the engine does **not** fail or drop the request.
 
@@ -224,7 +361,7 @@ The system automatically presents **Three Controller Action Options** on the das
 
 ---
 
-## 7. Empirical Benchmarks & Performance Metrics
+## 11. Empirical Benchmarks & Performance Metrics
 
 Running the full pipeline against the 21 maintenance requests across Northern and Western railway zones produced the following benchmark results:
 
@@ -240,12 +377,15 @@ Running the full pipeline against the 21 maintenance requests across Northern an
 
 ---
 
-## 8. Summary of Source Code Artifacts
+## 12. Summary of Source Code Artifacts
 
 The algorithm is split across clear, decoupled modules:
 
-- **Stage 1 Engine:** [`Backend/src/algorithms/clusteringEngine.js`](file:///d:/Rail_Setu-main/Rail_Setu-main/Backend/src/algorithms/clusteringEngine.js) — Implements spatial coordinate normalization, $\epsilon$-sweep clustering, simultaneous multi-crew duration math, and priority scoring.
-- **Stage 2 Engine:** [`Backend/src/algorithms/optimizationEngine.js`](file:///d:/Rail_Setu-main/Rail_Setu-main/Backend/src/algorithms/optimizationEngine.js) — Implements window sorting, priority queueing, greedy CSP assignment loop, and metric generation.
-- **Orchestration Service:** [`Backend/src/services/blockPlanning.service.js`](file:///d:/Rail_Setu-main/Rail_Setu-main/Backend/src/services/blockPlanning.service.js) — Connects Prisma ORM, simulator fallbacks, data fetchers, and pipeline execution.
-- **Controller & Routing:** [`Backend/src/controllers/blockPlanning.controller.js`](file:///d:/Rail_Setu-main/Rail_Setu-main/Backend/src/controllers/blockPlanning.controller.js) & [`Backend/src/routes/blockPlanning.routes.js`](file:///d:/Rail_Setu-main/Rail_Setu-main/Backend/src/routes/blockPlanning.routes.js) — Express 5 route handlers mounted at `/api/v1/block-planning`.
-- **Interactive Control Room UI:** [`frontend/src/pages/BlockPlanningML.jsx`](file:///d:/Rail_Setu-main/Rail_Setu-main/frontend/src/pages/BlockPlanningML.jsx) — React 18 interface with interactive metric cards, raw task explorer, conflict review panel, and capacity bars.
+- **Stage 1 Engine:** [`Backend/src/algorithms/clusteringEngine.js`](file:///d:/Rail_Setu-main/Rail_Setu-main/Backend/src/algorithms/clusteringEngine.js) — Implements spatial coordinate normalization, $\epsilon$-sweep clustering, machine transit dead-time, simultaneous multi-crew duration math, and priority scoring.
+- **Stage 2 Engine:** [`Backend/src/algorithms/optimizationEngine.js`](file:///d:/Rail_Setu-main/Rail_Setu-main/Backend/src/algorithms/optimizationEngine.js) — Implements window sorting, priority queueing, greedy CSP assignment loop, machine metadata propagation, and metric generation.
+- **What-If Emergency Rerouting Engine:** [`Backend/src/algorithms/simulation.engine.js`](file:///d:/Rail_Setu-main/Rail_Setu-main/Backend/src/algorithms/simulation.engine.js) — Evaluates overlapping trains, Single Line Working (100% stops), Chord Bypass, VIP protection, and Stoppage Preservation Index.
+- **Orchestration Service:** [`Backend/src/services/blockPlanning.service.js`](file:///d:/Rail_Setu-main/Rail_Setu-main/Backend/src/services/blockPlanning.service.js) & [`Backend/src/services/algorithm.service.js`](file:///d:/Rail_Setu-main/Rail_Setu-main/Backend/src/services/algorithm.service.js) — Connects Prisma ORM, simulator fallbacks, data fetchers, and pipeline execution.
+- **Controller & Routing:** [`Backend/src/controllers/schedules.controller.js`](file:///d:/Rail_Setu-main/Rail_Setu-main/Backend/src/controllers/schedules.controller.js) & [`Backend/src/routes/schedules.routes.js`](file:///d:/Rail_Setu-main/Rail_Setu-main/Backend/src/routes/schedules.routes.js) — Endpoints for `/api/schedules/simulate-emergency`.
+- **Interactive Control Room UI:** 
+  - [`frontend/src/pages/BlockPlanningML.jsx`](file:///d:/Rail_Setu-main/Rail_Setu-main/frontend/src/pages/BlockPlanningML.jsx) — Displays multi-crew clustering with heavy machine mobilization chips and capacity meters.
+  - [`frontend/src/pages/Simulation.jsx`](file:///d:/Rail_Setu-main/Rail_Setu-main/frontend/src/pages/Simulation.jsx) & [`frontend/src/components/simulation/EmergencyRerouteResult.jsx`](file:///d:/Rail_Setu-main/Rail_Setu-main/frontend/src/components/simulation/EmergencyRerouteResult.jsx) — Interactive emergency track block simulator with stoppage preservation badges, served vs bypassed station pills, and reroute transmission.

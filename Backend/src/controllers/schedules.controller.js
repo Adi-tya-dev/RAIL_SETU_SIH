@@ -15,6 +15,11 @@ async function simulate(req, res) {
   res.json({ success: true, data: result });
 }
 
+async function simulateEmergency(req, res) {
+  const result = await scheduleService.simulateEmergency(req.body);
+  res.json({ success: true, data: result });
+}
+
 async function getOne(req, res) {
   const plan = await scheduleService.findById(req.params.id);
   if (!plan) {
@@ -44,4 +49,4 @@ async function getOne(req, res) {
   });
 }
 
-module.exports = { list, generate, simulate, getOne };
+module.exports = { list, generate, simulate, simulateEmergency, getOne };
