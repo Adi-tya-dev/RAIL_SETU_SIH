@@ -77,3 +77,112 @@ export function todayPlusDays(days) {
   const pad = (n) => String(n).padStart(2, "0");
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
 }
+
+export function toDateTimeLocalValue(date) {
+  if (!date) return "";
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+export function formatRelativeTime(date) {
+  if (!date) return "—";
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return "—";
+  const now = Date.now();
+  const diffSec = Math.floor((now - d.getTime()) / 1000);
+
+  if (diffSec < 45 && diffSec >= 0) return "Just now";
+  if (diffSec < 3600 && diffSec >= 0) {
+    const mins = Math.max(1, Math.floor(diffSec / 60));
+    return `${mins}m ago`;
+  }
+  if (diffSec < 86400 && diffSec >= 0) {
+    const hours = Math.floor(diffSec / 3600);
+    return `${hours}h ago`;
+  }
+  return formatDateTime(d);
+}
+
+export function getDeadlineCompliance(task) {
+  if (!task) return { tone: "gray", label: "No Deadline", isCompleted: false, onTime: null };
+  const status = String(task.status || "PENDING").toUpperCase();
+  const isCompleted = status === "COMPLETED";
+  const isInProgress = status === "IN_PROGRESS";
+  const deadline = task.deadline ? new Date(task.deadline) : null;
+  const completedAt = task.completed_at ? new Date(task.completed_at) : null;
+  const now = new Date();
+
+  if (isCompleted) {
+    if (!deadline) {
+      return { tone: "green", label: "Completed", isCompleted: true, onTime: true };
+    }
+    const finishedTime = completedAt || now;
+    const diffMin = Math.round((deadline.getTime() - finishedTime.getTime()) / 60000);
+    if (diffMin >= 0) {
+      return {
+        tone: "green",
+        label: "Completed in Deadline",
+        badgeText: "On-Time ✅",
+        subtext: diffMin > 0 ? `${formatDuration(diffMin)} before deadline` : "At deadline",
+        isCompleted: true,
+        onTime: true,
+      };
+    } else {
+      return {
+        tone: "red",
+        label: "Completed Overdue",
+        badgeText: "Delayed ⚠️",
+        subtext: `Breached by ${formatDuration(Math.abs(diffMin))}`,
+        isCompleted: true,
+        onTime: false,
+      };
+    }
+  }
+
+  if (!deadline) {
+    return { tone: "gray", label: "No deadline", isCompleted: false, onTime: null };
+  }
+
+  const diffMin = Math.round((deadline.getTime() - now.getTime()) / 60000);
+  if (diffMin < 0) {
+    return {
+      tone: "red",
+      label: "Deadline Breached",
+      badgeText: "Overdue 🚨",
+      subtext: `Past due by ${formatDuration(Math.abs(diffMin))}`,
+      isCompleted: false,
+      isOverdue: true,
+    };
+  }
+
+  if (isInProgress) {
+    return {
+      tone: "blue",
+      label: "In Execution (Invoked)",
+      badgeText: "Invoked ⚡",
+      subtext: `${formatDuration(diffMin)} left`,
+      isCompleted: false,
+      isInProgress: true,
+    };
+  }
+
+  if (diffMin <= 120) {
+    return {
+      tone: "amber",
+      label: "Approaching Deadline",
+      badgeText: "Urgent ⚠️",
+      subtext: `${formatDuration(diffMin)} remaining`,
+      isCompleted: false,
+    };
+  }
+
+  return {
+    tone: "gray",
+    label: "Within Window",
+    badgeText: `${formatDuration(diffMin)} left`,
+    subtext: `Due ${formatTime(deadline)}`,
+    isCompleted: false,
+  };
+}

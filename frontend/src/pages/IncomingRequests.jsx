@@ -1,7 +1,9 @@
-import { useCallback, useMemo, useState } from "react";
-import { Wrench, Signal, Zap, Inbox } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Wrench, Signal, Zap, Inbox, Radio, AlertTriangle, X } from "lucide-react";
 import { listIncomingRequests } from "../api/integration.api";
+import { injectSimulatorRequest } from "../api/events.api";
 import { useApiQuery } from "../hooks/useApi";
+import { useLiveEvents } from "../contexts/LiveEventsContext";
 import {
   SOURCE_NAMES,
   SOURCE_TONE,
@@ -10,7 +12,14 @@ import {
   PRIORITY_TONE,
   statusTone,
 } from "../utils/constants";
-import { formatDateTime, formatDuration, humanize } from "../utils/formatters";
+import {
+  formatDateTime,
+  formatDuration,
+  humanize,
+  formatRelativeTime,
+  toDateTimeLocalValue,
+  getDeadlineCompliance,
+} from "../utils/formatters";
 import PageHeader from "../components/common/PageHeader";
 import KpiCard from "../components/common/KpiCard";
 import Filters, { FilterField } from "../components/common/Filters";
@@ -20,6 +29,7 @@ import StateBlock from "../components/common/StateBlock";
 import Button from "../components/common/Button";
 import Badge from "../components/common/Badge";
 import SourceSyncBar from "../components/integration/SourceSyncBar";
+import RequestLifecycleDrawer from "../components/integration/RequestLifecycleDrawer";
 
 const EMPTY_FILTERS = { source: "", status: "", urgency: "", criticality: "" };
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
@@ -29,30 +39,255 @@ function pcuBadge(value, toneSource) {
   return <Badge tone={toneSource[value]}>{value}</Badge>;
 }
 
+// ── Plan-updated banner ──────────────────────────────────────────────────────
+function PlanUpdatedBanner({ data, onDismiss }) {
+  if (!data) return null;
+  const src  = data.source || "a source system";
+  const eff  = data.pipeline_summary?.efficiency
+    ? ` · Efficiency ${data.pipeline_summary.efficiency}`
+    : "";
+  const pkg  = data.pipeline_summary?.packages;
+  const asgn = data.pipeline_summary?.assigned;
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 12,
+        padding: "14px 18px",
+        marginBottom: "var(--s4, 16px)",
+        borderRadius: 10,
+        border: "1px solid rgba(34,197,94,0.35)",
+        background: "rgba(34,197,94,0.09)",
+        fontSize: 13,
+      }}
+    >
+      <AlertTriangle size={16} style={{ color: "#4ade80", flexShrink: 0, marginTop: 2 }} />
+      <div style={{ flex: 1 }}>
+        <strong style={{ color: "#4ade80" }}>Block plan automatically updated</strong>
+        <p style={{ margin: "4px 0 0", color: "var(--text-secondary, #aaa)", fontSize: 12 }}>
+          A new maintenance request from <strong>{src}</strong> targets blocks in the current active plan.
+          The planning algorithm re-ran automatically.
+          {pkg !== undefined && (
+            <> Work packages: <strong>{asgn}/{pkg}</strong> assigned{eff}.</>
+          )}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Dismiss"
+        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted, #888)", padding: 2 }}
+      >
+        <X size={15} />
+      </button>
+    </div>
+  );
+}
+
+// ── Inject test request panel ────────────────────────────────────────────────
+function InjectPanel({ onInjected }) {
+  const [open,      setOpen]      = useState(false);
+  const [source,    setSource]    = useState("TMS");
+  const [ref,       setRef]       = useState("");
+  const [block,     setBlock]     = useState("B001");
+  const [maintType, setMaintType] = useState("TRACK_REALIGNMENT");
+  const [status,    setStatus]    = useState("PENDING");
+  const [prefStart, setPrefStart] = useState(() => toDateTimeLocalValue(new Date(Date.now() + 2 * 3600 * 1000)));
+  const [deadline,  setDeadline]  = useState(() => toDateTimeLocalValue(new Date(Date.now() + 6 * 3600 * 1000)));
+  const [busy,      setBusy]      = useState(false);
+  const [result,    setResult]    = useState(null);
+  const idRef = useRef(0);
+
+  function generateRef() {
+    idRef.current += 1;
+    return `${source}-INJECT-${Date.now().toString(36).toUpperCase()}-${idRef.current}`;
+  }
+
+  async function handleInject() {
+    const reqRef = ref.trim() || generateRef();
+    setBusy(true);
+    setResult(null);
+    try {
+      const pStart = prefStart ? new Date(prefStart).toISOString() : new Date(Date.now() + 2 * 3600 * 1000).toISOString();
+      const dLine  = deadline  ? new Date(deadline).toISOString()  : new Date(Date.now() + 6 * 3600 * 1000).toISOString();
+
+      const res = await injectSimulatorRequest(source, {
+        request_id:       reqRef,
+        maintenance_type: maintType,
+        description:      `Injected live request — ${reqRef} on block ${block}`,
+        priority:         status === "COMPLETED" ? 2 : 3,
+        criticality:      3,
+        urgency:          status === "IN_PROGRESS" ? 4 : 2,
+        duration_minutes: 90,
+        block_code:       block.trim() || null,
+        preferred_start:  pStart,
+        deadline:         dLine,
+        status:           status,
+      });
+      setResult({ ok: true, message: res.message || "Injected into simulator catalog! The watcher will detect it within 5 seconds." });
+      setRef("");
+      onInjected?.();
+    } catch (err) {
+      setResult({ ok: false, message: err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        style={{
+          display: "inline-flex", alignItems: "center", gap: 6,
+          padding: "6px 14px", borderRadius: 8,
+          border: "1px dashed rgba(56,189,248,0.35)",
+          background: "rgba(56,189,248,0.04)", color: "#38bdf8",
+          fontSize: 12, fontWeight: 600, cursor: "pointer",
+        }}
+        title="Inject a custom request to test live real-time ingestion, preferred start, and deadline tracking"
+      >
+        <Radio size={14} /> + Inject Simulator Request (Test Pub/Sub)
+      </button>
+    );
+  }
+
+  return (
+    <div style={{
+      padding: "16px 18px", borderRadius: 12,
+      border: "1px solid rgba(56,189,248,0.25)",
+      background: "linear-gradient(180deg, rgba(14,28,48,0.85) 0%, rgba(9,17,30,0.92) 100%)",
+      boxShadow: "0 12px 28px rgba(0,0,0,0.35)", fontSize: 13,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+        <Radio size={16} color="#38bdf8" />
+        <strong style={{ color: "#f1f5f9" }}>Simulate New Portal Request (TMS · SMMS · TDMS)</strong>
+        <span style={{ fontSize: 11, color: "#38bdf8", background: "rgba(56,189,248,0.12)", padding: "1px 8px", borderRadius: 999 }}>
+          Polls every 5s
+        </span>
+        <button type="button" onClick={() => setOpen(false)} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
+          <X size={15} />
+        </button>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, alignItems: "flex-end" }}>
+        <label style={{ display: "grid", gap: 3, fontSize: 11, color: "var(--text-secondary)" }}>
+          Source System
+          <select className="select" value={source} onChange={(e) => setSource(e.target.value)}>
+            <option value="TMS">TMS · Track / Engineering</option>
+            <option value="SMMS">SMMS · Signal & Telecom</option>
+            <option value="TDMS">TDMS · Traction / Electrical</option>
+          </select>
+        </label>
+
+        <label style={{ display: "grid", gap: 3, fontSize: 11, color: "var(--text-secondary)" }}>
+          Target Block
+          <input className="input" value={block} onChange={(e) => setBlock(e.target.value)} placeholder="e.g. B001, B012" />
+        </label>
+
+        <label style={{ display: "grid", gap: 3, fontSize: 11, color: "var(--text-secondary)" }}>
+          Maintenance Type
+          <select className="select" value={maintType} onChange={(e) => setMaintType(e.target.value)}>
+            <option value="TRACK_REALIGNMENT">Track Realignment</option>
+            <option value="RAIL_CRACK">Rail Crack Rectification</option>
+            <option value="SIGNAL_POWER">Signal Power Feed Fault</option>
+            <option value="INTERLOCKING">Relay Interlocking Overhaul</option>
+            <option value="OHE_DROPPER">OHE Dropper Wire Repair</option>
+            <option value="TRANSFORMER">Transformer Oil Service</option>
+          </select>
+        </label>
+
+        <label style={{ display: "grid", gap: 3, fontSize: 11, color: "var(--text-secondary)" }}>
+          Preferred Start (Mandatory)
+          <input
+            type="datetime-local"
+            className="input"
+            value={prefStart}
+            onChange={(e) => setPrefStart(e.target.value)}
+          />
+        </label>
+
+        <label style={{ display: "grid", gap: 3, fontSize: 11, color: "var(--text-secondary)" }}>
+          Completion Deadline
+          <input
+            type="datetime-local"
+            className="input"
+            value={deadline}
+            onChange={(e) => setDeadline(e.target.value)}
+          />
+        </label>
+
+        <label style={{ display: "grid", gap: 3, fontSize: 11, color: "var(--text-secondary)" }}>
+          Lifecycle Status
+          <select className="select" value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="PENDING">PENDING (Awaiting Plan)</option>
+            <option value="APPROVED">APPROVED (Ready to Schedule)</option>
+            <option value="IN_PROGRESS">IN_PROGRESS (Invoked)</option>
+            <option value="COMPLETED">COMPLETED (Finished)</option>
+          </select>
+        </label>
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <Button variant="primary" size="sm" onClick={handleInject} disabled={busy} style={{ minWidth: 100 }}>
+            {busy ? "Injecting…" : "Publish Request"}
+          </Button>
+        </div>
+      </div>
+
+      {result && (
+        <p style={{ marginTop: 10, color: result.ok ? "#4ade80" : "#f87171", fontSize: 12, fontWeight: 600 }}>
+          {result.message}
+        </p>
+      )}
+      <p style={{ marginTop: 8, color: "var(--text-3)", fontSize: 11 }}>
+        💡 Real-time publisher/subscriber active: When submitted, the watcher ingests this request within 5 seconds.
+        If it targets an active corridor block ({block || "B001"}), the 3-stage optimization engine automatically replans the schedule.
+      </p>
+    </div>
+  );
+}
+
+// ── Main page ────────────────────────────────────────────────────────────────
 export default function IncomingRequests() {
-  const [filters, setFilters] = useState(EMPTY_FILTERS);
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [filters,      setFilters]      = useState(EMPTY_FILTERS);
+  const [search,       setSearch]       = useState("");
+  const [page,         setPage]         = useState(1);
+  const [pageSize,     setPageSize]     = useState(DEFAULT_PAGE_SIZE);
+  const [selectedTask, setSelectedTask] = useState(null);
+
+  const { liveStatus, newRequestCount, planUpdated, clearPlanUpdated } = useLiveEvents();
+
+  // Auto-refresh counter — increments whenever live events arrive
+  const [liveRefreshKey, setLiveRefreshKey] = useState(0);
+
+  // Refresh the list whenever a new request arrives
+  useEffect(() => {
+    if (newRequestCount > 0) {
+      setLiveRefreshKey((k) => k + 1);
+    }
+  }, [newRequestCount]);
 
   const params = useMemo(
     () => ({
       page,
       limit: pageSize,
-      source: filters.source || undefined,
-      status: filters.status || undefined,
-      urgency: filters.urgency || undefined,
+      source:      filters.source      || undefined,
+      status:      filters.status      || undefined,
+      urgency:     filters.urgency     || undefined,
       criticality: filters.criticality || undefined,
       overdueOnly: filters.overdueOnly ? "true" : undefined,
     }),
     [page, pageSize, filters]
   );
 
-  const fetcher = useCallback(() => listIncomingRequests(params), [params]);
-  const { data, loading, error, reload } = useApiQuery(fetcher, [JSON.stringify(params)]);
+  const fetcher = useCallback(() => listIncomingRequests(params), [params, liveRefreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const { data, loading, error, reload } = useApiQuery(fetcher, [JSON.stringify(params), liveRefreshKey]);
 
-  const summary = data?.data?.summary;
-  const rows = data?.data?.requests || [];
+  const summary    = data?.data?.summary;
+  const rows       = data?.data?.requests || [];
   const pagination = data?.pagination;
 
   const visible = useMemo(() => {
@@ -84,7 +319,7 @@ export default function IncomingRequests() {
         label: "Request",
         render: (r) => (
           <span>
-            <strong>{r.external_ref || r.maintenance_task_id}</strong>
+            <strong style={{ display: "block" }}>{r.external_ref || r.maintenance_task_id}</strong>
             <span className="cell-muted">{humanize(r.maintenance_type)}</span>
           </span>
         ),
@@ -95,22 +330,12 @@ export default function IncomingRequests() {
         render: (r) => <Badge tone={SOURCE_TONE[r.source] || "gray"}>{r.source}</Badge>,
       },
       {
-        key: "asset",
-        label: "Asset",
-        render: (r) => (
-          <span>
-            <strong>{r.asset?.asset_code || "—"}</strong>
-            <span className="cell-muted">{r.asset?.asset_name || ""}</span>
-          </span>
-        ),
-      },
-      {
         key: "location",
         label: "Block · Section",
         render: (r) => (
           <span>
-            <strong>{r.block?.block_code || "—"}</strong>
-            <span className="cell-muted">{r.section?.section_code || ""}</span>
+            <strong style={{ display: "block" }}>{r.block?.block_code || r.block_code || "—"}</strong>
+            <span className="cell-muted">{r.section?.section_code || r.section_code || r.asset?.asset_code || ""}</span>
           </span>
         ),
       },
@@ -119,9 +344,9 @@ export default function IncomingRequests() {
         label: "P / C / U",
         render: (r) => (
           <span style={{ display: "inline-flex", gap: 4 }}>
-            {pcuBadge(r.priority, PRIORITY_TONE)}
+            {pcuBadge(r.priority,    PRIORITY_TONE)}
             {pcuBadge(r.criticality, PRIORITY_TONE)}
-            {pcuBadge(r.urgency, PRIORITY_TONE)}
+            {pcuBadge(r.urgency,     PRIORITY_TONE)}
           </span>
         ),
       },
@@ -131,28 +356,69 @@ export default function IncomingRequests() {
         render: (r) => formatDuration(r.duration_minutes),
       },
       {
-        key: "requested_at",
-        label: "Requested",
-        render: (r) => formatDateTime(r.requested_at),
+        key: "received_at",
+        label: "Ingested in RailSetu",
+        render: (r) => {
+          const rec = r.received_at || r.created_at || r.requested_at;
+          const rel = formatRelativeTime(rec);
+          const isVeryRecent = rec && (Date.now() - new Date(rec).getTime() < 15 * 60 * 1000);
+          return (
+            <div>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                <span style={{ fontWeight: 600, fontSize: 12, color: isVeryRecent ? "#38bdf8" : "var(--text)" }}>
+                  {rel}
+                </span>
+                {isVeryRecent && (
+                  <span
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background: "#38bdf8",
+                      boxShadow: "0 0 6px #38bdf8",
+                      animation: "livePulse 2s infinite",
+                    }}
+                    title="Recently ingested live request"
+                  />
+                )}
+              </div>
+              <span className="cell-muted" style={{ fontSize: 11 }}>
+                {formatDateTime(rec)}
+              </span>
+            </div>
+          );
+        },
       },
       {
         key: "preferred_start",
         label: "Preferred Start",
-        render: (r) => formatDateTime(r.preferred_start),
+        render: (r) => (
+          <div>
+            <strong style={{ display: "block", color: "#e9d5ff", fontSize: 12 }}>
+              {formatDateTime(r.preferred_start)}
+            </strong>
+            <span className="cell-muted" style={{ fontSize: 11 }}>
+              Req: {formatDateTime(r.requested_at)}
+            </span>
+          </div>
+        ),
       },
       {
-        key: "deadline",
-        label: "Deadline",
-        render: (r) => (
-          <span>
-            {formatDateTime(r.deadline)}
-            {r.overdue && (
-              <Badge tone="red" dot style={{ marginLeft: 4 }}>
-                Overdue
-              </Badge>
-            )}
-          </span>
-        ),
+        key: "deadline_tracking",
+        label: "Deadline & Compliance",
+        render: (r) => {
+          const comp = getDeadlineCompliance(r);
+          return (
+            <div>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                <Badge tone={comp.tone} dot>{comp.badgeText || comp.label}</Badge>
+              </div>
+              <span className="cell-muted" style={{ fontSize: 11, color: comp.tone === "red" ? "#f87171" : "var(--text-3)" }}>
+                {comp.subtext || formatDateTime(r.deadline)}
+              </span>
+            </div>
+          );
+        },
       },
       {
         key: "status",
@@ -164,10 +430,10 @@ export default function IncomingRequests() {
   );
 
   const kpis = [
-    { key: "TMS", icon: Wrench, color: "#f59e0b", bg: "rgba(245,158,11,0.12)", label: "Engineering · TMS", desc: "Track maintenance system" },
-    { key: "SMMS", icon: Signal, color: "#8b5cf6", bg: "rgba(139,92,246,0.12)", label: "Signalling · SMMS", desc: "Signalling & telecom maintenance" },
-    { key: "TDMS", icon: Zap, color: "#38bdf8", bg: "rgba(56,189,248,0.12)", label: "Traction · TDMS", desc: "Traction distribution maintenance" },
-    { key: "Total", icon: Inbox, color: "var(--accent)", bg: "var(--accent-dim)", label: "Total Requests", desc: "All imported source requests" },
+    { key: "TMS",   icon: Wrench, color: "#f59e0b", bg: "rgba(245,158,11,0.12)",  label: "Engineering · TMS",  desc: "Track maintenance system" },
+    { key: "SMMS",  icon: Signal, color: "#8b5cf6", bg: "rgba(139,92,246,0.12)",  label: "Signalling · SMMS",  desc: "Signalling & telecom maintenance" },
+    { key: "TDMS",  icon: Zap,    color: "#38bdf8", bg: "rgba(56,189,248,0.12)",  label: "Traction · TDMS",    desc: "Traction distribution maintenance" },
+    { key: "Total", icon: Inbox,  color: "var(--accent)", bg: "var(--accent-dim)", label: "Total Requests", desc: "All imported source requests" },
   ];
 
   const serverEmpty = !loading && !error && rows.length === 0;
@@ -176,9 +442,41 @@ export default function IncomingRequests() {
   return (
     <>
       <PageHeader
-        title="Incoming Maintenance Requests"
+        title={
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+            Incoming Maintenance Requests
+            {/* Live badge */}
+            <span
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 5,
+                padding: "2px 8px", borderRadius: 999, fontSize: 10.5, fontWeight: 700,
+                background: liveStatus === "live" ? "rgba(34,197,94,0.12)" : "rgba(255,255,255,0.06)",
+                border: `1px solid ${liveStatus === "live" ? "rgba(34,197,94,0.35)" : "rgba(255,255,255,0.1)"}`,
+                color: liveStatus === "live" ? "#4ade80" : "var(--text-muted)",
+              }}
+            >
+              <span style={{
+                width: 6, height: 6, borderRadius: "50%",
+                background: liveStatus === "live" ? "#22c55e" : "#888",
+                animation: liveStatus === "live" ? "livePulse 2s ease-in-out infinite" : "none",
+              }} />
+              {liveStatus === "live" ? "● LIVE" : liveStatus === "error" ? "Disconnected" : "Connecting…"}
+            </span>
+            {newRequestCount > 0 && (
+              <span style={{
+                background: "var(--accent, #f59e0b)", color: "#000",
+                borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800,
+              }}>
+                +{newRequestCount} new
+              </span>
+            )}
+          </span>
+        }
         subtitle="Engineering, signalling and traction requests pulled from railway source systems"
       />
+
+      {/* Plan-updated banner */}
+      <PlanUpdatedBanner data={planUpdated} onDismiss={clearPlanUpdated} />
 
       <div className="summary-grid" style={{ marginBottom: "var(--s5)" }}>
         {kpis.map((kpi) => (
@@ -196,6 +494,11 @@ export default function IncomingRequests() {
       </div>
 
       <SourceSyncBar onSynced={() => reload()} />
+
+      {/* Test inject panel */}
+      <div style={{ marginBottom: "var(--s4, 16px)" }}>
+        <InjectPanel onInjected={() => setLiveRefreshKey((k) => k + 1)} />
+      </div>
 
       <section className="card">
         <Filters tip="Filters update the API request. Search applies to the loaded page.">
@@ -295,10 +598,15 @@ export default function IncomingRequests() {
           }
           onRetry={() => reload()}
         >
+          <div style={{ padding: "4px 8px 10px", fontSize: 11.5, color: "var(--text-3)", display: "flex", alignItems: "center", gap: 6 }}>
+            <span>💡 <strong>Tip:</strong> Click any request row to view its complete ingestion timestamp, execution milestones, and deadline compliance audit.</span>
+          </div>
+
           <DataTable
             columns={columns}
             rows={visible}
-            rowKey={(r) => r.maintenance_task_id}
+            rowKey={(r) => r.maintenance_task_id || r.external_ref}
+            onRowClick={(row) => setSelectedTask(row)}
             ariaLabel="Incoming source maintenance requests"
           />
 
@@ -322,6 +630,12 @@ export default function IncomingRequests() {
           {pagination && <Pagination pagination={pagination} onChange={setPage} disabled={loading} />}
         </StateBlock>
       </section>
+
+      {/* ── Request Lifecycle Drawer ─────────────────────────── */}
+      <RequestLifecycleDrawer
+        task={selectedTask}
+        onClose={() => setSelectedTask(null)}
+      />
     </>
   );
 }
