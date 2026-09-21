@@ -149,17 +149,51 @@ function simulateEmergencyBlockAndReroute(input = {}) {
     }
 
     // 1. Single Line Working (SLW) via adjacent track
+    // Preserves 100% of stops because the parallel track has access to the same station platforms
     const slwServed = [...stops];
     const slwBypassed = [];
     const slwPreservation = 100.0;
     const slwDelay = isVip ? 15 : 22; // Crossover speed restriction (25 km/h) + pilot token
 
     // 2. Outer Chord Line / Alternative Bypass Junction
-    // Chord diversion preserves primary junction stations but bypasses minor wayside flag stations
-    const majorJunctions = new Set(["NDLS", "CNB", "LKO", "UMB", "BCT", "ADI", "MAS", "SBC", "HWH", "GAYA", "PRYJ"]);
-    let chordServed = stops.filter((s) => majorJunctions.has(s));
-    if (chordServed.length === 0) chordServed = [stops[0], stops[stops.length - 1]]; // Origin + Destination always served
-    const chordBypassed = stops.filter((s) => !chordServed.includes(s));
+    // Maps each block to stations located within the physical closure corridor
+    const BLOCK_BYPASS_STATIONS = {
+      B001: ["DEE"],
+      B002: ["DEE", "BGZ"],
+      B003: ["GAYA", "DGR", "DDU"],
+      B004: ["BGZ"],
+      B005: ["UMB"],
+      B006: ["LDH"],
+      B007: ["BE"],
+      B008: ["BE"],
+      B009: ["BE"],
+      B010: ["ST"],
+      B011: ["ST"],
+      B012: ["ST"],
+      B013: ["PUNE", "PNVL"],
+      B014: ["PUNE"],
+      B015: ["PUNE"],
+      B101: ["BWT"],
+      B102: ["JTJ"],
+      B103: ["SA"],
+      B105: ["WL"],
+      B106: ["BPQ"],
+      B107: ["MKP"],
+      B108: ["MKP"],
+    };
+
+    // Stations located in the blocked corridor are BYPASSED under Chord diversion
+    const targetBypassStops = new Set(BLOCK_BYPASS_STATIONS[blockCode] || []);
+    let bypassedInSector = stops.slice(1, -1).filter((s) => targetBypassStops.has(s));
+
+    // Fallback: If train doesn't match specific block catalog, any intermediate station in the middle is bypassed
+    if (bypassedInSector.length === 0 && stops.length > 2) {
+      const midIdx = Math.floor(stops.length / 2);
+      bypassedInSector = [stops[midIdx]];
+    }
+
+    const chordBypassed = bypassedInSector;
+    const chordServed = stops.filter((s) => !chordBypassed.includes(s));
     const chordPreservation = Number(((chordServed.length / stops.length) * 100).toFixed(1));
     const chordDelay = 35; // Loop line route circuit
 

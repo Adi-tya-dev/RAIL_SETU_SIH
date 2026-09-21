@@ -56,6 +56,7 @@ export const NAV_SECTIONS = [
     items: [
       { path: "/planning",    label: "Automatic Planning",  icon: "CalendarCog" },
       { path: "/ml-planning", label: "ML Pipeline Optimizer", icon: "BrainCircuit" },
+      { path: "/slots",       label: "Timetable Slots",     icon: "Clock" },
       { path: "/schedules",   label: "Generated Plans",     icon: "ClipboardList" },
     ],
   },
@@ -81,6 +82,7 @@ export const ROUTE_TITLES = {
   assets:                 "Asset Health Monitor",
   planning:               "Automatic Block Planning",
   "ml-planning":          "ML Pipeline Optimizer",
+  slots:                  "Timetable Slots & Maintenance Windows Explorer",
   schedules:              "Optimised Block Plans",
   "incoming-requests":    "Incoming Maintenance Requests (Source Data)",
   "train-impacts":        "Train Impact Analysis",
@@ -93,6 +95,7 @@ export const ROUTE_SUBTITLES = {
   dashboard:              "Current operational state of the railway maintenance network",
   map:                    "Interactive view of train routes, maintenance locations and block status",
   maintenance:            "Maintenance task register — priority, criticality and scheduling",
+  slots:                  "Explore live timetable slots, assigned maintenance blocks, and duration-constrained corridor windows",
   blocks:                 "Physical infrastructure segments available for maintenance closure",
   trains:                 "Train movements, routes and operational status",
   assets:                 "Infrastructure asset health, criticality and maintenance status",

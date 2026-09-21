@@ -2,7 +2,9 @@ import { useState } from "react";
 import Badge from "../common/Badge";
 import Button from "../common/Button";
 import { formatDateTime } from "../../utils/formatters";
-import { ShieldAlert, Train, ArrowRight, CheckCircle2, AlertTriangle, Clock, MapPin, Zap, RefreshCw } from "lucide-react";
+import { ShieldAlert, Train, ArrowRight, CheckCircle2, AlertTriangle, Clock, MapPin, Zap, RefreshCw, Map as MapIcon, ExternalLink } from "lucide-react";
+import { navigate } from "../../hooks/useRoute";
+import TrackSchematicMap from "./TrackSchematicMap";
 
 export default function EmergencyRerouteResult({ result }) {
   const [selectedStrategies, setSelectedStrategies] = useState({});
@@ -50,11 +52,27 @@ export default function EmergencyRerouteResult({ result }) {
               Immediate track possession on <strong>Block {emergency_event?.block_code}</strong> ({emergency_event?.reason?.replace(/_/g, " ")}) for <strong>{emergency_event?.closure_duration_minutes} minutes</strong>.
             </p>
           </div>
-          <div style={{ textAlign: "right" }}>
-            <span style={{ fontSize: 11, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: 1 }}>Window Closure</span>
-            <div style={{ fontWeight: 600, fontSize: 13, color: "#ef4444" }}>
-              {formatDateTime(emergency_event?.closure_start)} → {formatDateTime(emergency_event?.closure_end)}
+          <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+            <div>
+              <span style={{ fontSize: 11, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: 1 }}>Window Closure</span>
+              <div style={{ fontWeight: 600, fontSize: 13, color: "#ef4444" }}>
+                {formatDateTime(emergency_event?.closure_start)} → {formatDateTime(emergency_event?.closure_end)}
+              </div>
             </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate("/map")}
+              style={{
+                background: "rgba(239, 68, 68, 0.15)",
+                borderColor: "rgba(239, 68, 68, 0.4)",
+                color: "#fca5a5",
+                marginTop: 2,
+              }}
+            >
+              <MapIcon size={14} style={{ marginRight: 6 }} />
+              Open Live Railway Map
+            </Button>
           </div>
         </div>
 
@@ -227,7 +245,31 @@ export default function EmergencyRerouteResult({ result }) {
                       ({activeStrat.regulatory_rule})
                     </span>
                   </div>
-                  <div>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        const params = new URLSearchParams({
+                          trainId: t.train_id,
+                          trainNumber: t.train_number,
+                          block: emergency_event?.block_code || "B002",
+                          strategy: activeStrat.id,
+                          strategyName: activeStrat.name,
+                          bypassed: (activeStrat.stops_bypassed || []).join(","),
+                          served: (activeStrat.stops_served || []).join(","),
+                        });
+                        navigate(`/map?${params.toString()}`);
+                      }}
+                      style={{
+                        background: "rgba(56, 189, 248, 0.12)",
+                        borderColor: "rgba(56, 189, 248, 0.35)",
+                        color: "#38bdf8",
+                      }}
+                    >
+                      <MapIcon size={14} style={{ marginRight: 6 }} />
+                      View on Railway Map
+                    </Button>
                     <Button
                       variant={isDispatched ? "secondary" : "primary"}
                       size="sm"
@@ -298,6 +340,13 @@ export default function EmergencyRerouteResult({ result }) {
                 <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 8 }}>
                   {activeStrat.description}
                 </div>
+
+                {/* Interactive Track Schematic & Reroute Path Diagram */}
+                <TrackSchematicMap
+                  train={t}
+                  activeStrategy={activeStrat}
+                  emergencyEvent={emergency_event}
+                />
               </div>
             </div>
           );

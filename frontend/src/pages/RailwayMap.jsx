@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CircleMarker, MapContainer, Marker, Polyline, Popup, Tooltip, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Activity, AlertTriangle, ChevronRight, Crosshair, Layers3, MapPinned, Search, TrainFront, X } from "lucide-react";
+import { Activity, AlertTriangle, ChevronRight, Crosshair, Layers3, MapPinned, Search, TrainFront, X, ShieldAlert } from "lucide-react";
 import { getTrain, listTrains } from "../api/trains.api";
 import { listMaintenance } from "../api/maintenance.api";
 import { listConflicts } from "../api/conflicts.api";
@@ -61,11 +61,13 @@ function overlaps(startA, endA, startB, endB) {
 }
 
 function stationIcon(role, index, total, active) {
+  const size = role === "bypassed" ? [22, 22] : role === "served" ? [18, 18] : role === "intermediate" ? [14, 14] : [28, 28];
+  const anchor = role === "bypassed" ? [11, 11] : role === "served" ? [9, 9] : role === "intermediate" ? [7, 7] : [14, 14];
   return L.divIcon({
     className: "railway-station-icon-wrap",
     html: `<span class="railway-station-icon railway-station-icon--${role}${active ? " is-active" : ""}" data-stop="${index}" data-total="${total}"></span>`,
-    iconSize: role === "intermediate" ? [14, 14] : [28, 28],
-    iconAnchor: role === "intermediate" ? [7, 7] : [14, 14],
+    iconSize: size,
+    iconAnchor: anchor,
   });
 }
 
@@ -506,6 +508,23 @@ export default function RailwayMap() {
   const [focusBounds, setFocusBounds] = useState(null);
   const [activeStationKey, setActiveStationKey] = useState("");
 
+  const [emergencyReroute, setEmergencyReroute] = useState(() => {
+    const hash = window.location.hash || "";
+    if (!hash.includes("?")) return null;
+    const params = new URLSearchParams(hash.split("?")[1]);
+    const trainId = params.get("trainId");
+    const trainNumber = params.get("trainNumber");
+    const block = params.get("block");
+    const strategy = params.get("strategy") || "SLW";
+    const strategyName = params.get("strategyName") || strategy;
+    const bypassed = new Set((params.get("bypassed") || "").split(",").filter(Boolean));
+    const served = new Set((params.get("served") || "").split(",").filter(Boolean));
+    if (trainId || trainNumber || block) {
+      return { trainId, trainNumber, block, strategy, strategyName, bypassed, served };
+    }
+    return null;
+  });
+
   useEffect(() => {
     let active = true;
     Promise.all([
@@ -623,6 +642,40 @@ export default function RailwayMap() {
     if (nextId) detailQuery.run(() => getTrain(nextId));
     else detailQuery.reset();
   }
+
+  // Auto-select train when navigated from Emergency Rerouting link
+  useEffect(() => {
+    if (!emergencyReroute) return;
+    if (emergencyReroute.trainId) {
+      selectTrain(emergencyReroute.trainId);
+    } else if (emergencyReroute.trainNumber && trains.length > 0) {
+      const match = trains.find((t) => String(t.train_number) === String(emergencyReroute.trainNumber));
+      if (match) selectTrain(match.train_id);
+    }
+  }, [emergencyReroute, trains]);
+
+  const rerouteSlwPath = useMemo(() => {
+    if (!emergencyReroute || routePoints.length < 2) return [];
+    const offset = routePoints.map(([lat, lng]) => [lat + 0.015, lng + 0.015]);
+    return corridorPath(offset);
+  }, [emergencyReroute, routePoints]);
+
+  const rerouteChordPath = useMemo(() => {
+    if (!emergencyReroute || routePoints.length < 2 || emergencyReroute.strategy !== "CHORD_BYPASS") return [];
+    const start = routePoints[0];
+    const end = routePoints[routePoints.length - 1];
+    return arcPath(start, end, 0.28);
+  }, [emergencyReroute, routePoints]);
+
+  const blockedLocation = useMemo(() => {
+    if (!emergencyReroute) return null;
+    const taskOnBlock = maintenanceLocations.find((m) => m.task?.block?.block_code === emergencyReroute.block);
+    if (taskOnBlock?.point) return taskOnBlock.point;
+    if (routePoints.length >= 2) {
+      return routePoints[Math.floor(routePoints.length / 2)];
+    }
+    return null;
+  }, [emergencyReroute, maintenanceLocations, routePoints]);
 
   function selectStation(route, focusMap = true) {
     setStation(route);
@@ -790,14 +843,71 @@ export default function RailwayMap() {
             ))}
             {layers.route && routePath.length > 1 && (
               <>
-                <Polyline positions={routePath} className="railway-route-glow" pathOptions={{ color: "#22d3ee", weight: routeGlowWeight, opacity: 0.16, smoothFactor: 0 }} />
-                <Polyline positions={routePath} className="railway-route-core" pathOptions={{ color: "#22d3ee", weight: 5, opacity: 1, smoothFactor: 0 }} />
-                <RouteParticles path={routePath} />
+                {emergencyReroute ? (
+                  <>
+                    {/* 1. Original Scheduled Route (Dashed slate) */}
+                    <Polyline
+                      positions={routePath}
+                      pathOptions={{ color: "#94a3b8", weight: 3.5, dashArray: "6, 8", opacity: 0.8, smoothFactor: 0 }}
+                    >
+                      <Tooltip className="railway-network-tooltip">Scheduled Route ({selectedTrain?.train_number} Original Track)</Tooltip>
+                    </Polyline>
+
+                    {/* 2. Rerouted Diversion Path */}
+                    {emergencyReroute.strategy === "CHORD_BYPASS" && rerouteChordPath.length > 1 ? (
+                      <>
+                        <Polyline positions={rerouteChordPath} className="railway-route-glow" pathOptions={{ color: "#f59e0b", weight: routeGlowWeight, opacity: 0.25, smoothFactor: 0 }} />
+                        <Polyline positions={rerouteChordPath} className="railway-route-core" pathOptions={{ color: "#f59e0b", weight: 5, dashArray: "10, 6", opacity: 1, smoothFactor: 0 }} />
+                        <RouteParticles path={rerouteChordPath} />
+                      </>
+                    ) : (
+                      <>
+                        <Polyline positions={rerouteSlwPath.length > 1 ? rerouteSlwPath : routePath} className="railway-route-glow" pathOptions={{ color: "#22c55e", weight: routeGlowWeight, opacity: 0.25, smoothFactor: 0 }} />
+                        <Polyline positions={rerouteSlwPath.length > 1 ? rerouteSlwPath : routePath} className="railway-route-core" pathOptions={{ color: "#22c55e", weight: 5, opacity: 1, smoothFactor: 0 }} />
+                        <RouteParticles path={rerouteSlwPath.length > 1 ? rerouteSlwPath : routePath} />
+                      </>
+                    )}
+
+                    {/* 3. Blocked Sector Marker */}
+                    {blockedLocation && (
+                      <Marker
+                        position={blockedLocation}
+                        icon={L.divIcon({
+                          className: "railway-station-icon-wrap",
+                          html: `<span class="railway-station-icon railway-station-icon--bypassed" style="width:26px;height:26px;"></span>`,
+                          iconSize: [26, 26],
+                          iconAnchor: [13, 13],
+                        })}
+                      >
+                        <Tooltip permanent direction="top" className="railway-station-tooltip--bypassed">
+                          🛑 BLOCKED: {emergencyReroute.block} (Emergency Track Possession)
+                        </Tooltip>
+                        <Popup>
+                          <strong style={{ color: "#ef4444" }}>EMERGENCY TRACK BLOCK: {emergencyReroute.block}</strong><br />
+                          All traffic stopped or diverted.<br />
+                          Reroute Mode: <strong>{emergencyReroute.strategyName}</strong>
+                        </Popup>
+                      </Marker>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <Polyline positions={routePath} className="railway-route-glow" pathOptions={{ color: "#22d3ee", weight: routeGlowWeight, opacity: 0.16, smoothFactor: 0 }} />
+                    <Polyline positions={routePath} className="railway-route-core" pathOptions={{ color: "#22d3ee", weight: 5, opacity: 1, smoothFactor: 0 }} />
+                    <RouteParticles path={routePath} />
+                  </>
+                )}
               </>
             )}
             {layers.stations && routeStations.map((route, index) => {
               const point = coordinate(route.station);
-              const role = index === 0 ? "source" : index === routeStations.length - 1 ? "destination" : "intermediate";
+              const code = route.station?.station_code;
+              let role = index === 0 ? "source" : index === routeStations.length - 1 ? "destination" : "intermediate";
+              const isBypassed = emergencyReroute?.bypassed?.has(code);
+              const isServed = emergencyReroute?.served?.has(code);
+              if (isBypassed) role = "bypassed";
+              else if (isServed) role = "served";
+
               if (!point) return null;
               const direction = role === "source" ? "right" : role === "destination" ? "left" : index % 2 === 0 ? "right" : "top";
               const active = normalizeId(route.station?.station_id) === activeStationKey;
@@ -814,11 +924,22 @@ export default function RailwayMap() {
                   },
                 }}>
                   <Tooltip permanent offset={direction === "top" ? [0, -15] : [10, 0]} direction={direction} className={`railway-station-tooltip railway-station-tooltip--${role}`}>
-                    {route.station?.station_name || route.station?.station_code || "Station"}
+                    {isBypassed ? `⚠ ${route.station?.station_name || code} (BYPASSED)` : isServed ? `✓ ${route.station?.station_name || code}` : (route.station?.station_name || route.station?.station_code || "Station")}
                   </Tooltip>
                   <Popup>
                     <strong>{route.station?.station_name}</strong><br />
-                    {route.station?.station_code || "-"} - Stop {index + 1} of {routeStations.length}
+                    {code || "-"} - Stop {index + 1} of {routeStations.length}<br />
+                    {isBypassed ? (
+                      <div style={{ color: "#ef4444", marginTop: 4 }}>
+                        <strong>⚠ Commercial Stoppage Bypassed</strong><br />
+                        <span style={{ fontSize: 11, color: "#f59e0b" }}>Passengers cannot board here. Bus bridging deployed.</span>
+                      </div>
+                    ) : isServed ? (
+                      <div style={{ color: "#22c55e", marginTop: 4 }}>
+                        <strong>✓ Commercial Stoppage Preserved</strong><br />
+                        <span style={{ fontSize: 11, color: "#86efac" }}>Boarding maintained on parallel/diverted path.</span>
+                      </div>
+                    ) : null}
                   </Popup>
                 </Marker>
               );
@@ -842,6 +963,40 @@ export default function RailwayMap() {
               );
             })}
           </MapContainer>
+          {emergencyReroute && (
+            <div className="railway-map-emergency-hud">
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <ShieldAlert size={22} color="#ef4444" />
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: "#fca5a5" }}>
+                    🚨 Emergency Diversion Active on Block {emergencyReroute.block}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>
+                    Train {selectedTrain?.train_number} ({selectedTrain?.train_name}) — Strategy: <strong>{emergencyReroute.strategyName}</strong>
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <span style={{ color: "#4ade80", fontWeight: 600, fontSize: 12 }}>
+                  ✓ {emergencyReroute.served.size} Stoppages Preserved
+                </span>
+                {emergencyReroute.bypassed.size > 0 && (
+                  <span style={{ color: "#f87171", fontWeight: 600, fontSize: 12 }}>
+                    ⚠ {emergencyReroute.bypassed.size} Bypassed (Bus Bridge Alert)
+                  </span>
+                )}
+                <button
+                  onClick={() => {
+                    setEmergencyReroute(null);
+                    window.location.hash = "/map";
+                  }}
+                  className="railway-map-emergency-hud__close"
+                >
+                  ✕ Return to Standard Network
+                </button>
+              </div>
+            </div>
+          )}
           <div className="railway-map-canvas-empty">
             {!selectedTrain && (
               <>
@@ -863,6 +1018,15 @@ export default function RailwayMap() {
             <span><i className="railway-map-legend-dot railway-map-legend-dot--traction" />Traction</span>
             <span><i className="railway-map-legend-dot railway-map-legend-dot--signalling" />Signalling</span>
             <span><i className="railway-map-legend-dot railway-map-legend-dot--critical" />Critical / conflict</span>
+            {emergencyReroute && (
+              <>
+                <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
+                <span><i className="railway-map-legend-line" style={{ background: "#94a3b8" }} />Original scheduled path</span>
+                <span><i className="railway-map-legend-line" style={{ background: emergencyReroute.strategy === "CHORD_BYPASS" ? "#f59e0b" : "#22c55e" }} />Rerouted trajectory</span>
+                <span><i className="railway-map-legend-dot" style={{ background: "#22c55e", boxShadow: "0 0 8px #22c55e" }} />Preserved stop</span>
+                <span><i className="railway-map-legend-dot" style={{ background: "#ef4444", boxShadow: "0 0 8px #ef4444" }} />Bypassed / skipped stop</span>
+              </>
+            )}
           </div>
         </div>
         {selectedTrain && (

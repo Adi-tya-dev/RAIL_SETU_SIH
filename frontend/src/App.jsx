@@ -14,6 +14,7 @@ import Conflicts from "./pages/Conflicts";
 import Simulation from "./pages/Simulation";
 import RailwayMap from "./pages/RailwayMap";
 import TrainImpacts from "./pages/TrainImpacts";
+import TimetableSlots from "./pages/TimetableSlots";
 import NotFound from "./pages/NotFound";
 
 const FULL_HEIGHT_PAGES = new Set(["map"]);
@@ -27,6 +28,7 @@ function resolvePage(segment) {
     case "assets":            return <Assets />;
     case "planning":          return <Planning />;
     case "ml-planning":       return <BlockPlanningML />;
+    case "slots":             return <TimetableSlots />;
     case "schedules":         return <Schedules />;
     case "incoming-requests": return <IncomingRequests />;
     case "coa":               return <CoaData />;

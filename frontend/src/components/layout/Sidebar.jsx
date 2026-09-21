@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   FlaskConical,
   BrainCircuit,
+  Clock,
 } from "lucide-react";
 import { NAV_SECTIONS } from "../../utils/constants";
 import { Link } from "../../hooks/useRoute";
@@ -32,6 +33,7 @@ const ICONS = {
   AlertTriangle,
   FlaskConical,
   BrainCircuit,
+  Clock,
 };
 
 export default function Sidebar({ currentPath, collapsed }) {
