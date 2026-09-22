@@ -11,6 +11,24 @@ import { statusTone, SEVERITY_TONE, SEVERITY_LABEL, LEVEL_LABEL, PRIORITY_TONE }
 
 const TABS = ["Overview", "Tasks", "Train Impacts", "Conflicts", "Operations", "Metrics"];
 
+function formatResourceItem(item) {
+  if (!item) return "";
+  if (typeof item === "string") return item;
+  if (typeof item === "object") {
+    if (item.designation) return item.designation;
+    if (item.role && item.count) return `${item.count}x ${item.role}`;
+    if (item.name && item.count) return `${item.count}x ${item.name}`;
+    if (item.role) return item.role;
+    if (item.name) return item.name;
+    try {
+      return JSON.stringify(item);
+    } catch {
+      return String(item);
+    }
+  }
+  return String(item);
+}
+
 export default function ScheduleDetail({ planId, onClose }) {
   const { data, loading, error, run } = useApi();
   const [tab, setTab] = useState("Overview");
@@ -24,20 +42,28 @@ export default function ScheduleDetail({ planId, onClose }) {
 
   if (!planId) return null;
 
-  const plan = data?.plan;
-  const tasks = data?.maintenance_tasks || [];
-  const impacts = data?.train_impacts || [];
-  const conflicts = data?.conflicts || [];
-  const operations = data?.operations || [];
-  const departments = data?.departments || [];
+  const payload = data?.data || data;
+  const plan = payload?.plan || (payload?.plan_id ? payload : null);
+  const tasks = payload?.maintenance_tasks || payload?.plan_maintenance_tasks || [];
+  const impacts = payload?.train_impacts || payload?.plan_train_impacts || [];
+  const conflicts = payload?.conflicts || payload?.block_conflicts || [];
+  const operations = payload?.operations || payload?.block_operations || [];
+  const departments =
+    payload?.departments && payload.departments.length > 0
+      ? payload.departments
+      : [...new Set(tasks.map((t) => t?.maintenance_task?.department).filter(Boolean))];
+
+  const blockCode = plan?.block?.block_code;
+  const trackCode = plan?.block?.track?.track_code;
+  const sectionCode = plan?.block?.track?.section?.section_code;
 
   return (
     <Drawer
       open={Boolean(planId)}
       onClose={onClose}
       width="min(760px, 100vw)"
-      title={`Plan ${planId}`}
-      subtitle={plan?.block?.block_code ? `Block ${plan.block.block_code}` : "Generated schedule"}
+      title={plan ? `Plan ${planId} · ${plan.status || "SCHEDULE"}` : `Plan ${planId}`}
+      subtitle={blockCode ? `Block ${blockCode}${sectionCode ? ` · ${sectionCode}` : ""}${trackCode ? ` (${trackCode})` : ""}` : "Generated schedule"}
       footer={<Button variant="secondary" size="sm" onClick={onClose}>Close</Button>}
     >
       {loading && (
@@ -58,18 +84,31 @@ export default function ScheduleDetail({ planId, onClose }) {
       {data && (
         <>
           <div className="tabs" role="tablist">
-            {TABS.map((t) => (
-              <button
-                key={t}
-                type="button"
-                role="tab"
-                aria-selected={tab === t}
-                className={`tab ${tab === t ? "is-active" : ""}`}
-                onClick={() => setTab(t)}
-              >
-                {t}
-              </button>
-            ))}
+            {TABS.map((t) => {
+              let count = null;
+              if (t === "Tasks") count = tasks.length;
+              if (t === "Train Impacts") count = impacts.length;
+              if (t === "Conflicts") count = conflicts.length;
+              if (t === "Operations") count = operations.length;
+
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === t}
+                  className={`tab ${tab === t ? "is-active" : ""}`}
+                  onClick={() => setTab(t)}
+                >
+                  {t}
+                  {count !== null && count > 0 && (
+                    <span style={{ marginLeft: 6, fontSize: 11, padding: "1px 6px", borderRadius: 10, background: "rgba(255,255,255,0.15)" }}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           {tab === "Overview" && <Overview plan={plan} departments={departments} />}
@@ -86,6 +125,18 @@ export default function ScheduleDetail({ planId, onClose }) {
 
 function Overview({ plan, departments }) {
   if (!plan) return <div className="state state--empty">No plan data.</div>;
+
+  let resources = plan.resource_requirements;
+  if (typeof resources === "string") {
+    try {
+      resources = JSON.parse(resources);
+    } catch {
+      resources = null;
+    }
+  }
+
+  const isBlueprint = plan.status === "BLUEPRINT" || plan.plan_horizon === "MONTHLY";
+
   return (
     <div className="stack">
       <DetailSection title="Plan Details">
@@ -94,14 +145,34 @@ function Overview({ plan, departments }) {
             { label: "Plan ID", value: plan.plan_id },
             { label: "Block", value: plan.block?.block_code || "—" },
             { label: "Status", value: <Badge tone={statusTone(plan.status)} dot>{plan.status}</Badge> },
-            { label: "Section", value: plan.block?.track?.section?.section_code || "—" },
-            { label: "Track", value: plan.block?.track?.track_code || "—" },
+            { label: "Section", value: plan.block?.track?.section?.section_code || plan.block?.track?.section?.section_name || "—" },
+            { label: "Track", value: plan.block?.track?.track_code || plan.block?.track?.track_name || "—" },
             { label: "Created", value: formatDateTime(plan.created_at) },
           ]}
         />
       </DetailSection>
 
-      <DetailSection title="Window">
+      {(isBlueprint || plan.work_package_code || plan.adjustment_reason) && (
+        <DetailSection title="Strategic Horizon & Work Package">
+          <DetailList
+            items={[
+              {
+                label: "Planning Horizon",
+                value: (
+                  <Badge tone={isBlueprint ? "purple" : "blue"}>
+                    {plan.plan_horizon === "MONTHLY" ? "30-Day Strategic Blueprint" : plan.plan_horizon || (isBlueprint ? "Blueprint Horizon" : "Operational")}
+                  </Badge>
+                ),
+              },
+              ...(plan.work_package_code ? [{ label: "Work Package", value: <span className="cell-mono cell-strong">{plan.work_package_code}</span> }] : []),
+              ...(plan.original_window ? [{ label: "Original Window", value: plan.original_window }] : []),
+              ...(plan.adjustment_reason ? [{ label: "Strategy Rationale", value: plan.adjustment_reason }] : []),
+            ]}
+          />
+        </DetailSection>
+      )}
+
+      <DetailSection title="Window & Train Operational Impact">
         <DetailList
           items={[
             { label: "Planned Start", value: formatDateTime(plan.planned_start) },
@@ -111,6 +182,51 @@ function Overview({ plan, departments }) {
           ]}
         />
       </DetailSection>
+
+      {resources && (
+        <DetailSection title="Allocated Machinery & Resources">
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {Array.isArray(resources.crews) && resources.crews.length > 0 && (
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-3)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  Assigned Maintenance Gangs & Crews
+                </div>
+                <div className="pill-list">
+                  {resources.crews.map((c, idx) => (
+                    <Badge key={idx} tone="amber">{formatResourceItem(c)}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {Array.isArray(resources.machinery) && resources.machinery.length > 0 && (
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-3)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  Heavy Track Machinery & On-Track Plants
+                </div>
+                <div className="pill-list">
+                  {resources.machinery.map((m, idx) => (
+                    <Badge key={idx} tone="purple">{formatResourceItem(m)}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {Array.isArray(resources.materials) && resources.materials.length > 0 && (
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-3)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  Track Materials & Spares Allocated
+                </div>
+                <div className="pill-list">
+                  {resources.materials.map((mat, idx) => (
+                    <Badge key={idx} tone="blue">{formatResourceItem(mat)}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </DetailSection>
+      )}
 
       {departments.length > 0 && (
         <DetailSection title="Departments">

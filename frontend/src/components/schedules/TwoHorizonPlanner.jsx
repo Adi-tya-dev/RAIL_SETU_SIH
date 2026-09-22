@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   CalendarDays,
   Zap,
@@ -22,9 +23,12 @@ import {
   ChevronDown,
   Train,
   Package,
+  X,
+  ExternalLink,
 } from "lucide-react";
 import { apiRequest } from "../../api/client";
 import { useToast } from "../../contexts/ToastContext";
+import { navigate } from "../../hooks/useRoute";
 import Button from "../common/Button";
 import Badge from "../common/Badge";
 
@@ -51,6 +55,14 @@ function formatPlanTime(dateStr) {
  * Explainability Modal: Step-by-step decision trace for adjusted block plans
  */
 function ExplainabilityModal({ plan, onClose, onApprove, onCancel, isActing }) {
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose?.();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   if (!plan) return null;
 
   const originalWindow = plan.original_window || "10:00 - 13:00 (180 min)";
@@ -61,7 +73,7 @@ function ExplainabilityModal({ plan, onClose, onApprove, onCancel, isActing }) {
   const isApproved = plan.status === "APPROVED";
   const isCancelled = plan.status === "CANCELLED";
 
-  return (
+  const modalContent = (
     <div
       style={{
         position: "fixed",
@@ -350,6 +362,10 @@ function ExplainabilityModal({ plan, onClose, onApprove, onCancel, isActing }) {
       </div>
     </div>
   );
+
+  return typeof document !== "undefined"
+    ? createPortal(modalContent, document.body)
+    : modalContent;
 }
 
 /**

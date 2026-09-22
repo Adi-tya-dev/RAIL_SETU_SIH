@@ -27,24 +27,30 @@ async function getOne(req, res) {
   }
 
   const {
-    plan_maintenance_tasks,
-    plan_train_impacts,
-    block_conflicts,
-    block_operations,
+    plan_maintenance_tasks = [],
+    plan_train_impacts = [],
+    block_conflicts = [],
+    block_operations = [],
     ...planBase
   } = plan;
 
-  const departments = [...new Set(plan_maintenance_tasks.map((task) => task.maintenance_task.department))];
+  const departments = [
+    ...new Set(
+      (plan_maintenance_tasks || [])
+        .map((task) => task?.maintenance_task?.department)
+        .filter(Boolean)
+    ),
+  ];
 
   res.json({
     success: true,
     data: {
       plan: planBase,
-      maintenance_tasks: plan_maintenance_tasks,
+      maintenance_tasks: plan_maintenance_tasks || [],
       departments,
-      train_impacts: plan_train_impacts,
-      conflicts: block_conflicts,
-      operations: block_operations,
+      train_impacts: plan_train_impacts || [],
+      conflicts: block_conflicts || [],
+      operations: block_operations || [],
     },
   });
 }

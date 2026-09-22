@@ -245,9 +245,28 @@ function generateWorkPackages(tasks, maxDistanceKm = DEFAULT_MAX_DISTANCE_KM) {
           rawClusters.push(currentCluster);
           currentCluster = [cur];
         } else if (distance <= maxDistanceKm) {
-          // Within proximity window (e.g. 14.5 km in Block 1 and 15.5 km in Block 2:
-          // distance is 1.0 km <= 2.0 km -> successfully clubbed into single slot)
-          currentCluster.push(cur);
+          // -------------------------------------------------------------
+          // GUARD: Asymmetric Urgency & "Poisonous Clubbing" Protection
+          // Prevent a heavy routine task (e.g. 240 mins) from inflating an
+          // urgent/emergency task (e.g. 60 mins), which would cause the
+          // urgent task to lose daytime slot eligibility.
+          // -------------------------------------------------------------
+          const clusterHasUrgent = currentCluster.some(
+            (t) => Number(t.urgency) >= 3 || String(t.category || "").toUpperCase() === "DEFECT"
+          );
+          const curIsRoutine = Number(cur.urgency || 1) <= 2;
+          const curDuration = Number(cur.duration) || Number(cur.duration_minutes) || 0;
+          const clusterMaxDuration = Math.max(
+            ...currentCluster.map((t) => Number(t.duration) || Number(t.duration_minutes) || 0)
+          );
+
+          if (clusterHasUrgent && curIsRoutine && curDuration > 180 && curDuration > clusterMaxDuration * 1.4) {
+            // Decouple routine task: keep urgent cluster lean and immediately slottable
+            rawClusters.push(currentCluster);
+            currentCluster = [cur];
+          } else {
+            currentCluster.push(cur);
+          }
         } else {
           // Distance threshold exceeded -> close cluster, start new one
           rawClusters.push(currentCluster);
@@ -368,6 +387,36 @@ function generateWorkPackages(tasks, maxDistanceKm = DEFAULT_MAX_DISTANCE_KM) {
       0
     );
     const timeSavedMins = Math.max(0, rawDurationSum - totalDurationRequired);
+    // -----------------------------------------------------------------
+    // Slack-Aware Early Execution & 2-Day Safety Buffer calculations
+    // -----------------------------------------------------------------
+    const nowMs = Date.now();
+    const taskDates = cluster
+      .map((t) => t.preferred_start || t.requested_at)
+      .filter(Boolean)
+      .map((d) => new Date(d).getTime())
+      .filter((d) => !Number.isNaN(d));
+    // Support both live timestamps and dataset planning dates
+    const planningBaselineMs = (taskDates.length > 0 && Math.min(...taskDates) < nowMs)
+      ? Math.min(...taskDates)
+      : nowMs;
+
+    const SAFETY_BUFFER_DAYS = 2;
+    const SAFETY_BUFFER_MS = SAFETY_BUFFER_DAYS * 24 * 60 * 60 * 1000;
+    let minSlackDays = null;
+    let isPullForwardCandidate = false;
+
+    if (earliestDeadline) {
+      const deadlineMs = new Date(earliestDeadline).getTime();
+      if (!Number.isNaN(deadlineMs)) {
+        const diffMs = deadlineMs - planningBaselineMs;
+        minSlackDays = Math.max(0, Math.round(diffMs / (24 * 60 * 60 * 1000)));
+        // If deadline is comfortably in the future (> 2 days buffer)
+        if (diffMs > SAFETY_BUFFER_MS) {
+          isPullForwardCandidate = true;
+        }
+      }
+    }
 
     return {
       package_id: `PKG_${index + 1}`,
@@ -421,6 +470,9 @@ function generateWorkPackages(tasks, maxDistanceKm = DEFAULT_MAX_DISTANCE_KM) {
       has_emergency: hasEmergency,
       earliest_deadline: earliestDeadline,
       earliest_preferred_start: earliestPreferredStart,
+      slack_days: minSlackDays,
+      safety_buffer_days: SAFETY_BUFFER_DAYS,
+      is_pull_forward_candidate: isPullForwardCandidate,
     };
   });
 }

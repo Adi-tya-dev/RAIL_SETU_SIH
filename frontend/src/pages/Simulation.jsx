@@ -104,7 +104,8 @@ export default function Simulation() {
 
   const plans = (plansQuery.data || []).filter((p) => p && p.plan_id);
   const tasks = useMemo(() => {
-    const list = detailQuery.data?.maintenance_tasks || [];
+    const payload = detailQuery.data?.data || detailQuery.data;
+    const list = payload?.maintenance_tasks || [];
     return list
       .map((link) => link.maintenance_task)
       .filter((t) => t && t.maintenance_task_id);

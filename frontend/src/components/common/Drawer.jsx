@@ -1,6 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 export default function Drawer({ open, onClose, title, subtitle, children, footer, width }) {
+  const bodyRef = useRef(null);
+
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (e) => {
@@ -10,9 +13,16 @@ export default function Drawer({ open, onClose, title, subtitle, children, foote
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  // Always reset scroll to the very top whenever the drawer opens or title/content changes
+  useEffect(() => {
+    if (open && bodyRef.current) {
+      bodyRef.current.scrollTop = 0;
+    }
+  }, [open, title]);
+
   if (!open) return null;
 
-  return (
+  const drawerContent = (
     <div className="drawer-overlay" onClick={onClose} role="presentation">
       <aside
         className="drawer"
@@ -22,18 +32,24 @@ export default function Drawer({ open, onClose, title, subtitle, children, foote
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="drawer__header">
-          <div>
+        <header className="drawer__head">
+          <div className="drawer__head-text">
             <h2>{title}</h2>
-            {subtitle && <p className="drawer__subtitle">{subtitle}</p>}
+            {subtitle && <p>{subtitle}</p>}
           </div>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="Close details">
+          <button type="button" className="drawer__close" onClick={onClose} aria-label="Close details">
             ✕
           </button>
         </header>
-        <div className="drawer__body">{children}</div>
-        {footer && <footer className="drawer__footer">{footer}</footer>}
+        <div className="drawer__body" ref={bodyRef}>
+          {children}
+        </div>
+        {footer && <footer className="drawer__foot">{footer}</footer>}
       </aside>
     </div>
   );
+
+  return typeof document !== "undefined"
+    ? createPortal(drawerContent, document.body)
+    : drawerContent;
 }

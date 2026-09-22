@@ -1238,15 +1238,15 @@ export default function TimetableSlots() {
               </div>
               <div style={{ fontSize: 12, display: "flex", flexDirection: "column", gap: 8 }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span className="text-faint">Machine Mobilization Dead-Time ($T_{dead}$):</span>
+                  <span className="text-faint">Machine Mobilization Dead-Time (T_dead):</span>
                   <span><strong>~20-30 mins</strong> (transit + track earthing)</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span className="text-faint">Track Possession Setup ($T_{setup}$):</span>
+                  <span className="text-faint">Track Possession Setup (T_setup):</span>
                   <span><strong>10 mins</strong> (flagging & detonators)</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span className="text-faint">Safety Clearance Buffer ($T_{buffer}$):</span>
+                  <span className="text-faint">Safety Clearance Buffer (T_buffer):</span>
                   <span><strong>15 mins</strong> before next train entry</span>
                 </div>
                 <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />

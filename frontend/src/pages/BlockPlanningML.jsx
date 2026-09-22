@@ -197,7 +197,16 @@ function PackageCard({ pkg, index, defaultOpen = false }) {
             )}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0, flexWrap: "wrap" }}>
+          {pkg.is_shadow_block && (
+            <Badge tone="teal" dot>Shadow Block (0m Delay)</Badge>
+          )}
+          {pkg.is_pulled_forward && (
+            <Badge tone="blue" dot>Pulled Forward ({pkg.slack_days_saved}d early)</Badge>
+          )}
+          {pkg.sub_cluster_split && (
+            <Badge tone="amber" dot>Rescued via Split</Badge>
+          )}
           {pkg.is_multi_block && (
             <Badge tone="purple" dot>Joint Corridor</Badge>
           )}
@@ -205,7 +214,7 @@ function PackageCard({ pkg, index, defaultOpen = false }) {
             <Badge tone="red" dot>Emergency</Badge>
           )}
           <Badge tone={isAssigned ? "green" : "red"} dot>
-            {isAssigned ? "Assigned" : "Unassigned"}
+            {pkg.status === "ASSIGNED_PIGGYBACK" ? "Piggybacked" : (isAssigned ? "Assigned" : "Unassigned")}
           </Badge>
           <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-2)", marginLeft: 4 }}>
             {pkg.duration_needed}
@@ -283,6 +292,75 @@ function PackageCard({ pkg, index, defaultOpen = false }) {
               </div>
             </div>
           </div>
+
+          {/* Opportunistic Pull-Forward Banner */}
+          {pkg.is_pulled_forward && (
+            <div
+              style={{
+                background: "rgba(59, 130, 246, 0.08)",
+                border: "1px solid rgba(59, 130, 246, 0.25)",
+                borderRadius: 8,
+                padding: "10px 14px",
+                marginBottom: 12,
+                fontSize: 12,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <Sparkles size={16} color="var(--blue)" />
+              <div>
+                <strong style={{ color: "var(--blue)" }}>Opportunistic Pull-Forward Execution:</strong>{" "}
+                <span>{pkg.pull_forward_note || `Preemptively scheduled ${pkg.slack_days_saved} days ahead of deadline with 2-day safety buffer.`}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Piggybacked Shadow Block Banner */}
+          {pkg.is_shadow_block && (
+            <div
+              style={{
+                background: "rgba(20, 184, 166, 0.08)",
+                border: "1px solid rgba(20, 184, 166, 0.25)",
+                borderRadius: 8,
+                padding: "10px 14px",
+                marginBottom: 12,
+                fontSize: 12,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <Zap size={16} color="var(--teal)" />
+              <div>
+                <strong style={{ color: "var(--teal)" }}>Piggybacked Macro Shadow Block:</strong>{" "}
+                <span>Zero marginal train delay; concurrently executed inside active corridor block ({pkg.piggybacked_on_package || "Parent Block"}).</span>
+              </div>
+            </div>
+          )}
+
+          {/* Sub-Cluster Rescued Banner */}
+          {pkg.sub_cluster_split && (
+            <div
+              style={{
+                background: "rgba(245, 158, 11, 0.08)",
+                border: "1px solid rgba(245, 158, 11, 0.25)",
+                borderRadius: 8,
+                padding: "10px 14px",
+                marginBottom: 12,
+                fontSize: 12,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <ShieldAlert size={16} color="var(--amber)" />
+              <div>
+                <strong style={{ color: "var(--amber)" }}>Rescued via Sub-Cluster Split:</strong>{" "}
+                <span>{pkg.split_note || "Urgent safety work was rescued from routine tasks to guarantee immediate daytime slotting."}</span>
+              </div>
+            </div>
+          )}
 
           {/* Conflict Reason for Unassigned */}
           {!isAssigned && pkg.unassigned_reason && (
@@ -939,7 +1017,9 @@ export default function BlockPlanningML() {
   // Filter schedule rows based on filterStatus
   const filtered = useMemo(() => {
     if (filterStatus === "ALL") return schedules;
-    if (filterStatus === "ASSIGNED") return schedules.filter((s) => s.status === "ASSIGNED");
+    if (filterStatus === "ASSIGNED") return schedules.filter((s) => s.status === "ASSIGNED" || s.status === "ASSIGNED_PIGGYBACK");
+    if (filterStatus === "PULLED_FORWARD") return schedules.filter((s) => s.is_pulled_forward);
+    if (filterStatus === "SHADOW") return schedules.filter((s) => s.is_shadow_block);
     if (filterStatus === "UNASSIGNED") return schedules.filter((s) => s.status === "UNASSIGNED");
     if (filterStatus === "EMERGENCY") return schedules.filter((s) => s.has_emergency);
     return schedules;
@@ -1274,7 +1354,9 @@ export default function BlockPlanningML() {
                   }}
                 >
                   <option value="ALL">All ({schedules.length})</option>
-                  <option value="ASSIGNED">Assigned ({schedules.filter((s) => s.status === "ASSIGNED").length})</option>
+                  <option value="ASSIGNED">Assigned ({schedules.filter((s) => s.status === "ASSIGNED" || s.status === "ASSIGNED_PIGGYBACK").length})</option>
+                  <option value="PULLED_FORWARD">Pulled Forward ({schedules.filter((s) => s.is_pulled_forward).length})</option>
+                  <option value="SHADOW">Shadow Blocks ({schedules.filter((s) => s.is_shadow_block).length})</option>
                   <option value="UNASSIGNED">Unassigned ({schedules.filter((s) => s.status === "UNASSIGNED").length})</option>
                   <option value="EMERGENCY">Emergency ({schedules.filter((s) => s.has_emergency).length})</option>
                 </select>
