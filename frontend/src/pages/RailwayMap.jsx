@@ -13,7 +13,7 @@ import Badge from "../components/common/Badge";
 import Button from "../components/common/Button";
 import Drawer from "../components/common/Drawer";
 import MaintenanceDrawer from "../components/maintenance/MaintenanceDrawer";
-import { navigate } from "../hooks/useRoute";
+import { navigate, useRoute } from "../hooks/useRoute";
 
 const INDIA_BOUNDS = [[7.5, 68.2], [35, 97.2]];
 const INDIA_CENTER = [22.5, 79.2];
@@ -716,34 +716,37 @@ export default function RailwayMap() {
   const [focusBounds, setFocusBounds] = useState(null);
   const [activeStationKey, setActiveStationKey] = useState("");
 
-  const [emergencyReroute, setEmergencyReroute] = useState(() => {
-    const hash = window.location.hash || "";
-    if (!hash.includes("?")) return null;
-    const params = new URLSearchParams(hash.split("?")[1]);
-    const trainId = params.get("trainId");
-    const trainNumber = params.get("trainNumber");
-    const block = params.get("block");
-    const strategy = params.get("strategy") || "SLW";
-    const strategyName = params.get("strategyName") || strategy;
-    const bypassed = new Set((params.get("bypassed") || "").split(",").filter(Boolean));
-    const served = new Set((params.get("served") || "").split(",").filter(Boolean));
-    if (trainId || trainNumber || block) {
-      return { trainId, trainNumber, block, strategy, strategyName, bypassed, served };
+  const currentRoute = useRoute();
+  const queryParams = useMemo(() => {
+    const qIndex = currentRoute.indexOf("?");
+    return qIndex >= 0 ? new URLSearchParams(currentRoute.slice(qIndex + 1)) : new URLSearchParams();
+  }, [currentRoute]);
+
+  const [emergencyReroute, setEmergencyReroute] = useState(null);
+
+  useEffect(() => {
+    const hasStrategy = queryParams.has("strategy");
+    const isEmergency = queryParams.get("emergency") === "true" || hasStrategy;
+    if (isEmergency) {
+      const tId = queryParams.get("trainId");
+      const tNum = queryParams.get("trainNumber");
+      const blk = queryParams.get("block");
+      const strategy = queryParams.get("strategy") || "SLW";
+      const strategyName = queryParams.get("strategyName") || strategy;
+      const bypassed = new Set((queryParams.get("bypassed") || "").split(",").filter(Boolean));
+      const served = new Set((queryParams.get("served") || "").split(",").filter(Boolean));
+      setEmergencyReroute({ trainId: tId, trainNumber: tNum, block: blk, strategy, strategyName, bypassed, served });
+      setIsEmergencyHudDismissed(false);
+      setIsEmergencyHudMinimized(false);
+    } else {
+      setEmergencyReroute(null);
     }
-    return null;
-  });
+  }, [queryParams]);
 
   const [isEmergencyHudMinimized, setIsEmergencyHudMinimized] = useState(false);
   const [isEmergencyHudDismissed, setIsEmergencyHudDismissed] = useState(false);
   const [isNetworkHudMinimized, setIsNetworkHudMinimized] = useState(false);
   const [isLegendMinimized, setIsLegendMinimized] = useState(false);
-
-  useEffect(() => {
-    if (emergencyReroute) {
-      setIsEmergencyHudDismissed(false);
-      setIsEmergencyHudMinimized(false);
-    }
-  }, [emergencyReroute?.trainId, emergencyReroute?.block]);
 
   useEffect(() => {
     let active = true;
@@ -966,16 +969,64 @@ export default function RailwayMap() {
     else detailQuery.reset();
   }
 
-  // Auto-select train when navigated from Emergency Rerouting link
+  // Auto-select train when navigated from URL parameters (e.g. from Train Drawer, Block Drawer, Conflicts)
   useEffect(() => {
-    if (!emergencyReroute) return;
-    if (emergencyReroute.trainId) {
-      selectTrain(emergencyReroute.trainId);
-    } else if (emergencyReroute.trainNumber && trains.length > 0) {
-      const match = trains.find((t) => String(t.train_number) === String(emergencyReroute.trainNumber));
-      if (match) selectTrain(match.train_id);
+    const urlTrainId = queryParams.get("trainId");
+    const urlTrainNumber = queryParams.get("trainNumber");
+    const urlBlock = queryParams.get("block") || queryParams.get("blockCode");
+    const hasConflictReq = queryParams.get("conflict") === "true" || queryParams.get("conflicts") === "true" || Boolean(queryParams.get("conflictId"));
+
+    let targetTrainId = urlTrainId;
+    if (!targetTrainId && urlTrainNumber && trains.length > 0) {
+      const match = trains.find((t) => String(t.train_number) === String(urlTrainNumber));
+      if (match) targetTrainId = match.train_id;
     }
-  }, [emergencyReroute, trains]);
+
+    // If only block is provided, match the train that traverses that block
+    if (!targetTrainId && urlBlock && networkTrains.length > 0) {
+      const matchTrain = networkTrains.find((t) =>
+        (t.train_block_movements || []).some((m) =>
+          normalizeId(m.block?.block_code) === normalizeId(urlBlock) ||
+          normalizeId(m.block_id) === normalizeId(urlBlock)
+        )
+      );
+      if (matchTrain) targetTrainId = matchTrain.train_id;
+    }
+
+    if (targetTrainId && targetTrainId !== selectedTrainId) {
+      selectTrain(targetTrainId);
+    }
+
+    if (hasConflictReq) {
+      setLayers((prev) => ({ ...prev, conflicts: true }));
+    }
+  }, [queryParams, trains, networkTrains, selectedTrainId]);
+
+  // When conflict is requested via URL, auto-focus conflict once ready
+  useEffect(() => {
+    const hasConflictReq = queryParams.get("conflict") === "true" || queryParams.get("conflicts") === "true" || Boolean(queryParams.get("conflictId"));
+    const conflictId = queryParams.get("conflictId");
+    const urlBlock = queryParams.get("block");
+
+    if (hasConflictReq && trainConflicts.length > 0 && !conflict) {
+      let target = null;
+      if (conflictId) {
+        target = trainConflicts.find((c) => String(c.conflict_id) === String(conflictId));
+      }
+      if (!target && urlBlock) {
+        target = trainConflicts.find((c) =>
+          normalizeId(c.block?.block_code) === normalizeId(urlBlock) ||
+          normalizeId(c.block_id) === normalizeId(urlBlock)
+        );
+      }
+      if (!target) {
+        target = trainConflicts[0];
+      }
+      if (target) {
+        focusConflict(target);
+      }
+    }
+  }, [queryParams, trainConflicts, conflict]);
 
   const rerouteSlwPath = useMemo(() => {
     if (!emergencyReroute || routePoints.length < 2) return [];
@@ -1033,6 +1084,28 @@ export default function RailwayMap() {
     const bounds = stations.length > 1 ? stations : [[stations[0][0] - 0.05, stations[0][1] - 0.05], [stations[0][0] + 0.05, stations[0][1] + 0.05]];
     setFocusBounds({ bounds, token: Date.now() });
   }
+
+  const conflictMarkers = useMemo(() => {
+    if (!layers.conflicts) return [];
+    return trainConflicts.map((c) => {
+      let point = null;
+      if (c.maintenance_task) {
+        const match = maintenanceLocations.find((m) => normalizeId(m.task?.maintenance_task_id) === normalizeId(c.maintenance_task?.maintenance_task_id));
+        if (match?.point) point = match.point;
+      }
+      if (!point && c.block) {
+        const bId = normalizeId(c.block.block_id || c.block_id);
+        const bCode = normalizeId(c.block.block_code);
+        const match = maintenanceLocations.find((m) => m.blockId === bId || normalizeId(m.task?.block?.block_code) === bCode);
+        if (match?.point) point = match.point;
+      }
+      if (!point && routePoints.length > 0) {
+        const midIdx = Math.floor(routePoints.length / 2);
+        point = routePoints[midIdx];
+      }
+      return { conflict: c, point };
+    }).filter((item) => Boolean(item.point));
+  }, [layers.conflicts, trainConflicts, maintenanceLocations, routePoints]);
 
   return (
     <div className="railway-map-page">
@@ -1333,6 +1406,49 @@ export default function RailwayMap() {
                 </Marker>
               );
             })}
+            {layers.conflicts && conflictMarkers.map(({ conflict: c, point }, idx) => (
+              <Marker
+                key={c.conflict_id || idx}
+                position={point}
+                icon={L.divIcon({
+                  className: "railway-conflict-marker-wrap",
+                  html: `<div class="railway-conflict-ping" title="Click to view conflict"><span class="ping-ring"></span><span class="ping-dot">⚠</span></div>`,
+                  iconSize: [28, 28],
+                  iconAnchor: [14, 14],
+                })}
+                eventHandlers={{ click: () => focusConflict(c) }}
+              >
+                <Tooltip permanent direction="top" className="railway-conflict-tooltip">
+                  ⚠ {c.conflict_type ? humanize(c.conflict_type) : "Conflict"}: {c.block?.block_code || "Route Block"}
+                </Tooltip>
+                <Popup>
+                  <div style={{ padding: 4 }}>
+                    <strong style={{ color: "#ef4444" }}>⚠ {humanize(c.conflict_type) || "Schedule Conflict"}</strong><br />
+                    <p style={{ margin: "4px 0", fontSize: 12 }}>{c.description}</p>
+                    <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4 }}>
+                      Block: <strong>{c.block?.block_code || "—"}</strong>
+                    </div>
+                    <button
+                      type="button"
+                      style={{
+                        marginTop: 8,
+                        padding: "5px 10px",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        background: "#ef4444",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: 4,
+                        cursor: "pointer",
+                      }}
+                      onClick={() => focusConflict(c)}
+                    >
+                      View Conflict Details
+                    </button>
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
           </MapContainer>
           {emergencyReroute && !isEmergencyHudDismissed && (
             isEmergencyHudMinimized ? (

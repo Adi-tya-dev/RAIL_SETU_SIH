@@ -66,31 +66,45 @@ export default function TrainDrawer({ train, onClose }) {
       title={`${trainData.train_number || train.train_number} — ${trainData.train_name || train.train_name}`}
       subtitle={`${trainData.train_type || "Express"} · Priority ${trainData.priority ?? 1}`}
       footer={
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", gap: 12 }}>
-          <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Button
               variant="outline"
               size="sm"
               onClick={() => {
                 onClose();
-                navigate("/map");
+                navigate(`/map?trainId=${trainData.train_id}&trainNumber=${trainData.train_number}`);
               }}
             >
               <MapPin size={13} style={{ marginRight: 6 }} />
               Live Map
             </Button>
             {impacts.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  onClose();
-                  navigate("/train-impacts");
-                }}
-              >
-                <AlertTriangle size={13} style={{ marginRight: 6 }} />
-                View Impacts
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    onClose();
+                    navigate(`/map?trainId=${trainData.train_id}&trainNumber=${trainData.train_number}&conflict=true`);
+                  }}
+                  style={{ borderColor: "rgba(239, 68, 68, 0.4)", color: "#ef4444" }}
+                >
+                  <AlertTriangle size={13} style={{ marginRight: 6, color: "#ef4444" }} />
+                  View Map Conflict
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    onClose();
+                    navigate(`/train-impacts?trainId=${trainData.train_id}&trainNumber=${trainData.train_number}`);
+                  }}
+                >
+                  <ExternalLink size={13} style={{ marginRight: 6 }} />
+                  View Impacts
+                </Button>
+              </>
             )}
           </div>
           <Button variant="secondary" size="sm" onClick={onClose}>
@@ -475,6 +489,21 @@ export default function TrainDrawer({ train, onClose }) {
                       {imp.plan.adjustment_reason}
                     </div>
                   )}
+
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        onClose();
+                        navigate(`/map?trainId=${trainData.train_id}&trainNumber=${trainData.train_number}&block=${imp.block?.block_code || imp.plan?.block?.block_code || ""}&conflict=true`);
+                      }}
+                      style={{ borderColor: "rgba(239, 68, 68, 0.4)", color: "#ef4444", fontSize: 11 }}
+                    >
+                      <MapPin size={12} style={{ marginRight: 4 }} />
+                      View on Map
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>

@@ -83,7 +83,7 @@ export default function BlockDrawer({ block, onClose }) {
               size="sm"
               onClick={() => {
                 onClose();
-                navigate("/map");
+                navigate(`/map?blockCode=${blockData.block_code || block.block_code}&blockId=${blockData.block_id || block.block_id}`);
               }}
             >
               <MapPin size={13} style={{ marginRight: 6 }} />
@@ -447,6 +447,21 @@ export default function BlockDrawer({ block, onClose }) {
                       <span>Affected Trains: <strong>{p.affected_train_count ?? 0}</strong></span>
                     </div>
                   )}
+
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        onClose();
+                        navigate(`/map?blockCode=${blockData.block_code || block.block_code}&blockId=${blockData.block_id || block.block_id}&conflict=true`);
+                      }}
+                      style={{ fontSize: 11 }}
+                    >
+                      <MapPin size={12} style={{ marginRight: 4 }} />
+                      View on Map
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>

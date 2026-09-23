@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Activity, AlertTriangle, Clock3, Train, ShieldCheck, Route, Calendar, Layers } from "lucide-react";
+import { Activity, AlertTriangle, Clock3, Train, ShieldCheck, Route, Calendar, Layers, MapPin, X } from "lucide-react";
 import { listTrainImpacts } from "../api/trainImpacts.api";
 import { useApi } from "../hooks/useApi";
+import { useRoute, navigate } from "../hooks/useRoute";
 import PageHeader from "../components/common/PageHeader";
 import Button from "../components/common/Button";
 import Badge from "../components/common/Badge";
@@ -112,8 +113,15 @@ const COLUMNS = [
 ];
 
 export default function TrainImpacts() {
+  const currentPath = useRoute();
+  const queryParams = useMemo(() => {
+    const qIdx = currentPath.indexOf("?");
+    return qIdx >= 0 ? new URLSearchParams(currentPath.slice(qIdx + 1)) : new URLSearchParams();
+  }, [currentPath]);
+
   const { data, loading, error, run } = useApi();
   const [selected, setSelected] = useState(null);
+  const [trainFilter, setTrainFilter] = useState(() => queryParams.get("trainNumber") || queryParams.get("trainId") || "");
 
   const load = useCallback(() => run(() => listTrainImpacts({ limit: 100 })), [run]);
 
@@ -121,29 +129,51 @@ export default function TrainImpacts() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    const qTrain = queryParams.get("trainNumber") || queryParams.get("trainId") || "";
+    if (qTrain) setTrainFilter(qTrain);
+  }, [queryParams]);
+
   const impacts = data?.data || [];
+
+  const visibleImpacts = useMemo(() => {
+    if (!trainFilter) return impacts;
+    const filterLower = trainFilter.toLowerCase();
+    return impacts.filter((i) => {
+      const tId = String(i.train_id || i.train?.train_id || "").toLowerCase();
+      const tNum = String(i.train?.train_number || "").toLowerCase();
+      const tName = String(i.train?.train_name || "").toLowerCase();
+      return tId === filterLower || tNum === filterLower || tName.includes(filterLower);
+    });
+  }, [impacts, trainFilter]);
+
+  useEffect(() => {
+    if (trainFilter && visibleImpacts.length > 0 && !selected) {
+      setSelected(visibleImpacts[0]);
+    }
+  }, [trainFilter, visibleImpacts, selected]);
 
   const summary = useMemo(() => {
     const trainIds = new Set(
-      impacts.map((i) => String(i.train_id || i.train?.train_id)).filter(Boolean)
+      visibleImpacts.map((i) => String(i.train_id || i.train?.train_id)).filter(Boolean)
     );
-    const rawDelay = impacts.reduce(
+    const rawDelay = visibleImpacts.reduce(
       (sum, i) => sum + (Number(i.estimated_delay_minutes) || 0),
       0
     );
     const totalDelay = Math.round(rawDelay);
-    const critical = impacts.filter((i) => (Number(i.train?.priority) || 3) <= 1).length;
-    const protectedCount = impacts.filter(
+    const critical = visibleImpacts.filter((i) => (Number(i.train?.priority) || 3) <= 1).length;
+    const protectedCount = visibleImpacts.filter(
       (i) => Number(i.estimated_delay_minutes || 0) === 0
     ).length;
 
     return {
-      trains: trainIds.size || impacts.length,
+      trains: trainIds.size || visibleImpacts.length,
       totalDelay,
       critical,
       protectedCount,
     };
-  }, [impacts]);
+  }, [visibleImpacts]);
 
   return (
     <>
@@ -151,9 +181,22 @@ export default function TrainImpacts() {
         title="Train Impact Analysis"
         subtitle="Operational effects, train regulation, and delay mitigation across network corridors"
         actions={
-          <Button variant="primary" loading={loading} loadingText="Loading…" onClick={load}>
-            Refresh
-          </Button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {trainFilter && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setTrainFilter("")}
+                style={{ fontSize: 12 }}
+              >
+                <X size={13} style={{ marginRight: 4 }} />
+                Filter: {trainFilter} (Clear)
+              </Button>
+            )}
+            <Button variant="primary" loading={loading} loadingText="Loading…" onClick={load}>
+              Refresh
+            </Button>
+          </div>
         }
       />
 
@@ -186,6 +229,27 @@ export default function TrainImpacts() {
           </div>
         </div>
 
+        {trainFilter && (
+          <div
+            style={{
+              padding: "10px 14px",
+              background: "var(--accent-dim, rgba(245,158,11,0.1))",
+              border: "1px solid var(--border-2)",
+              borderRadius: 8,
+              marginBottom: 14,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              fontSize: 13,
+            }}
+          >
+            <span>Showing impacts for Train <strong>#{trainFilter}</strong> ({visibleImpacts.length} records)</span>
+            <Button variant="ghost" size="sm" onClick={() => setTrainFilter("")}>
+              Show All Trains
+            </Button>
+          </div>
+        )}
+
         {loading && (
           <div className="state state--loading">
             <span className="spinner" />
@@ -201,16 +265,16 @@ export default function TrainImpacts() {
           </div>
         )}
 
-        {!loading && !error && impacts.length === 0 && (
+        {!loading && !error && visibleImpacts.length === 0 && (
           <div className="state state--empty">
-            No train impacts are present in the loaded plans.
+            {trainFilter ? `No impacts found for train "${trainFilter}".` : "No train impacts are present in the loaded plans."}
           </div>
         )}
 
-        {!loading && !error && impacts.length > 0 && (
+        {!loading && !error && visibleImpacts.length > 0 && (
           <DataTable
             columns={COLUMNS}
-            rows={impacts}
+            rows={visibleImpacts}
             ariaLabel="Train impacts"
             rowKey={(row, index) => `${row.plan_id}-${row.impact_id || index}`}
             onRowClick={setSelected}
@@ -224,6 +288,29 @@ export default function TrainImpacts() {
         onClose={() => setSelected(null)}
         title={selected?.train ? `${selected.train.train_number} · ${selected.train.train_name}` : "Train Impact Details"}
         subtitle={selected ? `Associated with Plan #${selected.plan_id}` : ""}
+        footer={
+          selected && (
+            <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const tId = selected.train_id || selected.train?.train_id || "";
+                  const tNum = selected.train?.train_number || "";
+                  const bCode = selected.block?.block_code || selected.plan?.block?.block_code || "";
+                  navigate(`/map?trainId=${tId}&trainNumber=${tNum}&block=${bCode}&conflict=true`);
+                }}
+                style={{ borderColor: "rgba(239, 68, 68, 0.4)", color: "#ef4444" }}
+              >
+                <MapPin size={13} style={{ marginRight: 6, color: "#ef4444" }} />
+                View on Live Map
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setSelected(null)}>
+                Close
+              </Button>
+            </div>
+          )
+        }
       >
         {selected && (
           <div className="stack">
