@@ -505,10 +505,11 @@ function offsetPoint([lat, lng], seed, magnitude = 0.003) {
 }
 
 function nearestOnPath(point, path) {
-  if (!point || !path?.length) return point;
+  if (!point || !Array.isArray(point) || !path?.length) return point || null;
   let best = path[0];
   let bestDistance = Infinity;
   path.forEach((candidate) => {
+    if (!candidate || !Array.isArray(candidate)) return;
     const value = (candidate[0] - point[0]) ** 2 + (candidate[1] - point[1]) ** 2;
     if (value < bestDistance) {
       bestDistance = value;
@@ -905,8 +906,10 @@ export default function RailwayMap() {
         if (isOnRoute && routePath.length > 1) {
           if (items.length > 1) {
             // Find base point nearest on path
-            const baseNearest = nearestOnPath(item.point, routePath);
-            let baseIdx = routePath.findIndex((p) => p[0] === baseNearest[0] && p[1] === baseNearest[1]);
+            const baseNearest = item.point ? nearestOnPath(item.point, routePath) : null;
+            let baseIdx = (baseNearest && Array.isArray(baseNearest))
+              ? routePath.findIndex((p) => p && p[0] === baseNearest[0] && p[1] === baseNearest[1])
+              : -1;
             if (baseIdx === -1) baseIdx = Math.floor(routePath.length / 2);
 
             // Spread tasks along route path points around baseIdx so each task has its own milestone!
@@ -918,15 +921,16 @@ export default function RailwayMap() {
             const targetIdx = Math.round(startIdx + spreadStep * (index + 1));
             snapped = routePath[Math.min(routePath.length - 1, Math.max(0, targetIdx))];
           } else {
-            snapped = nearestOnPath(item.point, routePath);
+            snapped = item.point ? nearestOnPath(item.point, routePath) : (routePath[Math.floor(routePath.length / 2)] || null);
           }
         } else if (item.point && routePath.length > 1) {
           const nearest = nearestOnPath(item.point, routePath);
+          if (!nearest || !Array.isArray(nearest)) return;
           const dist = Math.hypot(nearest[0] - item.point[0], nearest[1] - item.point[1]);
           if (dist > 0.12) return;
         }
 
-        if (!snapped) return;
+        if (!snapped || !Array.isArray(snapped) || !Number.isFinite(snapped[0]) || !Number.isFinite(snapped[1])) return;
         // Minor lateral offset across track (e.g. Traction on catenary side, Signal on wayside)
         const lateralAngle = (index % 2 === 0 ? 80 : -80) * (Math.PI / 180);
         const point = [snapped[0] + Math.cos(lateralAngle) * 0.0025, snapped[1] + Math.sin(lateralAngle) * 0.0025];
@@ -937,7 +941,7 @@ export default function RailwayMap() {
     return result;
   }, [maintenanceLocations, movementBlockIds, routeSectionIds, selectedTrain, routePath, emergencyReroute]);
 
-  const overviewMaintenance = useMemo(() => maintenanceLocations.filter((item) => item.point), [maintenanceLocations]);
+  const overviewMaintenance = useMemo(() => maintenanceLocations.filter((item) => item.point && Array.isArray(item.point) && Number.isFinite(item.point[0]) && Number.isFinite(item.point[1])), [maintenanceLocations]);
   const storedConflicts = useMemo(() => (conflicts || []).filter((item) => normalizeId(item.train_id) === selectedTrainId || normalizeId(item.train?.train_id) === selectedTrainId), [conflicts, selectedTrainId]);
   const derivedConflicts = useMemo(() => {
     if (!selectedTrain) return [];
@@ -1080,7 +1084,12 @@ export default function RailwayMap() {
     const task = maintenance.find((entry) => normalizeId(entry.block_id) === blockId || normalizeId(entry.block?.block_id) === blockId);
     const sectionId = normalizeId(task?.section_id || task?.section?.section_id);
     const stations = (sectionModel.sections.get(sectionId) || []).map(coordinate).filter(Boolean);
-    if (!stations.length) return;
+    if (!stations.length) {
+      if (routePoints.length >= 2) {
+        setFocusBounds({ bounds: routePoints, token: Date.now() });
+      }
+      return;
+    }
     const bounds = stations.length > 1 ? stations : [[stations[0][0] - 0.05, stations[0][1] - 0.05], [stations[0][0] + 0.05, stations[0][1] + 0.05]];
     setFocusBounds({ bounds, token: Date.now() });
   }
@@ -1104,7 +1113,7 @@ export default function RailwayMap() {
         point = routePoints[midIdx];
       }
       return { conflict: c, point };
-    }).filter((item) => Boolean(item.point));
+    }).filter((item) => Boolean(item.point) && Array.isArray(item.point) && Number.isFinite(item.point[0]) && Number.isFinite(item.point[1]));
   }, [layers.conflicts, trainConflicts, maintenanceLocations, routePoints]);
 
   return (
