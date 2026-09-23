@@ -600,6 +600,58 @@ function MapViewport({ points, request, focus }) {
   return null;
 }
 
+const STATE_LABELS = [
+  // Northern Region
+  { id: "ladakh", name: "LADAKH", lat: 34.5, lng: 77.8, size: "md" },
+  { id: "jk", name: "JAMMU & KASHMIR", lat: 33.7, lng: 74.8, size: "sm" },
+  { id: "hp", name: "HIMACHAL PRADESH", lat: 31.9, lng: 77.15, size: "xs" },
+  { id: "pb", name: "PUNJAB", lat: 30.9, lng: 75.3, size: "sm" },
+  { id: "ch", name: "Chandigarh", lat: 30.74, lng: 76.78, size: "xxs" },
+  { id: "hr", name: "HARYANA", lat: 29.1, lng: 76.05, size: "sm" },
+  { id: "dl", name: "New Delhi", lat: 28.61, lng: 77.21, size: "xs", isCapital: true },
+  { id: "uk", name: "UTTARAKHAND", lat: 30.15, lng: 79.2, size: "xs" },
+  { id: "rj", name: "RAJASTHAN", lat: 26.5, lng: 73.6, size: "lg" },
+
+  // Central Region
+  { id: "up", name: "UTTAR PRADESH", lat: 27.15, lng: 80.85, size: "md" },
+  { id: "mp", name: "MADHYA PRADESH", lat: 23.4, lng: 77.8, size: "lg" },
+  { id: "cg", name: "CHHATTISGARH", lat: 21.25, lng: 81.85, size: "sm", rotate: -55 },
+
+  // Western Region
+  { id: "gj", name: "GUJARAT", lat: 22.75, lng: 71.6, size: "md" },
+  { id: "dnhdd", name: "DADRA & NAGAR HAVELI\nAND DAMAN & DIU", lat: 20.35, lng: 69.8, size: "xxs", align: "right" },
+  { id: "mh", name: "MAHARASHTRA", lat: 19.45, lng: 76.0, size: "lg" },
+  { id: "ga", name: "GOA", lat: 15.35, lng: 73.8, size: "xxs" },
+
+  // Eastern Region
+  { id: "br", name: "BIHAR", lat: 25.75, lng: 85.8, size: "md" },
+  { id: "jh", name: "JHARKHAND", lat: 23.65, lng: 85.45, size: "sm" },
+  { id: "or", name: "ODISHA", lat: 20.45, lng: 84.4, size: "md" },
+  { id: "wb", name: "WEST BENGAL", lat: 23.1, lng: 87.8, size: "sm" },
+  { id: "sk", name: "SIKKIM", lat: 27.55, lng: 88.5, size: "xxs" },
+
+  // North-Eastern Region
+  { id: "as", name: "ASSAM", lat: 26.2, lng: 92.8, size: "sm" },
+  { id: "ml", name: "MEGHALAYA", lat: 25.5, lng: 91.3, size: "xs" },
+  { id: "ar", name: "ARUNACHAL PRADESH", lat: 28.1, lng: 94.6, size: "xs", rotate: -15 },
+  { id: "nl", name: "NAGALAND", lat: 26.1, lng: 94.4, size: "xxs" },
+  { id: "mn", name: "MANIPUR", lat: 24.8, lng: 93.9, size: "xxs" },
+  { id: "mz", name: "MIZORAM", lat: 23.2, lng: 92.9, size: "xxs" },
+  { id: "tr", name: "TRIPURA", lat: 23.8, lng: 91.7, size: "xxs" },
+
+  // Southern Region
+  { id: "tg", name: "TELANGANA", lat: 17.85, lng: 79.1, size: "md" },
+  { id: "ap", name: "ANDHRA PRADESH", lat: 15.45, lng: 79.8, size: "md" },
+  { id: "ka", name: "KARNATAKA", lat: 14.7, lng: 75.8, size: "md" },
+  { id: "kl", name: "KERALA", lat: 10.35, lng: 76.45, size: "sm", rotate: -72 },
+  { id: "tn", name: "TAMIL NADU", lat: 11.1, lng: 78.5, size: "md" },
+  { id: "py", name: "PUDUCHERRY", lat: 11.93, lng: 80.05, size: "xxs" },
+
+  // Islands
+  { id: "ld", name: "LAKSHADWEEP\n(INDIA)", lat: 10.5, lng: 71.6, size: "xs", align: "right" },
+  { id: "an", name: "ANDAMAN & NICOBAR ISLANDS\n(INDIA)", lat: 11.5, lng: 91.9, size: "xs", rotate: -80, align: "right" },
+];
+
 function BoundaryLayers({ districts, states }) {
   const map = useMap();
   useEffect(() => {
@@ -618,11 +670,35 @@ function BoundaryLayers({ districts, states }) {
     if (states) {
       layers.push(L.geoJSON(states, {
         style: { color: "#2c5a7c", weight: 0.8, opacity: 0.5, fillColor: "#123455", fillOpacity: 0.06 },
-        onEachFeature: (feature, layer) => {
-          const name = feature.properties?.name;
-          if (name) layer.bindTooltip(name, { permanent: true, direction: "center", className: "boundary-label" });
-        },
       }).addTo(map));
+
+      // Custom cartographic state labels placed at exact coordinates matching reference map
+      const labelGroup = L.layerGroup();
+      STATE_LABELS.forEach((label) => {
+        const isCapital = Boolean(label.isCapital);
+        const rotateStyle = label.rotate ? `transform: translate(-50%, -50%) rotate(${label.rotate}deg);` : "";
+        const alignClass = label.align ? `state-label--align-${label.align}` : "";
+        const textHtml = isCapital
+          ? `<span class="state-label__capital-icon">★</span><span class="state-label__text">${label.name}</span>`
+          : `<span class="state-label__text">${label.name.replace(/\n/g, "<br/>")}</span>`;
+
+        const icon = L.divIcon({
+          className: "custom-state-label-marker",
+          html: `<div class="state-label state-label--${label.size || 'sm'} ${alignClass}" style="${rotateStyle}">${textHtml}</div>`,
+          iconSize: [0, 0],
+          iconAnchor: [0, 0],
+        });
+
+        const marker = L.marker([label.lat, label.lng], {
+          icon,
+          interactive: false,
+          pane: "overlayPane",
+          zIndexOffset: -500,
+        });
+        labelGroup.addLayer(marker);
+      });
+      labelGroup.addTo(map);
+      layers.push(labelGroup);
     }
     return () => layers.forEach((layer) => map.removeLayer(layer));
   }, [map, districts, states]);
