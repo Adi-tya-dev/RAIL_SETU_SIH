@@ -178,17 +178,30 @@ async function buildBlocks(ref) {
 async function buildTimetable(ref) {
   const rows = [];
   for (const train of ref.trains) {
-    if (!COA_TRAIN_NUMBERS.includes(train.train_number)) continue;
-    for (const stop of train.train_routes) {
+    if (train.train_routes && train.train_routes.length > 0) {
+      for (const stop of train.train_routes) {
+        rows.push({
+          train_number: train.train_number,
+          train_name: train.train_name,
+          train_type: train.train_type,
+          schedule_day: COA_SERVICE_DAY,
+          sequence_number: stop.sequence_number,
+          station_code: stop.station ? stop.station.station_code : "NDLS",
+          scheduled_arrival: stop.scheduled_arrival,
+          scheduled_departure: stop.scheduled_departure,
+        });
+      }
+    } else {
+      // Dynamic entry for trains fetched online without fixed seeded routes yet
       rows.push({
         train_number: train.train_number,
         train_name: train.train_name,
-        train_type: train.train_type,
+        train_type: train.train_type || "EXPRESS",
         schedule_day: COA_SERVICE_DAY,
-        sequence_number: stop.sequence_number,
-        station_code: stop.station.station_code,
-        scheduled_arrival: stop.scheduled_arrival,
-        scheduled_departure: stop.scheduled_departure,
+        sequence_number: 1,
+        station_code: "NDLS",
+        scheduled_arrival: null,
+        scheduled_departure: "2026-09-15T08:00:00.000Z",
       });
     }
   }

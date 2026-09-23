@@ -39,25 +39,34 @@ async function findAll(query = {}) {
                 },
               },
             },
+            plan_maintenance_tasks: {
+              include: {
+                maintenance_task: true,
+              },
+            },
           },
         },
       },
     }),
   ]);
 
-  const formatted = conflicts.map((c) => ({
-    conflict_id: String(c.conflict_id),
-    plan_id: String(c.plan_id),
-    train_id: c.train_id ? String(c.train_id) : null,
-    conflict_type: c.conflict_type,
-    severity: c.severity,
-    description: c.description,
-    resolved: c.resolved,
-    created_at: c.created_at,
-    train: c.train,
-    plan: c.plan,
-    block: c.plan?.block || null,
-  }));
+  const formatted = conflicts.map((c) => {
+    const maintTask = c.plan?.plan_maintenance_tasks?.[0]?.maintenance_task || null;
+    return {
+      conflict_id: String(c.conflict_id),
+      plan_id: String(c.plan_id),
+      train_id: c.train_id ? String(c.train_id) : null,
+      conflict_type: c.conflict_type,
+      severity: c.severity,
+      description: c.description,
+      resolved: c.resolved,
+      created_at: c.created_at,
+      train: c.train,
+      plan: c.plan,
+      block: c.plan?.block || null,
+      maintenance_task: maintTask,
+    };
+  });
 
   return {
     data: formatted,

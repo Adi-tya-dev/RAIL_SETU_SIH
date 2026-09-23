@@ -43,3 +43,19 @@ export async function listConflicts(params = {}) {
     return { data: [], pagination: {}, planCount: 0 };
   }
 }
+
+/**
+ * Trigger backend conflict detection (POST /api/conflicts/detect)
+ * Idempotent — backend skips if conflicts already exist unless force=true
+ */
+export async function detectConflicts(force = false) {
+  try {
+    const res = await apiRequest("/conflicts/detect", {
+      method: "POST",
+      body: { force },
+    });
+    return res;
+  } catch (err) {
+    return { success: false, error: err?.message || "Detection failed" };
+  }
+}

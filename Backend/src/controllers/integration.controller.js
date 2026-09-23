@@ -133,8 +133,22 @@ async function injectSimulatorRequest(req, res) {
   });
 }
 
+const onlineRailwayService = require("../services/onlineRailway.service");
+
+async function fetchOnlineTrains(req, res) {
+  const limit = Number(req.query.limit || req.body?.limit || 50);
+  const data = await onlineRailwayService.fetchAndSyncOnlineTrains(limit);
+  res.json({ success: true, data });
+}
+
+async function onlineStatus(req, res) {
+  const data = await onlineRailwayService.getOnlineStatus();
+  res.json({ success: true, data });
+}
+
 module.exports = {
   sources, runSync, listSyncs, latestSync,
   listRequests, listErrors, coa,
   events, watcherStatus, injectSimulatorRequest,
+  fetchOnlineTrains, onlineStatus,
 };

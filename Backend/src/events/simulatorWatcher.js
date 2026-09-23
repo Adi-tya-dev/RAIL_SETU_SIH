@@ -24,6 +24,7 @@
 
 const logger   = require("../utils/logger");
 const eventBus = require("./eventBus");
+const env = require("../config/env");
 
 const { tmsSimulator }  = require("../integration/simulators/tms.simulator");
 const { smmsSimulator } = require("../integration/simulators/smms.simulator");
@@ -32,8 +33,8 @@ const { tdmsSimulator } = require("../integration/simulators/tdms.simulator");
 // ─── Config ──────────────────────────────────────────────────────────────────
 const POLL_INTERVAL_MS    = Number(process.env.WATCHER_INTERVAL_MS)  || 5_000;
 const AUTO_GEN_INTERVAL_MS = Number(process.env.AUTO_GEN_INTERVAL_MS) || 150_000; // 2.5 min
-const WATCHER_ENABLED     = process.env.WATCHER_ENABLED   !== "false";
-const AUTO_GEN_ENABLED    = process.env.AUTO_GEN_ENABLED  !== "false";
+const WATCHER_ENABLED     = env.sourceMode !== "LIVE" && process.env.WATCHER_ENABLED !== "false";
+const AUTO_GEN_ENABLED    = env.sourceMode !== "LIVE" && process.env.AUTO_GEN_ENABLED !== "false";
 
 // ─── Source definitions ───────────────────────────────────────────────────────
 const SOURCES = [

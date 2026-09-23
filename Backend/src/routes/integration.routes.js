@@ -24,6 +24,8 @@ router.get("/watcher/status", integrationController.watcherStatus);
 // POST /api/integration/simulator/TMS/inject    { request_id, ... }
 // POST /api/integration/simulator/SMMS/inject   { request_id, ... }
 // POST /api/integration/simulator/TDMS/inject   { request_id, ... }
-router.post("/simulator/:source/inject", integrationController.injectSimulatorRequest);
+// ── Online Indian Railways Live/Open Dataset Ingestion ──────────────────────
+router.post("/fetch-online-trains", integrationController.fetchOnlineTrains);
+router.get("/online-status", integrationController.onlineStatus);
 
 module.exports = router;

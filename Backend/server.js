@@ -5,6 +5,7 @@ const { checkDatabaseConnection, disconnectDatabase } = require("./src/services/
 const { startWatcher, stopWatcher } = require("./src/events/simulatorWatcher");
 const changeProcessor = require("./src/events/changeProcessor");
 const sseManager = require("./src/events/sseManager");
+const conflictDetection = require("./src/services/conflictDetection.service");
 
 const server = app.listen(env.port, async () => {
   logger.info(`Backend listening on port ${env.port} (${env.nodeEnv})`);
@@ -12,6 +13,10 @@ const server = app.listen(env.port, async () => {
   try {
     await checkDatabaseConnection();
     logger.info("Database connection verified");
+    // Auto-detect conflicts from existing train movements and maintenance tasks
+    conflictDetection.ensureConflicts().catch((err) =>
+      logger.warn(`[conflictDetection] Startup detection failed: ${err.message}`)
+    );
   } catch (err) {
     logger.error(`Database connection failed at startup: ${err.message}`);
   }

@@ -5,7 +5,7 @@ import "leaflet/dist/leaflet.css";
 import { Activity, AlertTriangle, ChevronRight, Crosshair, Layers3, MapPinned, Search, TrainFront, X, ShieldAlert, ChevronDown, ChevronUp, Minus } from "lucide-react";
 import { getTrain, listTrains } from "../api/trains.api";
 import { listMaintenance } from "../api/maintenance.api";
-import { listConflicts } from "../api/conflicts.api";
+import { listConflicts, detectConflicts } from "../api/conflicts.api";
 import { useApi, useApiQuery } from "../hooks/useApi";
 import { DEPARTMENT_HEX, DEPARTMENT_LABEL, LEVEL_LABEL, SEVERITY_LABEL, SEVERITY_TONE, TRAIN_PRIORITY_HEX, TRAIN_PRIORITY_SHORT, statusTone } from "../utils/constants";
 import { formatDateTime, humanize } from "../utils/formatters";
@@ -79,6 +79,19 @@ function maintenanceIcon(department, critical) {
     html: `<span class="railway-maint-icon${critical ? " railway-maint-icon--critical" : ""}" style="--maint:${color}"></span>`,
     iconSize: [14, 14],
     iconAnchor: [7, 7],
+  });
+}
+
+function conflictIcon(severity, count) {
+  const size = severity >= 5 ? 22 : severity >= 4 ? 18 : 15;
+  const anchor = Math.round(size / 2);
+  const color = severity >= 5 ? "#ef4444" : severity >= 4 ? "#f97316" : severity >= 3 ? "#f59e0b" : "#eab308";
+  const label = count > 1 ? String(count) : "!";
+  return L.divIcon({
+    className: "railway-conflict-icon-wrap",
+    html: `<span class="railway-conflict-icon" style="--conflict:${color};--sz:${size}px">${label}</span>`,
+    iconSize: [size, size],
+    iconAnchor: [anchor, anchor],
   });
 }
 
@@ -768,7 +781,18 @@ export default function RailwayMap() {
   }, [search, trains]);
 
   const routeStations = useMemo(() => orderedStations(selectedTrain), [selectedTrain]);
-  const routePoints = useMemo(() => routeStations.map((route) => coordinate(route.station)).filter(Boolean), [routeStations]);
+  const routePoints = useMemo(() => {
+    const pointsFromRoutes = routeStations.map((route) => coordinate(route.station)).filter(Boolean);
+    if (pointsFromRoutes.length >= 2) return pointsFromRoutes;
+
+    // Fallback: If train has origin and destination station coordinates, connect them!
+    const originPoint = coordinate(selectedTrain?.origin_station);
+    const destPoint = coordinate(selectedTrain?.destination_station);
+    if (originPoint && destPoint) {
+      return [originPoint, destPoint];
+    }
+    return pointsFromRoutes;
+  }, [routeStations, selectedTrain]);
   const routePath = useMemo(() => corridorPath(routePoints), [routePoints]);
   const routeDistance = useMemo(() => routePoints.slice(1).reduce((total, point, index) => total + distanceBetween(routePoints[index], point), 0), [routePoints]);
   const routeMaxDelay = useMemo(() => {
@@ -935,6 +959,52 @@ export default function RailwayMap() {
   }, [maintenanceLocations, movementBlockIds, routeSectionIds, selectedTrain, routePath, emergencyReroute]);
 
   const overviewMaintenance = useMemo(() => maintenanceLocations.filter((item) => item.point), [maintenanceLocations]);
+
+  // ── Overview conflict markers (shown when no train is selected) ───────────
+  // Group conflicts by block, compute a map position from the section model
+  const overviewConflicts = useMemo(() => {
+    if (selectedTrain) return []; // Train-specific conflicts handled above
+    if (!layers.conflicts) return [];
+    const byBlock = new Map();
+    conflicts.forEach((c) => {
+      const blockId = normalizeId(c.plan?.block?.block_id || c.block?.block_id || c.block_id || "");
+      if (!blockId) return;
+      if (!byBlock.has(blockId)) byBlock.set(blockId, { conflicts: [], block: c.plan?.block || c.block });
+      byBlock.get(blockId).conflicts.push(c);
+    });
+    const result = [];
+    byBlock.forEach(({ conflicts: group, block }) => {
+      const bId = normalizeId(block?.block_id);
+      const maintMatch = maintenanceLocations.find((m) => m.blockId === bId && m.point);
+      let base = maintMatch?.point;
+
+      if (!base) {
+        const trackSectionId = normalizeId(block?.track?.section?.section_id || block?.section_id || "");
+        const stationList = (sectionModel.sections.get(trackSectionId) || []);
+        base = placeOnSection(stationList, block?.track?.section, block, 0, 1);
+      }
+
+      if (!base) {
+        const firstWithTrain = group.find((c) => c.train?.origin_station || c.train?.destination_station);
+        const originPt = coordinate(firstWithTrain?.train?.origin_station);
+        const destPt = coordinate(firstWithTrain?.train?.destination_station);
+        if (originPt && destPt) {
+          base = [(originPt[0] + destPt[0]) / 2, (originPt[1] + destPt[1]) / 2];
+        } else if (originPt) {
+          base = originPt;
+        } else if (destPt) {
+          base = destPt;
+        }
+      }
+
+      if (!base) return;
+      const maxSeverity = Math.max(...group.map((c) => Number(c.severity) || 1));
+      const seed = hashSeed(`conflict-${block?.block_id || Math.random()}`);
+      const point = offsetPoint(base, seed, 0.006);
+      result.push({ point, conflicts: group, block, maxSeverity, blockId: String(block?.block_id || "") });
+    });
+    return result;
+  }, [conflicts, sectionModel, selectedTrain, layers.conflicts, maintenanceLocations]);
   const storedConflicts = useMemo(() => (conflicts || []).filter((item) => normalizeId(item.train_id) === selectedTrainId || normalizeId(item.train?.train_id) === selectedTrainId), [conflicts, selectedTrainId]);
   const derivedConflicts = useMemo(() => {
     if (!selectedTrain) return [];
@@ -1087,11 +1157,57 @@ export default function RailwayMap() {
           </div>
         )}
         {!selectedTrain && !detailQuery.loading && !detailQuery.error && (
-          <div className="railway-map-empty">
-            <div className="railway-map-empty__icon"><TrainFront size={22} /></div>
-            <strong>India railway network</strong>
-            <p>Select a train to highlight its route and operational impact.</p>
-          </div>
+          <>
+            <div className="railway-map-empty">
+              <div className="railway-map-empty__icon"><TrainFront size={22} /></div>
+              <strong>India railway network</strong>
+              <p>Select a train to highlight its route and operational impact, or inspect active network conflicts below.</p>
+            </div>
+            {conflicts.length > 0 && (
+              <section className="railway-map-records" id="railway-map-overview-conflicts" style={{ marginTop: 12 }}>
+                <div className="railway-map-section-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <AlertTriangle size={15} color="#ef4444" />
+                    Network Conflicts ({conflicts.length})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/conflicts")}
+                    style={{ background: "none", border: "none", color: "#60a5fa", cursor: "pointer", fontSize: 12, padding: 0, fontWeight: 600 }}
+                  >
+                    View all ↗
+                  </button>
+                </div>
+                {conflicts.slice(0, 5).map((item, index) => (
+                  <button
+                    type="button"
+                    className="railway-map-record railway-map-record--button"
+                    key={item.conflict_id || index}
+                    onClick={() => focusConflict(item)}
+                    title={item.description || "Click to focus conflict on map"}
+                  >
+                    <span>
+                      <b>{humanize(item.conflict_type)}</b>
+                      <small>{item.block?.block_code || item.train?.train_number || "Block unavailable"}</small>
+                    </span>
+                    <Badge tone={SEVERITY_TONE[item.severity] || "red"}>
+                      {SEVERITY_LABEL[item.severity] || "Conflict"}
+                    </Badge>
+                  </button>
+                ))}
+                {conflicts.length > 5 && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    style={{ width: "100%", marginTop: 8 }}
+                    onClick={() => navigate("/conflicts")}
+                  >
+                    See all {conflicts.length} conflicts in detail →
+                  </Button>
+                )}
+              </section>
+            )}
+          </>
         )}
         {selectedTrain && (
           <>
@@ -1270,10 +1386,13 @@ export default function RailwayMap() {
                 )}
               </>
             )}
-            {layers.stations && routeStations.map((route, index) => {
+            {layers.stations && (routeStations.length > 0 ? routeStations : [
+              selectedTrain?.origin_station ? { station: selectedTrain.origin_station, sequence_number: 1 } : null,
+              selectedTrain?.destination_station ? { station: selectedTrain.destination_station, sequence_number: 2 } : null,
+            ].filter(Boolean)).map((route, index, arr) => {
               const point = coordinate(route.station);
               const code = route.station?.station_code;
-              let role = index === 0 ? "source" : index === routeStations.length - 1 ? "destination" : "intermediate";
+              let role = index === 0 ? "source" : index === arr.length - 1 ? "destination" : "intermediate";
               const isBypassed = emergencyReroute?.bypassed?.has(code);
               const isServed = emergencyReroute?.served?.has(code);
               if (isBypassed) role = "bypassed";
@@ -1333,6 +1452,30 @@ export default function RailwayMap() {
                 </Marker>
               );
             })}
+            {overviewConflicts.map(({ point, conflicts: group, block, maxSeverity }) => (
+              <Marker
+                key={`conflict-${block?.block_id}-${group.length}`}
+                position={point}
+                icon={conflictIcon(maxSeverity, group.length)}
+                eventHandlers={{ click: () => navigate("/conflicts") }}
+              >
+                <Tooltip className="railway-conflict-tooltip">
+                  <strong>⚠ {group.length} conflict{group.length > 1 ? "s" : ""} — Block {block?.block_code}</strong>
+                  <br />{group.filter((c) => !c.resolved).length} open · Max severity {maxSeverity}
+                </Tooltip>
+                <Popup>
+                  <strong style={{ color: "#ef4444" }}>Block {block?.block_code} — {group.length} Conflict{group.length > 1 ? "s" : ""}</strong><br />
+                  {group.slice(0, 3).map((c, i) => (
+                    <span key={i} style={{ display: "block", fontSize: 11, marginTop: 2 }}>• {c.conflict_type?.replace(/_/g, " ")} (Sev {c.severity})</span>
+                  ))}
+                  {group.length > 3 && <span style={{ fontSize: 10, color: "#94a3b8" }}>+{group.length - 3} more…</span>}
+                  <br /><button
+                    style={{ marginTop: 6, fontSize: 11, color: "#60a5fa", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                    onClick={() => navigate("/conflicts")}
+                  >View all conflicts →</button>
+                </Popup>
+              </Marker>
+            ))}
           </MapContainer>
           {emergencyReroute && !isEmergencyHudDismissed && (
             isEmergencyHudMinimized ? (

@@ -19,6 +19,7 @@ const STATIONS = [
   { code: "TPJ", name: "Tiruchirappalli", lat: 10.7960, lng: 78.6880, section: "SEC-BNMS" },
   { code: "TPTY", name: "Tirupati", lat: 13.6270, lng: 79.4100, section: "SEC-BNMS" },
   { code: "MAS", name: "Chennai Central", lat: 13.0827, lng: 80.2747, section: "SEC-CNDP" },
+  { code: "GDR", name: "Gudur Junction", lat: 14.0107, lng: 79.8472, section: "SEC-CNDP" },
   { code: "NLR", name: "Nellore", lat: 14.4400, lng: 79.9860, section: "SEC-CNDP" },
   { code: "BZA", name: "Vijayawada Junction", lat: 16.5200, lng: 80.6200, section: "SEC-CNDP" },
   { code: "KMM", name: "Khammam", lat: 17.2510, lng: 80.1560, section: "SEC-CNDP" },

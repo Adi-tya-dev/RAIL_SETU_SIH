@@ -77,15 +77,34 @@ async function runSync({ sources: requestedSources, triggeredBy = "MANUAL" } = {
       run = { sync_run_id: 1, triggered_by: triggeredBy, status: "RUNNING", started_at: startedAt };
     }
 
-    const summary = { total_records: 20, by_source: { TMS: 8, SMMS: 6, TDMS: 6 } };
+    const selected = sources.map((code) => registry.get(code));
+    const results = await Promise.all(selected.map((source) => source.ingest({ runId: run.sync_run_id })));
+    const bySource = {};
     const errors = [];
+    let totalRecords = 0;
+    let hasFailure = false;
+    let hasSuccess = false;
+
+    results.forEach((result, index) => {
+      const code = selected[index].code;
+      const count = Number(result.imported || 0) + Number(result.updated || 0);
+      bySource[code] = count;
+      totalRecords += count;
+      if (result.status === "FAILED") hasFailure = true;
+      if (result.status === "SUCCESS" || result.status === "PARTIAL") hasSuccess = true;
+      if (result.error) errors.push({ source: code, error: result.error });
+      if (result.invalid_count) errors.push({ source: code, invalid_count: result.invalid_count });
+    });
+
+    const status = hasFailure && hasSuccess ? "PARTIAL" : hasFailure ? "FAILED" : "SUCCESS";
+    const summary = { total_records: totalRecords, by_source: bySource, results };
     const completedAt = new Date();
 
     try {
       if (run.sync_run_id && prisma.sourceSyncRun) {
         await prisma.sourceSyncRun.update({
           where: { sync_run_id: run.sync_run_id },
-          data: { status: "SUCCESS", completed_at: completedAt, summary, errors },
+          data: { status, completed_at: completedAt, summary, errors },
         });
       }
     } catch (e) {}
@@ -93,7 +112,7 @@ async function runSync({ sources: requestedSources, triggeredBy = "MANUAL" } = {
     return {
       sync_run_id: run.sync_run_id,
       triggered_by: triggeredBy,
-      status: "SUCCESS",
+      status,
       started_at: startedAt,
       completed_at: completedAt,
       summary,

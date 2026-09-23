@@ -2753,6 +2753,26 @@ path.leaflet-interactive:focus-visible {
 .railway-maint-icon::after { content: ""; position: absolute; top: 2px; left: 2px; width: 3px; height: 3px; border-radius: 50%; background: var(--maint); opacity: 0.95; }
 .railway-maint-icon--critical { box-shadow: 0 0 0 3px rgba(239,68,68,0.16), 0 1px 4px rgba(0,0,0,0.55); }
 .railway-maint-icon:hover { transform: scale(1.22); }
+.railway-conflict-icon-wrap { border: 0; background: transparent; cursor: pointer; }
+.railway-conflict-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: var(--sz, 18px); height: var(--sz, 18px);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--conflict) 30%, #fff), var(--conflict));
+  border: 2px solid var(--conflict);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--conflict) 35%, transparent), 0 0 14px color-mix(in srgb, var(--conflict) 60%, transparent);
+  color: #fff; font-size: 9px; font-weight: 800; letter-spacing: 0;
+  animation: pulse-conflict 1.8s infinite ease-in-out;
+  transition: transform 160ms ease;
+}
+.railway-conflict-icon:hover { transform: scale(1.25); }
+.railway-conflict-tooltip { padding: 4px 10px; border: 1px solid rgba(239,68,68,0.5); border-radius: 6px; background: rgba(30,5,5,0.96); color: #fca5a5; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.railway-conflict-tooltip::before { display: none; }
+@keyframes pulse-conflict {
+  0%, 100% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--conflict) 35%, transparent), 0 0 14px color-mix(in srgb, var(--conflict) 60%, transparent); }
+  50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--conflict) 45%, transparent), 0 0 24px color-mix(in srgb, var(--conflict) 80%, transparent); transform: scale(1.08); }
+}
+
 .railway-route-core, .railway-route-glow { transition: opacity 200ms ease; outline: none !important; }
 .railway-route-glow { filter: drop-shadow(0 0 8px rgba(34,211,238,0.6)); pointer-events: none !important; }
 .railway-route-network { transition: opacity 220ms ease; outline: none !important; cursor: pointer; }
