@@ -606,9 +606,9 @@ const STATE_LABELS = [
   { id: "jk", name: "JAMMU & KASHMIR", lat: 33.65, lng: 74.85 },
   { id: "hp", name: "HIMACHAL PRADESH", lat: 31.90, lng: 77.15 },
   { id: "pb", name: "PUNJAB", lat: 30.85, lng: 75.35 },
-  { id: "ch", name: "CHANDIGARH", lat: 31.10, lng: 77.15, calloutFrom: [30.73, 76.78], align: "left" },
+  { id: "ch", name: "CHANDIGARH", lat: 31.10, lng: 77.15, calloutFrom: [30.73, 76.78], align: "left", minZoom: 5 },
   { id: "hr", name: "HARYANA", lat: 29.15, lng: 76.05 },
-  { id: "dl", name: "NEW DELHI", lat: 28.61, lng: 77.38, isCapital: true, align: "left" },
+  { id: "dl", name: "NEW DELHI", lat: 28.61, lng: 77.38, isCapital: true, align: "left", minZoom: 5 },
   { id: "uk", name: "UTTARAKHAND", lat: 30.15, lng: 79.20 },
   { id: "rj", name: "RAJASTHAN", lat: 26.50, lng: 73.60 },
 
@@ -619,16 +619,16 @@ const STATE_LABELS = [
 
   // Western Region
   { id: "gj", name: "GUJARAT", lat: 22.70, lng: 71.50 },
-  { id: "dnhdd", name: "DADRA & NAGAR HAVELI\nAND DAMAN & DIU", lat: 20.35, lng: 70.10, calloutFrom: [20.24, 72.93], align: "right" },
+  { id: "dnhdd", name: "DADRA & NAGAR HAVELI\nAND DAMAN & DIU", lat: 20.35, lng: 70.10, calloutFrom: [20.24, 72.93], align: "right", minZoom: 5 },
   { id: "mh", name: "MAHARASHTRA", lat: 19.30, lng: 75.90 },
-  { id: "ga", name: "GOA", lat: 15.35, lng: 73.40, calloutFrom: [15.36, 74.05], align: "right" },
+  { id: "ga", name: "GOA", lat: 15.35, lng: 73.40, calloutFrom: [15.36, 74.05], align: "right", minZoom: 5 },
 
   // Eastern Region
   { id: "br", name: "BIHAR", lat: 25.70, lng: 85.70 },
   { id: "jh", name: "JHARKHAND", lat: 23.65, lng: 85.50 },
   { id: "or", name: "ODISHA", lat: 20.45, lng: 84.40 },
   { id: "wb", name: "WEST BENGAL", lat: 23.20, lng: 87.80 },
-  { id: "sk", name: "SIKKIM", lat: 28.00, lng: 88.47, calloutFrom: [27.57, 88.47] },
+  { id: "sk", name: "SIKKIM", lat: 28.00, lng: 88.47, calloutFrom: [27.57, 88.47], minZoom: 5 },
 
   // North-Eastern Region
   { id: "as", name: "ASSAM", lat: 26.25, lng: 92.80 },
@@ -637,7 +637,7 @@ const STATE_LABELS = [
   { id: "nl", name: "NAGALAND", lat: 26.10, lng: 94.45 },
   { id: "mn", name: "MANIPUR", lat: 24.80, lng: 93.90 },
   { id: "mz", name: "MIZORAM", lat: 23.20, lng: 92.85 },
-  { id: "tr", name: "TRIPURA", lat: 23.40, lng: 91.10, calloutFrom: [23.75, 91.74], align: "right" },
+  { id: "tr", name: "TRIPURA", lat: 23.40, lng: 91.10, calloutFrom: [23.75, 91.74], align: "right", minZoom: 5 },
 
   // Southern Region
   { id: "tg", name: "TELANGANA", lat: 17.80, lng: 79.00 },
@@ -645,7 +645,7 @@ const STATE_LABELS = [
   { id: "ka", name: "KARNATAKA", lat: 14.65, lng: 75.80 },
   { id: "kl", name: "KERALA", lat: 10.35, lng: 76.40, rotate: -72 },
   { id: "tn", name: "TAMIL NADU", lat: 11.00, lng: 78.40 },
-  { id: "py", name: "PUDUCHERRY", lat: 11.85, lng: 80.60, calloutFrom: [11.85, 79.86], align: "left" },
+  { id: "py", name: "PUDUCHERRY", lat: 11.85, lng: 80.60, calloutFrom: [11.85, 79.86], align: "left", minZoom: 5 },
 
   // Islands
   { id: "ld", name: "LAKSHADWEEP\n(INDIA)", lat: 10.40, lng: 71.60, align: "right" },
@@ -660,11 +660,33 @@ function BoundaryLayers({ districts, states }) {
 
     // Dedicated custom pane for state labels to render cleanly above dark district fill
     // and below station markers and route glows
-    if (!map.getPane("stateLabelsPane")) {
-      const pane = map.createPane("stateLabelsPane");
+    let pane = map.getPane("stateLabelsPane");
+    if (!pane) {
+      pane = map.createPane("stateLabelsPane");
       pane.style.zIndex = "450";
       pane.style.pointerEvents = "none";
     }
+
+    // Dynamic zoom-based scaling system
+    const updateZoomScale = () => {
+      if (!pane) return;
+      const zoom = map.getZoom();
+      // Continuous smooth scaling:
+      // Zoom <= 4 (extreme zoom out): ~9.5px
+      // Zoom 5 (default overview): ~12.5px
+      // Zoom 6 (regional view): ~15.0px
+      // Zoom 7 (state view): ~17.5px
+      // Zoom >= 8 (zoomed in): ~20.0px
+      const fontSize = Math.max(9, Math.min(20, 9.5 + (zoom - 4) * 2.6));
+      const letterSpacing = Math.max(0.05, Math.min(0.12, 0.05 + (zoom - 4) * 0.015));
+      pane.style.setProperty("--state-label-size", `${fontSize.toFixed(1)}px`);
+      pane.style.setProperty("--state-label-spacing", `${letterSpacing.toFixed(3)}em`);
+      pane.classList.toggle("state-labels-pane--zoomed-out", zoom < 4.8);
+      pane.classList.toggle("state-labels-pane--deep-zoom", zoom >= 8);
+    };
+
+    map.on("zoom zoomend viewreset", updateZoomScale);
+    updateZoomScale();
 
     if (districts) {
       layers.push(L.geoJSON(districts, {
@@ -690,6 +712,7 @@ function BoundaryLayers({ districts, states }) {
         const inlineTransform = `transform: translate(${xOffset}, -50%) ${rotateTransform};`;
         const alignClass = label.align ? `state-label--align-${label.align}` : "";
         const capitalClass = isCapital ? "state-label--capital" : "";
+        const minZoomClass = label.minZoom ? "state-label--minzoom-5" : "";
         const textHtml = isCapital
           ? `<span class="state-label__capital-icon">★</span><span class="state-label__text">${label.name}</span>`
           : `<span class="state-label__text">${label.name.replace(/\n/g, "<br/>")}</span>`;
@@ -698,6 +721,7 @@ function BoundaryLayers({ districts, states }) {
         if (label.calloutFrom) {
           const leaderLine = L.polyline([label.calloutFrom, [label.lat, label.lng]], {
             pane: "stateLabelsPane",
+            className: `state-leader-line ${label.minZoom ? "state-leader-line--minzoom-5" : ""}`,
             color: "#4a7b9d",
             weight: 1,
             dashArray: "2, 3",
@@ -706,6 +730,7 @@ function BoundaryLayers({ districts, states }) {
           });
           const leaderDot = L.circleMarker(label.calloutFrom, {
             pane: "stateLabelsPane",
+            className: `state-leader-dot ${label.minZoom ? "state-leader-dot--minzoom-5" : ""}`,
             radius: 1.5,
             color: "#4a7b9d",
             fillColor: "#8eb4d6",
@@ -718,8 +743,8 @@ function BoundaryLayers({ districts, states }) {
         }
 
         const icon = L.divIcon({
-          className: "custom-state-label-marker",
-          html: `<div class="state-label ${alignClass} ${capitalClass}" style="${inlineTransform}">${textHtml}</div>`,
+          className: `custom-state-label-marker ${minZoomClass}`,
+          html: `<div class="state-label ${alignClass} ${capitalClass} ${minZoomClass}" style="${inlineTransform}">${textHtml}</div>`,
           iconSize: [0, 0],
           iconAnchor: [0, 0],
         });
@@ -734,7 +759,10 @@ function BoundaryLayers({ districts, states }) {
       labelGroup.addTo(map);
       layers.push(labelGroup);
     }
-    return () => layers.forEach((layer) => map.removeLayer(layer));
+    return () => {
+      map.off("zoom zoomend viewreset", updateZoomScale);
+      layers.forEach((layer) => map.removeLayer(layer));
+    };
   }, [map, districts, states]);
   return null;
 }
