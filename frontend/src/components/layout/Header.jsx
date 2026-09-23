@@ -87,21 +87,28 @@ export default function Header({ currentPath, onToggleSidebar, collapsed }) {
   return (
     <header className="topbar">
       <div className="topbar__brand">
-        <button className="topbar__toggle" onClick={onToggleSidebar} aria-label="Toggle sidebar">
+        <button
+          className="topbar__toggle"
+          onClick={onToggleSidebar}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
           <PanelLeft size={18} />
         </button>
-        <div className="brand">
-          <div className="brand-mark" aria-hidden="true">
-            <span className="brand-mark__rail" />
-            <span className="brand-mark__bridge" />
-          </div>
-          <div className="brand-text">
-            <div className="brand-name">
-              <span className="brand-name__hindi">रेल</span><span className="brand-name__english">Setu</span>
+        {!collapsed && (
+          <div className="brand">
+            <div className="brand-mark" aria-hidden="true">
+              <span className="brand-mark__rail" />
+              <span className="brand-mark__bridge" />
             </div>
-            <div className="brand-tag">Operations control</div>
+            <div className="brand-text">
+              <div className="brand-name">
+                <span className="brand-name__hindi">रेल</span><span className="brand-name__english">Setu</span>
+              </div>
+              <div className="brand-tag">Operations control</div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="topbar__title">

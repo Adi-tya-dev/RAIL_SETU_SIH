@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Blocks, CalendarX2, Clock3, TrainFront, Wrench, RefreshCw, Zap } from "lucide-react";
-import { listConflicts, detectConflicts } from "../api/conflicts.api";
+import { AlertTriangle, Blocks, CalendarX2, Clock3, TrainFront, Wrench } from "lucide-react";
+import { listConflicts } from "../api/conflicts.api";
 import { useApi } from "../hooks/useApi";
+import { navigate } from "../hooks/useRoute";
 import PageHeader from "../components/common/PageHeader";
 import Button from "../components/common/Button";
 import Badge from "../components/common/Badge";
@@ -232,7 +233,35 @@ export default function Conflicts() {
           />
         )}
       </section>
-      <Drawer open={Boolean(selected)} onClose={() => setSelected(null)} title="Conflict Details" subtitle={selected ? `Plan ${selected.plan_id || "—"}` : ""}>
+      <Drawer
+        open={Boolean(selected)}
+        onClose={() => setSelected(null)}
+        title="Conflict Details"
+        subtitle={selected ? `Plan ${selected.plan_id || "—"}` : ""}
+        footer={
+          selected && (
+            <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const tId = selected.train_id || selected.train?.train_id || "";
+                  const tNum = selected.train?.train_number || "";
+                  const bCode = selected.block?.block_code || "";
+                  navigate(`/map?trainId=${tId}&trainNumber=${tNum}&block=${bCode}&conflict=true&conflictId=${selected.conflict_id || ""}`);
+                }}
+                style={{ borderColor: "rgba(239, 68, 68, 0.4)", color: "#ef4444" }}
+              >
+                <MapPin size={13} style={{ marginRight: 6, color: "#ef4444" }} />
+                View on Live Map
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setSelected(null)}>
+                Close
+              </Button>
+            </div>
+          )
+        }
+      >
         {selected && (
           <div className="stack">
             {selected.description && (
