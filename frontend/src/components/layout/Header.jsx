@@ -4,35 +4,6 @@ import { useLiveEvents } from "../../contexts/LiveEventsContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { ROUTE_TITLES, ROUTE_SUBTITLES, APP_NAME } from "../../utils/constants";
 
-const STATUS_CLASS = {
-  online:        "status-chip--online",
-  offline:       "status-chip--offline",
-  checking:      "status-chip--checking",
-  not_connected: "status-chip--not_connected",
-  connected:     "status-chip--connected",
-  unknown:       "status-chip--unknown",
-};
-
-const STATUS_LABEL = {
-  online:        "Online",
-  offline:       "Offline",
-  checking:      "Checking...",
-  not_connected: "Not Connected",
-  connected:     "Connected",
-  unknown:       "Unknown",
-};
-
-function StatusChip({ label, status }) {
-  const cls  = STATUS_CLASS[status] || "status-chip--unknown";
-  const text = STATUS_LABEL[status] || "Unknown";
-  return (
-    <div className={`status-chip ${cls}`}>
-      <span className="status-chip__dot" />
-      <span className="status-chip__label">{label}</span>
-      <span className="status-chip__value">{text}</span>
-    </div>
-  );
-}
 
 /** Small animated "● LIVE" indicator showing SSE connection state */
 function LiveIndicator({ status, newCount }) {
@@ -104,7 +75,7 @@ function LiveIndicator({ status, newCount }) {
 }
 
 export default function Header({ currentPath, onToggleSidebar, collapsed }) {
-  const { backend, database, refresh } = useSystemStatus();
+  const { refresh } = useSystemStatus();
   const { liveStatus, newRequestCount } = useLiveEvents();
   const { theme, setTheme } = useTheme();
 
@@ -165,11 +136,6 @@ export default function Header({ currentPath, onToggleSidebar, collapsed }) {
 
         {/* Live SSE status indicator */}
         <LiveIndicator status={liveStatus} newCount={newRequestCount} />
-
-        <div className="topbar__status">
-          <StatusChip label="Backend"  status={backend} />
-          <StatusChip label="Database" status={database} />
-        </div>
 
         <button className="topbar__refresh" onClick={refresh} aria-label="Refresh status" title="Refresh status">
           <RefreshCw size={14} />

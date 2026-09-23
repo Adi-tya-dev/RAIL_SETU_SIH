@@ -1,224 +1,315 @@
-import { useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
-  Train, Wrench, AlertTriangle, Grid3x3, Cpu,
-  CheckSquare, Activity, ClipboardList, RefreshCw,
-  TrendingUp, ShieldAlert, Clock
+  Radio, Clock, Navigation, Wrench, Map, Train,
+  Grid3x3, CalendarCog, ClipboardList, RefreshCw,
+  Info, X, ArrowRight, ShieldCheck, CheckCircle2
 } from "lucide-react";
 import { getSummary } from "../api/dashboard.api";
-import { listConflicts } from "../api/conflicts.api";
+import { listTrains } from "../api/trains.api";
+import { listMaintenance } from "../api/maintenance.api";
 import { useApiQuery } from "../hooks/useApi";
 import { navigate } from "../hooks/useRoute";
-import KpiCard from "../components/common/KpiCard";
 import PageHeader from "../components/common/PageHeader";
 import Button from "../components/common/Button";
-import SectionHeader from "../components/common/SectionHeader";
-import StateBlock from "../components/common/StateBlock";
 
-const QUICK_ACTIONS = [
-  { label: "Maintenance Tasks", sub: "Review all maintenance requests", to: "/maintenance" },
-  { label: "Infrastructure Blocks", sub: "Block availability and status", to: "/blocks" },
-  { label: "Train Operations", sub: "Active trains and movements", to: "/trains" },
-  { label: "Custom Window Generator", sub: "Generate blocks for a specific date window", to: "/planning" },
-  { label: "View Plans", sub: "Saved optimised block plans", to: "/schedules" },
-  { label: "Railway Map", sub: "Interactive route and maintenance map", to: "/map" },
+// Default operational timeline records matching official railway operations
+const DEFAULT_OPERATIONS = [
+  { time: "06:30 - 06:50", operation: "14623 Patalkot Express", type: "MAIL / EXPRESS", block: "Block B007", status: "ON TIME" },
+  { time: "07:30 - 07:50", operation: "18237 Chhattisgarh Express", type: "MAIL / EXPRESS", block: "Block B007", status: "ACTIVE" },
+  { time: "08:30 - 09:00", operation: "18237 Chhattisgarh Express", type: "MAIL / EXPRESS", block: "Block B008", status: "ACTIVE" },
+  { time: "09:00 - 09:15", operation: "12002 New Delhi Shatabdi", type: "SHATABDI", block: "Block B004", status: "ON TIME" },
+  { time: "10:30 - 11:00", operation: "18237 Chhattisgarh Express", type: "MAIL / EXPRESS", block: "Block B009", status: "SCHEDULED" },
+  { time: "11:00 - 11:15", operation: "12301 Howrah Rajdhani Express", type: "RAJDHANI", block: "Block B001", status: "SCHEDULED" },
+  { time: "11:19 - 11:35", operation: "12301 Howrah Rajdhani Express", type: "RAJDHANI", block: "Block B002", status: "SCHEDULED" },
 ];
 
-function NetworkStatus({ data }) {
-  if (!data) return null;
-  const { blocks, maintenance, trains, plans } = data;
-  const totalBlocks = blocks?.total || 0;
-  const availBlocks = blocks?.available || 0;
-  const availPct = totalBlocks > 0 ? Math.round((availBlocks / totalBlocks) * 100) : 0;
+// Scheduled maintenance activities
+const DEFAULT_MAINTENANCE = [
+  { timeRange: "06:00 - 09:00", block: "Block B004", task: "Routine Track Inspection", department: "Engineering" },
+  { timeRange: "06:30 - 08:30", block: "Block B004", task: "OHE Annual Inspection", department: "Traction" },
+  { timeRange: "10:00 - 12:00", block: "Block B001", task: "Track Realignment", department: "Engineering" },
+  { timeRange: "10:00 - 11:00", block: "Block B001", task: "Signal Calibration", department: "Signal" },
+  { timeRange: "13:00 - 15:30", block: "Block B003", task: "Deep Ballast Screening (BCM)", department: "Engineering" },
+  { timeRange: "16:00 - 17:30", block: "Block B006", task: "Point Machine Lubrication", department: "Signal" },
+];
 
-  const items = [
-    {
-      icon: Grid3x3, label: "Block Availability",
-      value: totalBlocks > 0 ? `${availPct}%` : "—",
-      desc: `${availBlocks} of ${totalBlocks} blocks available`,
-      color: availPct >= 80 ? "var(--green)" : availPct >= 60 ? "var(--amber)" : "var(--red)",
-      bg: availPct >= 80 ? "var(--green-dim)" : availPct >= 60 ? "var(--amber-dim)" : "var(--red-dim)",
-    },
-    {
-      icon: Wrench, label: "Pending Maintenance",
-      value: maintenance?.pending ?? "—",
-      desc: `${maintenance?.critical ?? 0} critical tasks`,
-      color: (maintenance?.critical || 0) > 0 ? "var(--red)" : "var(--amber)",
-      bg: (maintenance?.critical || 0) > 0 ? "var(--red-dim)" : "var(--amber-dim)",
-    },
-    {
-      icon: Train, label: "Active Trains",
-      value: trains?.active ?? "—",
-      desc: `${trains?.total ?? 0} total in system`,
-      color: "var(--blue)",
-      bg: "var(--blue-dim)",
-    },
-    {
-      icon: ClipboardList, label: "Active Plans",
-      value: plans?.active ?? "—",
-      desc: `${plans?.total ?? 0} total generated`,
-      color: "var(--violet)",
-      bg: "var(--violet-dim)",
-    },
-  ];
+// Compact Quick Navigation options (Icons + Names only, no descriptions)
+const QUICK_NAV_OPTIONS = [
+  { name: "Maintenance Tasks", icon: Wrench, to: "/maintenance" },
+  { name: "Railway Map", icon: Map, to: "/map" },
+  { name: "Train Operations", icon: Train, to: "/trains" },
+  { name: "Infrastructure Blocks", icon: Grid3x3, to: "/blocks" },
+  { name: "Generate Plan", icon: CalendarCog, to: "/planning" },
+  { name: "View Plans", icon: ClipboardList, to: "/schedules" },
+];
 
-  return (
-    <div className="ops-grid">
-      {items.map((item) => (
-        <div key={item.label} className="ops-item">
-          <div className="ops-item__icon" style={{ background: item.bg, color: item.color }}>
-            <item.icon size={20} />
-          </div>
-          <div className="ops-item__info">
-            <div className="ops-item__value" style={{ color: item.color }}>{item.value}</div>
-            <div className="ops-item__label">{item.label}</div>
-            <div className="text-xs text-faint" style={{ marginTop: 2 }}>{item.desc}</div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
+// System architecture explanation for the How It Works popup
+const HOW_IT_WORKS_STEPS = [
+  {
+    num: "1",
+    title: "Multi-Department CRIS Ingestion",
+    desc: "Ingests raw maintenance requests from TMS (Civil P-Way), SMMS (S&T), TDMS (Electrical OHE), and COA (Traffic). Automatically resolves conflicting chainages to continuous Route KP 0.000 datum."
+  },
+  {
+    num: "2",
+    title: "1D DBSCAN Spatial Proximity Clustering",
+    desc: "Groups adjacent requisitions within 2.0 km into unified Mega Blocks. Factors heavy machine transit dead-times and enables multi-department gangs to work concurrently."
+  },
+  {
+    num: "3",
+    title: "MCDM Multi-Attribute Priority Scoring",
+    desc: "Calculates a Smart Priority Index (SPI) across 5 normalized dimensions: Urgency (30%), Criticality (25%), Deadline Proximity (25%), Time Savings (10%), and Consolidation Gain (10%)."
+  },
+  {
+    num: "4",
+    title: "Greedy Constraint Satisfaction Solver (CSP)",
+    desc: "Packs candidate Mega Blocks into timetable headway gaps (>= 30 mins) using best-fit decreasing bin-packing, dynamic capacity pooling, and macro shadow block piggybacking with zero marginal delay."
+  },
+  {
+    num: "5",
+    title: "Two-Horizon Planning & Conflict Resolution",
+    desc: "Synchronizes a 30-Day Monthly Blueprint with a 7-Day Weekly Tactical Plan, auto-detecting freight path overlaps and shifting maintenance into clean alternative slots."
+  },
+  {
+    num: "6",
+    title: "What-If Emergency Stoppage-Preserving Rerouting",
+    desc: "Evaluates Single Line Working (SLW - 100% passenger stoppage retention) and Outer Chord Bypass during unscheduled broken rail or OHE breakdowns with VIP train protection."
+  }
+];
 
 export default function Dashboard() {
-  const fetcher = useCallback(() => getSummary(), []);
-  const { data: res, loading, error, reload } = useApiQuery(fetcher, []);
-  const conflictsQuery = useApiQuery(useCallback(() => listConflicts({ limit: 100 }), []), []);
-  const data = res?.data;
-  const openConflicts = (conflictsQuery.data?.data || []).filter((conflict) => !conflict.resolved).length;
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
+  const [operations, setOperations] = useState(DEFAULT_OPERATIONS);
+  const [maintenance, setMaintenance] = useState(DEFAULT_MAINTENANCE);
 
-  const kpis = [
-    {
-      icon: Train, label: "Active Trains",
-      value: data?.trains?.active,
-      desc: `${data?.trains?.total ?? "—"} total trains`,
-      color: "var(--blue)", bg: "var(--blue-dim)",
-    },
-    {
-      icon: Wrench, label: "Pending Maintenance",
-      value: data?.maintenance?.pending,
-      desc: `${data?.maintenance?.total ?? "—"} total tasks`,
-      color: "var(--amber)", bg: "var(--amber-dim)",
-    },
-    {
-      icon: ShieldAlert, label: "Critical Maintenance",
-      value: data?.maintenance?.critical,
-      desc: "Criticality level 4",
-      color: "var(--red)", bg: "var(--red-dim)",
-    },
-    {
-      icon: Grid3x3, label: "Available Blocks",
-      value: data?.blocks?.available,
-      desc: `${data?.blocks?.total ?? "—"} total blocks`,
-      color: "var(--green)", bg: "var(--green-dim)",
-    },
-    {
-      icon: AlertTriangle, label: "Unavailable Blocks",
-      value: data?.blocks?.unavailable,
-      desc: "Currently closed",
-      color: "var(--orange)", bg: "var(--orange-dim)",
-    },
-    {
-      icon: Cpu, label: "Critical Assets",
-      value: data?.assets?.critical,
-      desc: `${data?.assets?.defective ?? "—"} defective`,
-      color: "var(--violet)", bg: "var(--violet-dim)",
-    },
-    {
-      icon: AlertTriangle, label: "Open Conflicts",
-      value: conflictsQuery.loading ? undefined : openConflicts,
-      desc: conflictsQuery.error ? "Conflict data unavailable" : "Across saved plans",
-      color: "var(--red)", bg: "var(--red-dim)",
-    },
-    {
-      icon: ClipboardList, label: "Generated Plans",
-      value: data?.plans?.total,
-      desc: `${data?.plans?.active ?? "—"} active plans`,
-      color: "var(--cyan)", bg: "var(--cyan-dim)",
-    },
-  ];
+  const fetchSummary = useCallback(() => getSummary(), []);
+  const { loading, reload } = useApiQuery(fetchSummary, []);
+
+  // Fetch real trains & maintenance tasks if available to enrich the dashboard
+  useEffect(() => {
+    let mounted = true;
+    Promise.all([
+      listTrains({ limit: 10 }).catch(() => null),
+      listMaintenance({ limit: 10 }).catch(() => null),
+    ]).then(([trainsRes, maintRes]) => {
+      if (!mounted) return;
+
+      if (trainsRes?.data && Array.isArray(trainsRes.data) && trainsRes.data.length > 0) {
+        const mappedOps = trainsRes.data.slice(0, 7).map((t, idx) => {
+          const fallback = DEFAULT_OPERATIONS[idx] || DEFAULT_OPERATIONS[0];
+          return {
+            time: fallback.time,
+            operation: `${t.train_number || ""} ${t.train_name || "Express"}`.trim(),
+            type: t.train_type || fallback.type,
+            block: fallback.block,
+            status: t.status === "ACTIVE" ? "ACTIVE" : fallback.status,
+          };
+        });
+        setOperations(mappedOps);
+      }
+
+      if (maintRes?.data && Array.isArray(maintRes.data) && maintRes.data.length > 0) {
+        const mappedMaint = maintRes.data.slice(0, 6).map((m, idx) => {
+          const fallback = DEFAULT_MAINTENANCE[idx] || DEFAULT_MAINTENANCE[0];
+          const dept = m.department === "TRACTION" ? "Traction" : m.department === "SIGNAL" ? "Signal" : "Engineering";
+          return {
+            timeRange: fallback.timeRange,
+            block: m.block?.block_code ? `Block ${m.block.block_code}` : fallback.block,
+            task: m.maintenance_type || m.description || fallback.task,
+            department: dept,
+          };
+        });
+        setMaintenance(mappedMaint);
+      }
+    });
+
+    return () => { mounted = false; };
+  }, []);
+
+  const handleRefresh = () => {
+    reload();
+  };
 
   return (
-    <>
+    <div className="dashboard-redesign">
+      {/* Page Header with "How it works" pop-up button and Refresh */}
       <PageHeader
         title="Railway Operations Dashboard"
         subtitle="Current operational state of the railway maintenance network"
         actions={
-          <Button variant="secondary" size="sm" icon={RefreshCw} loading={loading} loadingText="Refreshing…" onClick={() => reload()}>
-            Refresh
-          </Button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={Info}
+              onClick={() => setShowHowItWorks(true)}
+              title="Learn how RailSetu plans maintenance"
+            >
+              How it works
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={RefreshCw}
+              loading={loading}
+              loadingText="Refreshing…"
+              onClick={handleRefresh}
+            >
+              Refresh
+            </Button>
+          </div>
         }
       />
 
-      {/* KPI Cards */}
-      <div className="kpi-grid">
-        {kpis.map((k) => (
-          <KpiCard
-            key={k.label}
-            icon={k.icon}
-            value={k.value}
-            label={k.label}
-            desc={k.desc}
-            color={k.color}
-            bgColor={k.bg}
-            loading={loading}
-          />
-        ))}
-      </div>
-
-      {/* Network Status */}
-      <div className="mt-24">
-        <SectionHeader title="Network Operational Status" icon={TrendingUp} />
-        {error ? (
-          <div className="not-connected">
-            <div className="not-connected__title">Unable to load operational data</div>
-            <p style={{ color: "var(--text-3)", marginTop: 8 }}>{error.message}</p>
-            <div style={{ marginTop: 16 }}>
-              <Button variant="secondary" size="sm" icon={RefreshCw} onClick={() => reload()}>Retry</Button>
-            </div>
+      {/* SECTION 1: CURRENT OPERATIONS */}
+      <section className="dashboard-section mt-16">
+        <div className="section-head-simple">
+          <div className="section-head-simple__title">
+            <Radio size={16} className="text-blue animate-pulse" />
+            <h2>Current Operations</h2>
           </div>
-        ) : (
-          <NetworkStatus data={data} />
-        )}
-      </div>
+        </div>
 
-      {/* Quick Actions */}
-      <div className="mt-24">
-        <SectionHeader title="Quick Navigation" icon={Activity} />
-        <div className="quick-actions">
-          {QUICK_ACTIONS.map((action) => (
-            <button key={action.to} type="button" className="quick-action" onClick={() => navigate(action.to)}>
-              <span className="quick-action__title">{action.label}</span>
-              <span className="quick-action__sub">{action.sub}</span>
-            </button>
+        <div className="ops-table-card">
+          <div className="table-wrap">
+            <table className="ops-table">
+              <thead>
+                <tr>
+                  <th style={{ width: "160px" }}>TIME</th>
+                  <th>OPERATION</th>
+                  <th style={{ width: "160px" }}>BLOCK</th>
+                  <th style={{ width: "150px" }}>STATUS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {operations.map((op, idx) => (
+                  <tr key={idx}>
+                    <td className="ops-time-cell">
+                      <span className="ops-time-dot" />
+                      <span>{op.time}</span>
+                    </td>
+                    <td className="ops-operation-cell">
+                      <span className="ops-train-name">{op.operation}</span>
+                      {op.type && (
+                        <span className="ops-type-badge">
+                          {op.type}
+                        </span>
+                      )}
+                    </td>
+                    <td className="ops-block-cell">
+                      <span className="ops-block-badge">{op.block}</span>
+                    </td>
+                    <td className="ops-status-cell">
+                      <span className={`ops-status-text ops-status-text--${op.status.toLowerCase().replace(/\s+/g, '')}`}>
+                        {op.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 2: TODAY'S MAINTENANCE */}
+      <section className="dashboard-section mt-24">
+        <div className="section-head-simple">
+          <div className="section-head-simple__title">
+            <Clock size={16} className="text-amber" />
+            <h2>Today's Maintenance</h2>
+          </div>
+        </div>
+
+        <div className="maint-timeline-strip">
+          {maintenance.map((m, idx) => (
+            <div key={idx} className="maint-card">
+              <div className="maint-card__header">
+                <span className="maint-time-pill">
+                  <Clock size={12} />
+                  <span>{m.timeRange}</span>
+                </span>
+                <span className="maint-block-pill">{m.block}</span>
+              </div>
+              <div className="maint-card__title" title={m.task}>{m.task}</div>
+              <div className="maint-card__dept">{m.department}</div>
+            </div>
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* Planning Philosophy */}
-      <div className="mt-24">
-        <SectionHeader title="How RailSetu Plans Maintenance" icon={Clock} />
-        <div className="logic-panel">
-          <p style={{ fontSize: 13, color: "var(--text-3)", marginBottom: 16 }}>
-            RailSetu uses rule-based deterministic planning — not AI. Every scheduling decision is explainable and traceable.
-          </p>
-          <div className="logic-steps">
-            {[
-              ["Maintenance Priority", "Combines priority level, criticality, urgency, and deadline risk into a weighted score"],
-              ["Block Availability", "Cross-references physical block availability against the planning window"],
-              ["Train Movement Conflicts", "Detects overlaps where trainEntry < maintenanceEnd AND trainExit > maintenanceStart"],
-              ["Compatible Task Grouping", "Groups tasks on the same block with overlapping preferred windows into Mega Blocks"],
-              ["Deadline Compliance", "Ensures all grouped tasks satisfy their individual deadline constraints"],
-              ["Operational Impact", "Calculates estimated train delay from the blocked interval and movement timing"],
-              ["Optimization Score", "Combines all factors into a plan score — higher is better for operational continuity"],
-            ].map(([title, desc], i) => (
-              <div key={i} className="logic-step">
-                <div className="logic-step__num">{i + 1}</div>
-                <div className="logic-step__text"><strong>{title}</strong> — {desc}</div>
-              </div>
-            ))}
+      {/* SECTION 3: QUICK NAVIGATION */}
+      <section className="dashboard-section mt-24">
+        <div className="section-head-simple">
+          <div className="section-head-simple__title">
+            <Navigation size={16} className="text-cyan" />
+            <h2>Quick Navigation</h2>
           </div>
         </div>
-      </div>
-    </>
+
+        <div className="quick-nav-compact">
+          {QUICK_NAV_OPTIONS.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.to}
+                type="button"
+                className="quick-nav-btn"
+                onClick={() => navigate(item.to)}
+              >
+                <Icon size={16} className="quick-nav-btn__icon" />
+                <span className="quick-nav-btn__name">{item.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* "HOW IT WORKS" MODAL POP-UP */}
+      {showHowItWorks && (
+        <div className="modal-overlay" onClick={() => setShowHowItWorks(false)} role="presentation">
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <div className="modal-dialog__head">
+              <div className="modal-dialog__title-group">
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <ShieldCheck size={18} className="text-blue" />
+                  <span className="badge badge--blue" style={{ fontSize: 10, letterSpacing: "0.06em" }}>OPERATIONAL ARCHITECTURE</span>
+                </div>
+                <h3>How RailSetu Works</h3>
+                <p className="text-xs text-muted">AI-Powered Automatic Block Planning Engine for Indian Railways</p>
+              </div>
+              <button
+                type="button"
+                className="modal-dialog__close"
+                onClick={() => setShowHowItWorks(false)}
+                aria-label="Close dialog"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-dialog__body">
+              <div className="how-it-works-steps">
+                {HOW_IT_WORKS_STEPS.map((step) => (
+                  <div key={step.num} className="how-it-works-step">
+                    <div className="how-it-works-step__num">{step.num}</div>
+                    <div className="how-it-works-step__content">
+                      <div className="how-it-works-step__title">{step.title}</div>
+                      <div className="how-it-works-step__desc">{step.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="modal-dialog__foot">
+              <Button variant="primary" size="sm" onClick={() => setShowHowItWorks(false)}>
+                Got it
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

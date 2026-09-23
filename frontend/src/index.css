@@ -3029,4 +3029,620 @@ body.theme-white .drawer {
   box-shadow: 0 20px 45px rgba(15, 23, 42, 0.15);
 }
 
+/* ============================================================
+   REDESIGNED DASHBOARD STYLES
+   ============================================================ */
+.dashboard-redesign {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-section {
+  width: 100%;
+}
+
+.section-head-simple {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.section-head-simple__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-head-simple__title h2 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+/* ── 1. Current Operations Table ────────────────────────── */
+.ops-table-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.ops-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+}
+
+.ops-table thead tr {
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.ops-table th {
+  padding: 11px 18px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-3);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ops-table tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s ease;
+}
+
+.ops-table tbody tr:hover {
+  background: var(--bg-3);
+}
+
+.ops-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.ops-table td {
+  padding: 12px 18px;
+  vertical-align: middle;
+}
+
+.ops-time-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--text);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.ops-time-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--blue, #38bdf8);
+  flex-shrink: 0;
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.6);
+}
+
+.ops-operation-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ops-train-name {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 13.5px;
+}
+
+.ops-type-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--blue, #38bdf8);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+}
+
+.ops-block-cell {
+  white-space: nowrap;
+}
+
+.ops-block-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--mono);
+  background: rgba(56, 189, 248, 0.08);
+  color: var(--blue, #38bdf8);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+}
+
+.ops-status-cell {
+  white-space: nowrap;
+}
+
+.ops-status-text {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ops-status-text--ontime {
+  color: #22c55e;
+}
+
+.ops-status-text--active {
+  color: #f59e0b;
+}
+
+.ops-status-text--scheduled {
+  color: var(--text-3);
+}
+
+/* White mode overrides for Current Operations */
+[data-theme="white"] .ops-table-card,
+body.theme-white .ops-table-card {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+[data-theme="white"] .ops-table thead tr,
+body.theme-white .ops-table thead tr {
+  background: #eff6ff;
+  border-bottom: 2px solid #bfdbfe;
+}
+
+[data-theme="white"] .ops-table th,
+body.theme-white .ops-table th {
+  color: #1e40af;
+}
+
+[data-theme="white"] .ops-table tbody tr,
+body.theme-white .ops-table tbody tr {
+  border-bottom-color: #f1f5f9;
+}
+
+[data-theme="white"] .ops-table tbody tr:hover,
+body.theme-white .ops-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+[data-theme="white"] .ops-time-cell,
+body.theme-white .ops-time-cell {
+  color: #0f172a;
+}
+
+[data-theme="white"] .ops-time-dot,
+body.theme-white .ops-time-dot {
+  background: #1d4ed8;
+  box-shadow: 0 0 6px rgba(29, 78, 216, 0.4);
+}
+
+[data-theme="white"] .ops-train-name,
+body.theme-white .ops-train-name {
+  color: #0f172a;
+}
+
+[data-theme="white"] .ops-type-badge,
+body.theme-white .ops-type-badge {
+  background: #dbeafe;
+  color: #1e40af;
+  border-color: #bfdbfe;
+}
+
+[data-theme="white"] .ops-block-badge,
+body.theme-white .ops-block-badge {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+[data-theme="white"] .ops-status-text--ontime,
+body.theme-white .ops-status-text--ontime {
+  color: #16a34a;
+}
+
+[data-theme="white"] .ops-status-text--active,
+body.theme-white .ops-status-text--active {
+  color: #0f172a;
+}
+
+[data-theme="white"] .ops-status-text--scheduled,
+body.theme-white .ops-status-text--scheduled {
+  color: #64748b;
+}
+
+/* ── 2. Today's Maintenance Strip ───────────────────────── */
+.maint-timeline-strip {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding: 2px 2px 14px;
+  scrollbar-width: thin;
+}
+
+.maint-card {
+  min-width: 250px;
+  flex: 0 0 250px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.maint-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  box-shadow: var(--shadow);
+}
+
+.maint-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.maint-time-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--mono);
+  background: var(--accent-dim);
+  color: var(--accent-2);
+}
+
+.maint-block-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--mono);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+}
+
+.maint-card__title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.maint-card__dept {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* White mode overrides for Maintenance Cards */
+[data-theme="white"] .maint-card,
+body.theme-white .maint-card {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+}
+
+[data-theme="white"] .maint-card:hover,
+body.theme-white .maint-card:hover {
+  border-color: #2563eb;
+  box-shadow: 0 8px 20px rgba(29, 78, 216, 0.10);
+}
+
+[data-theme="white"] .maint-time-pill,
+body.theme-white .maint-time-pill {
+  background: #1d4ed8;
+  color: #ffffff;
+}
+
+[data-theme="white"] .maint-block-pill,
+body.theme-white .maint-block-pill {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+[data-theme="white"] .maint-card__title,
+body.theme-white .maint-card__title {
+  color: #0f172a;
+}
+
+[data-theme="white"] .maint-card__dept,
+body.theme-white .maint-card__dept {
+  color: #64748b;
+}
+
+/* ── 3. Quick Navigation (Compact Buttons) ───────────────── */
+.quick-nav-compact {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 1024px) {
+  .quick-nav-compact {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .quick-nav-compact {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.quick-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  white-space: nowrap;
+  box-shadow: var(--shadow-sm);
+}
+
+.quick-nav-btn:hover {
+  background: var(--bg-3);
+  border-color: var(--accent);
+  color: var(--accent-2);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+
+.quick-nav-btn__icon {
+  color: var(--accent);
+  flex-shrink: 0;
+  transition: transform 0.16s ease;
+}
+
+.quick-nav-btn:hover .quick-nav-btn__icon {
+  transform: scale(1.1);
+}
+
+/* White mode overrides for Quick Navigation */
+[data-theme="white"] .quick-nav-btn,
+body.theme-white .quick-nav-btn {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  color: #1e293b;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+}
+
+[data-theme="white"] .quick-nav-btn:hover,
+body.theme-white .quick-nav-btn:hover {
+  background: #eff6ff;
+  border-color: #2563eb;
+  color: #1d4ed8;
+  box-shadow: 0 4px 12px rgba(29, 78, 216, 0.12);
+}
+
+[data-theme="white"] .quick-nav-btn__icon,
+body.theme-white .quick-nav-btn__icon {
+  color: #1d4ed8;
+}
+
+/* ── "How It Works" Pop-up Modal ────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(5px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+
+.modal-dialog {
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 680px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  animation: scaleUp 0.2s ease;
+  overflow: hidden;
+}
+
+.modal-dialog__head {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.modal-dialog__title-group h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.modal-dialog__close {
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.modal-dialog__close:hover {
+  background: var(--bg-3);
+  color: var(--text);
+}
+
+.modal-dialog__body {
+  padding: 20px 24px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.modal-dialog__foot {
+  padding: 14px 24px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.how-it-works-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.how-it-works-step {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  transition: border-color 0.15s ease;
+}
+
+.how-it-works-step:hover {
+  border-color: var(--accent);
+}
+
+.how-it-works-step__num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent-dim);
+  color: var(--accent-2);
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.how-it-works-step__content {
+  flex: 1;
+}
+
+.how-it-works-step__title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 3px;
+}
+
+.how-it-works-step__desc {
+  font-size: 12.5px;
+  color: var(--text-3);
+  line-height: 1.45;
+}
+
+/* White mode overrides for modal */
+[data-theme="white"] .modal-dialog,
+body.theme-white .modal-dialog {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.18);
+}
+
+[data-theme="white"] .modal-dialog__head,
+body.theme-white .modal-dialog__head {
+  border-bottom-color: #f1f5f9;
+}
+
+[data-theme="white"] .modal-dialog__foot,
+body.theme-white .modal-dialog__foot {
+  background: #f8fafc;
+  border-top-color: #f1f5f9;
+}
+
+[data-theme="white"] .how-it-works-step,
+body.theme-white .how-it-works-step {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+[data-theme="white"] .how-it-works-step:hover,
+body.theme-white .how-it-works-step:hover {
+  border-color: #2563eb;
+}
+
+[data-theme="white"] .how-it-works-step__num,
+body.theme-white .how-it-works-step__num {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+[data-theme="white"] .how-it-works-step__title,
+body.theme-white .how-it-works-step__title {
+  color: #0f172a;
+}
+
+[data-theme="white"] .how-it-works-step__desc,
+body.theme-white .how-it-works-step__desc {
+  color: #475569;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleUp {
+  from { transform: scale(0.96); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+
 
