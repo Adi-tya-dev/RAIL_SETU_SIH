@@ -165,24 +165,15 @@ export default function Schedules() {
           >
             <ScheduleList rows={rows} loading={loading} onRowClick={(plan) => setSelectedId(plan.plan_id)} />
 
-            <div className="list-toolbar">
-              <select
-                className="select"
-                style={{ width: "auto", minWidth: 90 }}
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setPage(1);
-                }}
-                aria-label="Records per page"
-              >
-                {PAGE_SIZE_OPTIONS.map((n) => (
-                  <option key={n} value={n}>{n} / page</option>
-                ))}
-              </select>
-            </div>
-
-            {pagination && <Pagination pagination={pagination} onChange={setPage} disabled={loading} />}
+            {pagination && (
+              <Pagination
+                pagination={pagination}
+                onChange={setPage}
+                pageSize={pageSize}
+                onPageSizeChange={setPageSize}
+                disabled={loading}
+              />
+            )}
           </StateBlock>
         </section>
       )}

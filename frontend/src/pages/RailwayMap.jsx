@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CircleMarker, MapContainer, Marker, Polyline, Popup, Tooltip, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Activity, AlertTriangle, ChevronRight, Crosshair, Layers3, MapPinned, Search, TrainFront, X, ShieldAlert } from "lucide-react";
+import { Activity, AlertTriangle, ChevronRight, Crosshair, Layers3, MapPinned, Search, TrainFront, X, ShieldAlert, ChevronDown, ChevronUp, Minus } from "lucide-react";
 import { getTrain, listTrains } from "../api/trains.api";
 import { listMaintenance } from "../api/maintenance.api";
 import { listConflicts } from "../api/conflicts.api";
@@ -13,6 +13,7 @@ import Badge from "../components/common/Badge";
 import Button from "../components/common/Button";
 import Drawer from "../components/common/Drawer";
 import MaintenanceDrawer from "../components/maintenance/MaintenanceDrawer";
+import { navigate } from "../hooks/useRoute";
 
 const INDIA_BOUNDS = [[7.5, 68.2], [35, 97.2]];
 const INDIA_CENTER = [22.5, 79.2];
@@ -81,15 +82,125 @@ function maintenanceIcon(department, critical) {
   });
 }
 
-function NetworkStatusHud({ trains, activeBlocks, maintenance, conflicts }) {
+function NetworkStatusHud({
+  trains,
+  activeBlocks,
+  maintenance,
+  conflicts,
+  layers,
+  onToggleLayer,
+  isMinimized,
+  onToggleMinimize,
+}) {
+  if (isMinimized) {
+    return (
+      <div
+        className="railway-map-hud railway-map-hud--minimized"
+        onClick={() => onToggleMinimize(false)}
+        title="Click to expand Network Status"
+        role="button"
+        tabIndex={0}
+      >
+        <div className="railway-map-hud__title" style={{ margin: 0, justifyContent: "space-between", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <Activity size={12} color="#67e8f9" />
+            <span>Network status</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11 }}>
+            <span style={{ color: "#94a3b8" }}>
+              <span
+                onClick={(e) => { e.stopPropagation(); navigate("/trains"); }}
+                style={{ cursor: "pointer", textDecoration: "underline" }}
+                title="Go to Trains page"
+              >
+                {trains}T
+              </span>{" "}·{" "}
+              <span
+                onClick={(e) => { e.stopPropagation(); navigate("/blocks"); }}
+                style={{ cursor: "pointer", textDecoration: "underline" }}
+                title="Go to Blocks page"
+              >
+                {activeBlocks}B
+              </span>{" "}·{" "}
+              <span
+                onClick={(e) => { e.stopPropagation(); navigate("/maintenance"); }}
+                style={{ cursor: "pointer", textDecoration: "underline" }}
+                title="Go to Maintenance Tasks page"
+              >
+                {maintenance}M
+              </span>{" "}·{" "}
+              <b
+                onClick={(e) => { e.stopPropagation(); navigate("/conflicts"); }}
+                style={{ color: "#f87171", cursor: "pointer", textDecoration: "underline" }}
+                title="Go to Conflicts page"
+              >
+                {conflicts}C
+              </b>
+            </span>
+            <ChevronUp size={14} style={{ color: "#67e8f9" }} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="railway-map-hud">
-      <div className="railway-map-hud__title"><Activity size={12} /> Network status</div>
+      <div className="railway-map-hud__title">
+        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+          <Activity size={12} color="#67e8f9" />
+          <span>Network status</span>
+        </div>
+        <button
+          type="button"
+          className="railway-map-hud__btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleMinimize(true);
+          }}
+          title="Minimize Network Status to dock"
+          aria-label="Minimize Network Status"
+        >
+          <ChevronDown size={14} />
+        </button>
+      </div>
       <div className="railway-map-hud__grid">
-        <div className="railway-map-hud__metric"><b>{trains}</b><span>Trains</span></div>
-        <div className="railway-map-hud__metric"><b>{activeBlocks}</b><span>Active blocks</span></div>
-        <div className="railway-map-hud__metric"><b>{maintenance}</b><span>Maintenance</span></div>
-        <div className="railway-map-hud__metric railway-map-hud__metric--conflicts"><b>{conflicts}</b><span>Conflicts</span></div>
+        <button
+          type="button"
+          className="railway-map-hud__metric"
+          onClick={() => navigate("/trains")}
+          title="Click to view all Trains page"
+        >
+          <b>{trains}</b>
+          <span>Trains ↗</span>
+        </button>
+        <button
+          type="button"
+          className="railway-map-hud__metric"
+          onClick={() => navigate("/blocks")}
+          title="Click to view all Active Blocks page"
+        >
+          <b>{activeBlocks}</b>
+          <span>Active blocks ↗</span>
+        </button>
+        <button
+          type="button"
+          className="railway-map-hud__metric"
+          onClick={() => navigate("/maintenance")}
+          title="Click to view Maintenance Tasks page"
+        >
+          <b>{maintenance}</b>
+          <span>Maintenance ↗</span>
+        </button>
+        <button
+          type="button"
+          className="railway-map-hud__metric railway-map-hud__metric--conflicts"
+          onClick={() => navigate("/conflicts")}
+          title="Click to view Conflicts & Alerts page"
+        >
+          <b>{conflicts}</b>
+          <span>Conflicts ↗</span>
+        </button>
       </div>
     </div>
   );
@@ -263,14 +374,108 @@ function arcPath(a, b, bend = 0.12) {
   return points;
 }
 
+// Centripetal Catmull-Rom spline interpolation (alpha = 0.5).
+// Creates a seamless, C1-continuous curved railway path through all station coordinates
+// without straight-line chords, cusps, or self-intersections.
+function catmullRomSpline(points, baseSteps = 24) {
+  if (!points || points.length < 2) return points || [];
+  if (points.length === 2) {
+    const [p0, p1] = points;
+    const dLat = p1[0] - p0[0];
+    const dLng = p1[1] - p0[1];
+    const len = Math.hypot(dLat, dLng) || 1e-6;
+    const bend = 0.04;
+    const ctrl = [
+      (p0[0] + p1[0]) / 2 - (dLng / len) * len * bend,
+      (p0[1] + p1[1]) / 2 + (dLat / len) * len * bend,
+    ];
+    const res = [];
+    for (let i = 0; i <= baseSteps; i += 1) {
+      const t = i / baseSteps;
+      const mt = 1 - t;
+      res.push([
+        mt * mt * p0[0] + 2 * mt * t * ctrl[0] + t * t * p1[0],
+        mt * mt * p0[1] + 2 * mt * t * ctrl[1] + t * t * p1[1],
+      ]);
+    }
+    return res;
+  }
+
+  // Extend with virtual endpoints for natural boundary tangents
+  const extended = [
+    [points[0][0] - (points[1][0] - points[0][0]) * 0.5, points[0][1] - (points[1][1] - points[0][1]) * 0.5],
+    ...points,
+    [
+      points[points.length - 1][0] + (points[points.length - 1][0] - points[points.length - 2][0]) * 0.5,
+      points[points.length - 1][1] + (points[points.length - 1][1] - points[points.length - 2][1]) * 0.5,
+    ],
+  ];
+
+  const result = [];
+  const alpha = 0.5; // Centripetal parameter prevents loops and overshoots
+
+  for (let i = 0; i < extended.length - 3; i += 1) {
+    const p0 = extended[i];
+    const p1 = extended[i + 1];
+    const p2 = extended[i + 2];
+    const p3 = extended[i + 3];
+
+    const d1 = Math.pow(Math.hypot(p1[0] - p0[0], p1[1] - p0[1]), alpha) || 1e-4;
+    const d2 = Math.pow(Math.hypot(p2[0] - p1[0], p2[1] - p1[1]), alpha) || 1e-4;
+    const d3 = Math.pow(Math.hypot(p3[0] - p2[0], p3[1] - p2[1]), alpha) || 1e-4;
+
+    const t0 = 0;
+    const t1 = t0 + d1;
+    const t2 = t1 + d2;
+    const t3 = t2 + d3;
+
+    // Adapt sample steps based on geographic distance for uniform smoothness
+    const segDist = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]);
+    const numSteps = Math.max(baseSteps, Math.round(segDist * 8));
+
+    for (let step = (i === 0 ? 0 : 1); step <= numSteps; step += 1) {
+      const t = t1 + (t2 - t1) * (step / numSteps);
+
+      const fA1_0 = (t1 - t) / (t1 - t0);
+      const fA1_1 = (t - t0) / (t1 - t0);
+      const a1_0 = fA1_0 * p0[0] + fA1_1 * p1[0];
+      const a1_1 = fA1_0 * p0[1] + fA1_1 * p1[1];
+
+      const fA2_0 = (t2 - t) / (t2 - t1);
+      const fA2_1 = (t - t1) / (t2 - t1);
+      const a2_0 = fA2_0 * p1[0] + fA2_1 * p2[0];
+      const a2_1 = fA2_0 * p1[1] + fA2_1 * p2[1];
+
+      const fA3_0 = (t3 - t) / (t3 - t2);
+      const fA3_1 = (t - t2) / (t3 - t2);
+      const a3_0 = fA3_0 * p2[0] + fA3_1 * p3[0];
+      const a3_1 = fA3_0 * p2[1] + fA3_1 * p3[1];
+
+      const fB1_0 = (t2 - t) / (t2 - t0);
+      const fB1_1 = (t - t0) / (t2 - t0);
+      const b1_0 = fB1_0 * a1_0 + fB1_1 * a2_0;
+      const b1_1 = fB1_0 * a1_1 + fB1_1 * a2_1;
+
+      const fB2_0 = (t3 - t) / (t3 - t1);
+      const fB2_1 = (t - t1) / (t3 - t1);
+      const b2_0 = fB2_0 * a2_0 + fB2_1 * a3_0;
+      const b2_1 = fB2_0 * a2_1 + fB2_1 * a3_1;
+
+      const fC_0 = (t2 - t) / (t2 - t1);
+      const fC_1 = (t - t1) / (t2 - t1);
+      const c_0 = fC_0 * b1_0 + fC_1 * b2_0;
+      const c_1 = fC_0 * b1_1 + fC_1 * b2_1;
+
+      result.push([Number(c_0.toFixed(5)), Number(c_1.toFixed(5))]);
+    }
+  }
+
+  return result;
+}
+
 function corridorPath(points) {
-  if (points.length < 2) return points;
-  const path = [];
-  points.slice(0, -1).forEach((point, index) => {
-    const segment = arcPath(point, points[index + 1]);
-    path.push(...(index === 0 ? segment : segment.slice(1)));
-  });
-  return path;
+  if (!points || points.length < 2) return points || [];
+  return catmullRomSpline(points, 24);
 }
 
 function pointAlongPath(points, fraction) {
@@ -294,7 +499,7 @@ function pointAlongPath(points, fraction) {
   return points[points.length - 1];
 }
 
-function offsetPoint([lat, lng], seed, magnitude = 0.02) {
+function offsetPoint([lat, lng], seed, magnitude = 0.003) {
   const angle = ((seed % 360) * Math.PI) / 180;
   return [lat + Math.cos(angle) * magnitude, lng + Math.sin(angle) * magnitude * 0.85];
 }
@@ -343,7 +548,8 @@ function buildSectionModel(networkTrains) {
 }
 
 // Locate a maintenance block along its section corridor using real chainage ratios.
-function placeOnSection(sectionStations, section, block) {
+// When multiple tasks exist on the same block, distribute them cleanly along the block span.
+function placeOnSection(sectionStations, section, block, taskIndex = 0, totalTasks = 1) {
   const points = (sectionStations || []).map((station) => coordinate(station)).filter(Boolean);
   if (!points.length) return null;
   if (points.length === 1) return points[0];
@@ -353,8 +559,10 @@ function placeOnSection(sectionStations, section, block) {
   const blockStart = Number(block?.start_chainage);
   const blockEnd = Number(block?.end_chainage);
   if (Number.isFinite(blockStart) && Number.isFinite(blockEnd) && Number.isFinite(start) && Number.isFinite(end) && end > start) {
-    const mid = (blockStart + blockEnd) / 2;
-    fraction = Math.min(0.94, Math.max(0.06, (mid - start) / (end - start)));
+    const blockSpan = Math.max(blockEnd - blockStart, 1);
+    const stepFraction = totalTasks > 1 ? (taskIndex + 1) / (totalTasks + 1) : 0.5;
+    const taskKm = blockStart + blockSpan * (0.15 + 0.7 * stepFraction);
+    fraction = Math.min(0.96, Math.max(0.04, (taskKm - start) / (end - start)));
   }
   return pointAlongPath(points, fraction);
 }
@@ -525,6 +733,18 @@ export default function RailwayMap() {
     return null;
   });
 
+  const [isEmergencyHudMinimized, setIsEmergencyHudMinimized] = useState(false);
+  const [isEmergencyHudDismissed, setIsEmergencyHudDismissed] = useState(false);
+  const [isNetworkHudMinimized, setIsNetworkHudMinimized] = useState(false);
+  const [isLegendMinimized, setIsLegendMinimized] = useState(false);
+
+  useEffect(() => {
+    if (emergencyReroute) {
+      setIsEmergencyHudDismissed(false);
+      setIsEmergencyHudMinimized(false);
+    }
+  }, [emergencyReroute?.trainId, emergencyReroute?.block]);
+
   useEffect(() => {
     let active = true;
     Promise.all([
@@ -592,24 +812,127 @@ export default function RailwayMap() {
   }, [networkTrains]);
 
   const sectionModel = useMemo(() => buildSectionModel(networkTrains), [networkTrains]);
-  const maintenanceLocations = useMemo(() => maintenance.map((task) => {
-    const sectionId = normalizeId(task.section_id || task.section?.section_id);
-    const stations = sectionModel.sections.get(sectionId) || [];
-    const base = placeOnSection(stations, task.section, task.block);
-    const point = base ? offsetPoint(base, hashSeed(`loc-${task.maintenance_task_id}`), 0.02) : null;
-    return { task, point, sectionId, blockId: normalizeId(task.block_id) };
-  }), [maintenance, sectionModel]);
+  const maintenanceLocations = useMemo(() => {
+    const blockCounts = new Map();
+    maintenance.forEach((task) => {
+      const bId = normalizeId(task.block_id || task.block?.block_id);
+      blockCounts.set(bId, (blockCounts.get(bId) || 0) + 1);
+    });
+    const blockSeen = new Map();
+
+    return maintenance.map((task) => {
+      const sectionId = normalizeId(task.section_id || task.section?.section_id);
+      const blockId = normalizeId(task.block_id || task.block?.block_id);
+      const totalInBlock = blockCounts.get(blockId) || 1;
+      const taskIndex = blockSeen.get(blockId) || 0;
+      blockSeen.set(blockId, taskIndex + 1);
+
+      const stations = sectionModel.sections.get(sectionId) || [];
+      const base = placeOnSection(stations, task.section, task.block, taskIndex, totalInBlock);
+      const point = base ? offsetPoint(base, hashSeed(`loc-${task.maintenance_task_id}`), 0.003) : null;
+      return { task, point, sectionId, blockId, taskIndex, totalInBlock };
+    });
+  }, [maintenance, sectionModel]);
 
   const relevantMaintenance = useMemo(() => {
     if (!selectedTrain) return [];
-    return maintenanceLocations.map((item) => {
-      const relation = movementBlockIds.has(item.blockId) ? "ON TRAIN ROUTE" : routeSectionIds.has(item.sectionId) ? "NEAR TRAIN ROUTE" : null;
-      if (!relation) return null;
-      const snapped = relation === "ON TRAIN ROUTE" && routePath.length > 1 ? nearestOnPath(item.point, routePath) : item.point;
-      const point = snapped ? offsetPoint(snapped, hashSeed(`snap-${item.task.maintenance_task_id}`), 0.012) : null;
-      return { ...item, point, relation };
-    }).filter(Boolean);
-  }, [maintenanceLocations, movementBlockIds, routeSectionIds, selectedTrain, routePath]);
+    const isEmergency = Boolean(emergencyReroute);
+    const emergencyBlockCode = emergencyReroute?.block ? normalizeId(emergencyReroute.block) : null;
+
+    // 1. Filter candidates relevant to train or emergency block
+    const candidates = maintenanceLocations.filter((item) => {
+      const isEmergencyBlock = emergencyBlockCode && (
+        normalizeId(item.task?.block?.block_code) === emergencyBlockCode ||
+        normalizeId(item.task?.block_id) === emergencyBlockCode ||
+        item.blockId === emergencyBlockCode
+      );
+      const isOnRoute = movementBlockIds.has(item.blockId) || isEmergencyBlock;
+
+      if (isEmergency && !isOnRoute) return false;
+
+      const relation = isOnRoute
+        ? (isEmergencyBlock ? "BLOCKED SECTOR" : "ON TRAIN ROUTE")
+        : routeSectionIds.has(item.sectionId)
+        ? "NEAR TRAIN ROUTE"
+        : null;
+
+      if (!relation) return false;
+      return true;
+    });
+
+    // 2. Deduplicate repetitive test/simulator entries on the same block
+    // Keep highest criticality unique task per (blockId + department + maintenance_type)
+    const seenMap = new Map();
+    candidates.forEach((item) => {
+      const dept = String(item.task.department || "").toUpperCase();
+      const type = String(item.task.maintenance_type || item.task.title || "").toUpperCase();
+      const key = `${item.blockId}-${dept}-${type}`;
+      if (!seenMap.has(key)) {
+        seenMap.set(key, item);
+      } else {
+        const existing = seenMap.get(key);
+        if (Number(item.task.criticality || 0) > Number(existing.task.criticality || 0)) {
+          seenMap.set(key, item);
+        }
+      }
+    });
+
+    const uniqueCandidates = [...seenMap.values()];
+
+    // 3. Group by block to space them out gracefully along the track corridor
+    const blockGroups = new Map();
+    uniqueCandidates.forEach((item) => {
+      if (!blockGroups.has(item.blockId)) blockGroups.set(item.blockId, []);
+      blockGroups.get(item.blockId).push(item);
+    });
+
+    const result = [];
+    blockGroups.forEach((items, bId) => {
+      const isEmergencyBlock = emergencyBlockCode && (
+        normalizeId(items[0]?.task?.block?.block_code) === emergencyBlockCode ||
+        items[0]?.blockId === emergencyBlockCode
+      );
+      const isOnRoute = movementBlockIds.has(bId) || isEmergencyBlock;
+      const relation = isOnRoute
+        ? (isEmergencyBlock ? "BLOCKED SECTOR" : "ON TRAIN ROUTE")
+        : "NEAR TRAIN ROUTE";
+
+      items.forEach((item, index) => {
+        let snapped = item.point;
+        if (isOnRoute && routePath.length > 1) {
+          if (items.length > 1) {
+            // Find base point nearest on path
+            const baseNearest = nearestOnPath(item.point, routePath);
+            let baseIdx = routePath.findIndex((p) => p[0] === baseNearest[0] && p[1] === baseNearest[1]);
+            if (baseIdx === -1) baseIdx = Math.floor(routePath.length / 2);
+
+            // Spread tasks along route path points around baseIdx so each task has its own milestone!
+            const totalSteps = routePath.length;
+            const segmentSpan = Math.min(Math.max(Math.floor(totalSteps / 3), 10), 18);
+            const startIdx = Math.max(0, baseIdx - Math.floor(segmentSpan / 2));
+            const endIdx = Math.min(totalSteps - 1, baseIdx + Math.floor(segmentSpan / 2));
+            const spreadStep = (endIdx - startIdx) / (items.length + 1);
+            const targetIdx = Math.round(startIdx + spreadStep * (index + 1));
+            snapped = routePath[Math.min(routePath.length - 1, Math.max(0, targetIdx))];
+          } else {
+            snapped = nearestOnPath(item.point, routePath);
+          }
+        } else if (item.point && routePath.length > 1) {
+          const nearest = nearestOnPath(item.point, routePath);
+          const dist = Math.hypot(nearest[0] - item.point[0], nearest[1] - item.point[1]);
+          if (dist > 0.12) return;
+        }
+
+        if (!snapped) return;
+        // Minor lateral offset across track (e.g. Traction on catenary side, Signal on wayside)
+        const lateralAngle = (index % 2 === 0 ? 80 : -80) * (Math.PI / 180);
+        const point = [snapped[0] + Math.cos(lateralAngle) * 0.0025, snapped[1] + Math.sin(lateralAngle) * 0.0025];
+        result.push({ ...item, point, relation });
+      });
+    });
+
+    return result;
+  }, [maintenanceLocations, movementBlockIds, routeSectionIds, selectedTrain, routePath, emergencyReroute]);
 
   const overviewMaintenance = useMemo(() => maintenanceLocations.filter((item) => item.point), [maintenanceLocations]);
   const storedConflicts = useMemo(() => (conflicts || []).filter((item) => normalizeId(item.train_id) === selectedTrainId || normalizeId(item.train?.train_id) === selectedTrainId), [conflicts, selectedTrainId]);
@@ -669,13 +992,20 @@ export default function RailwayMap() {
 
   const blockedLocation = useMemo(() => {
     if (!emergencyReroute) return null;
-    const taskOnBlock = maintenanceLocations.find((m) => m.task?.block?.block_code === emergencyReroute.block);
-    if (taskOnBlock?.point) return taskOnBlock.point;
-    if (routePoints.length >= 2) {
-      return routePoints[Math.floor(routePoints.length / 2)];
+    const taskOnBlock = maintenanceLocations.find((m) =>
+      normalizeId(m.task?.block?.block_code) === normalizeId(emergencyReroute.block) ||
+      normalizeId(m.task?.block_id) === normalizeId(emergencyReroute.block) ||
+      m.blockId === normalizeId(emergencyReroute.block)
+    );
+    let rawPoint = taskOnBlock?.point;
+    if (!rawPoint && routePoints.length >= 2) {
+      rawPoint = routePoints[Math.floor(routePoints.length / 2)];
     }
-    return null;
-  }, [emergencyReroute, maintenanceLocations, routePoints]);
+    if (rawPoint && routePath.length > 1) {
+      return nearestOnPath(rawPoint, routePath);
+    }
+    return rawPoint || null;
+  }, [emergencyReroute, maintenanceLocations, routePoints, routePath]);
 
   function selectStation(route, focusMap = true) {
     setStation(route);
@@ -767,7 +1097,7 @@ export default function RailwayMap() {
           </>
         )}
         {selectedTrain && trainConflicts.length > 0 && (
-          <section className="railway-map-records">
+          <section className="railway-map-records" id="railway-map-conflicts-section">
             <div className="railway-map-section-title"><AlertTriangle size={15} /> Conflicts</div>
             {trainConflicts.map((item, index) => (
               <button type="button" className="railway-map-record railway-map-record--button" key={item.conflict_id || index} onClick={() => focusConflict(item)}>
@@ -794,9 +1124,26 @@ export default function RailwayMap() {
       </aside>
       <main className="railway-map-canvas">
         <div className="railway-map-toolbar">
-          <div>
-            <span className="railway-map-toolbar__kicker">RAILSETU / LIVE NETWORK</span>
-            <strong>{selectedTrain ? `${selectedTrain.train_number} - ${selectedTrain.train_name}` : "India network overview"}</strong>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <span className="railway-map-toolbar__kicker">RAILSETU / LIVE NETWORK</span>
+              <strong>{selectedTrain ? `${selectedTrain.train_number} - ${selectedTrain.train_name}` : "India network overview"}</strong>
+            </div>
+            {emergencyReroute && isEmergencyHudDismissed && (
+              <button
+                type="button"
+                className="railway-emergency-badge-btn"
+                onClick={() => {
+                  setIsEmergencyHudDismissed(false);
+                  setIsEmergencyHudMinimized(false);
+                }}
+                title="Restore emergency diversion notification"
+              >
+                <ShieldAlert size={14} color="#ef4444" />
+                <span>Block {emergencyReroute.block} Diversion Active</span>
+                <span className="railway-emergency-badge-btn__action">Show Alert ▴</span>
+              </button>
+            )}
           </div>
           <div className="railway-map-toolbar__actions">
             <Button variant="secondary" size="sm" onClick={fitIndia}>Fit India</Button>
@@ -810,10 +1157,11 @@ export default function RailwayMap() {
             <StationLabelManager count={routeStations.length} />
             {networkRoutes.map(({ train, path }) => {
               const isSelected = selectedTrainId === normalizeId(train.train_id);
+              if (isSelected) return null;
               const trainSelected = Boolean(selectedTrain);
-              const baseColor = isSelected ? "#16384d" : "#24506d";
-              const baseWeight = isSelected ? 1 : 1.25;
-              const baseOpacity = isSelected ? 0.28 : trainSelected ? 0.32 : 0.5;
+              const baseColor = "#2a5b82";
+              const baseWeight = 1.5;
+              const baseOpacity = trainSelected ? 0.38 : 0.6;
               const key = `network-${train.train_id}`;
               return (
                 <Polyline
@@ -827,6 +1175,7 @@ export default function RailwayMap() {
                       if (event.target.getElement()) event.target.getElement().style.cursor = "pointer";
                     },
                     mouseout: (event) => { event.target.setStyle({ color: baseColor, weight: baseWeight, opacity: baseOpacity }); },
+                    click: () => selectTrain(train.train_id),
                   }}
                 >
                   <Tooltip className="railway-network-tooltip">{train.train_number} - {train.train_name}{isSelected ? " (selected)" : ""}</Tooltip>
@@ -848,22 +1197,20 @@ export default function RailwayMap() {
                     {/* 1. Original Scheduled Route (Dashed slate) */}
                     <Polyline
                       positions={routePath}
-                      pathOptions={{ color: "#94a3b8", weight: 3.5, dashArray: "6, 8", opacity: 0.8, smoothFactor: 0 }}
-                    >
-                      <Tooltip className="railway-network-tooltip">Scheduled Route ({selectedTrain?.train_number} Original Track)</Tooltip>
-                    </Polyline>
+                      pathOptions={{ color: "#94a3b8", weight: 3.5, dashArray: "6, 8", opacity: 0.8, smoothFactor: 0, interactive: false }}
+                    />
 
                     {/* 2. Rerouted Diversion Path */}
                     {emergencyReroute.strategy === "CHORD_BYPASS" && rerouteChordPath.length > 1 ? (
                       <>
-                        <Polyline positions={rerouteChordPath} className="railway-route-glow" pathOptions={{ color: "#f59e0b", weight: routeGlowWeight, opacity: 0.25, smoothFactor: 0 }} />
-                        <Polyline positions={rerouteChordPath} className="railway-route-core" pathOptions={{ color: "#f59e0b", weight: 5, dashArray: "10, 6", opacity: 1, smoothFactor: 0 }} />
+                        <Polyline positions={rerouteChordPath} className="railway-route-glow" pathOptions={{ color: "#f59e0b", weight: routeGlowWeight, opacity: 0.25, smoothFactor: 0, interactive: false }} />
+                        <Polyline positions={rerouteChordPath} className="railway-route-core" pathOptions={{ color: "#f59e0b", weight: 5, dashArray: "10, 6", opacity: 1, smoothFactor: 0, interactive: false }} />
                         <RouteParticles path={rerouteChordPath} />
                       </>
                     ) : (
                       <>
-                        <Polyline positions={rerouteSlwPath.length > 1 ? rerouteSlwPath : routePath} className="railway-route-glow" pathOptions={{ color: "#22c55e", weight: routeGlowWeight, opacity: 0.25, smoothFactor: 0 }} />
-                        <Polyline positions={rerouteSlwPath.length > 1 ? rerouteSlwPath : routePath} className="railway-route-core" pathOptions={{ color: "#22c55e", weight: 5, opacity: 1, smoothFactor: 0 }} />
+                        <Polyline positions={rerouteSlwPath.length > 1 ? rerouteSlwPath : routePath} className="railway-route-glow" pathOptions={{ color: "#22c55e", weight: routeGlowWeight, opacity: 0.25, smoothFactor: 0, interactive: false }} />
+                        <Polyline positions={rerouteSlwPath.length > 1 ? rerouteSlwPath : routePath} className="railway-route-core" pathOptions={{ color: "#22c55e", weight: 5, opacity: 1, smoothFactor: 0, interactive: false }} />
                         <RouteParticles path={rerouteSlwPath.length > 1 ? rerouteSlwPath : routePath} />
                       </>
                     )}
@@ -892,8 +1239,8 @@ export default function RailwayMap() {
                   </>
                 ) : (
                   <>
-                    <Polyline positions={routePath} className="railway-route-glow" pathOptions={{ color: "#22d3ee", weight: routeGlowWeight, opacity: 0.16, smoothFactor: 0 }} />
-                    <Polyline positions={routePath} className="railway-route-core" pathOptions={{ color: "#22d3ee", weight: 5, opacity: 1, smoothFactor: 0 }} />
+                    <Polyline positions={routePath} className="railway-route-glow" pathOptions={{ color: "#22d3ee", weight: routeGlowWeight, opacity: 0.16, smoothFactor: 0, interactive: false }} />
+                    <Polyline positions={routePath} className="railway-route-core" pathOptions={{ color: "#22d3ee", weight: 5, opacity: 1, smoothFactor: 0, interactive: false }} />
                     <RouteParticles path={routePath} />
                   </>
                 )}
@@ -963,39 +1310,97 @@ export default function RailwayMap() {
               );
             })}
           </MapContainer>
-          {emergencyReroute && (
-            <div className="railway-map-emergency-hud">
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <ShieldAlert size={22} color="#ef4444" />
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: "#fca5a5" }}>
-                    🚨 Emergency Diversion Active on Block {emergencyReroute.block}
-                  </div>
-                  <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>
-                    Train {selectedTrain?.train_number} ({selectedTrain?.train_name}) — Strategy: <strong>{emergencyReroute.strategyName}</strong>
-                  </div>
+          {emergencyReroute && !isEmergencyHudDismissed && (
+            isEmergencyHudMinimized ? (
+              <div className="railway-map-emergency-hud railway-map-emergency-hud--minimized">
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}
+                  onClick={() => setIsEmergencyHudMinimized(false)}
+                  title="Click to expand full emergency details"
+                >
+                  <ShieldAlert size={16} color="#ef4444" />
+                  <span style={{ fontWeight: 700, color: "#fca5a5", fontSize: 12 }}>
+                    🚨 Block {emergencyReroute.block} — {emergencyReroute.strategyName}
+                  </span>
+                  <span style={{ color: "#4ade80", fontSize: 11, fontWeight: 600, marginLeft: 4 }}>
+                    ✓ {emergencyReroute.served.size} Preserved
+                  </span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsEmergencyHudMinimized(false)}
+                    className="railway-map-emergency-hud__icon-btn"
+                    title="Expand notification"
+                    aria-label="Expand notification"
+                  >
+                    <ChevronDown size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEmergencyHudDismissed(true)}
+                    className="railway-map-emergency-hud__icon-btn"
+                    title="Cut / Hide notification banner"
+                    aria-label="Cut notification banner"
+                  >
+                    <X size={14} />
+                  </button>
                 </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <span style={{ color: "#4ade80", fontWeight: 600, fontSize: 12 }}>
-                  ✓ {emergencyReroute.served.size} Stoppages Preserved
-                </span>
-                {emergencyReroute.bypassed.size > 0 && (
-                  <span style={{ color: "#f87171", fontWeight: 600, fontSize: 12 }}>
-                    ⚠ {emergencyReroute.bypassed.size} Bypassed (Bus Bridge Alert)
+            ) : (
+              <div className="railway-map-emergency-hud">
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <ShieldAlert size={22} color="#ef4444" />
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: "#fca5a5" }}>
+                      🚨 Emergency Diversion Active on Block {emergencyReroute.block}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>
+                      Train {selectedTrain?.train_number} ({selectedTrain?.train_name}) — Strategy: <strong>{emergencyReroute.strategyName}</strong>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ color: "#4ade80", fontWeight: 600, fontSize: 12 }}>
+                    ✓ {emergencyReroute.served.size} Stoppages Preserved
                   </span>
-                )}
-                <button
-                  onClick={() => {
-                    setEmergencyReroute(null);
-                    window.location.hash = "/map";
-                  }}
-                  className="railway-map-emergency-hud__close"
-                >
-                  ✕ Return to Standard Network
-                </button>
+                  {emergencyReroute.bypassed.size > 0 && (
+                    <span style={{ color: "#f87171", fontWeight: 600, fontSize: 12 }}>
+                      ⚠ {emergencyReroute.bypassed.size} Bypassed (Bus Bridge Alert)
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmergencyReroute(null);
+                      window.location.hash = "/map";
+                    }}
+                    className="railway-map-emergency-hud__close"
+                    title="Exit emergency diversion and return to standard train schedule"
+                  >
+                    ✕ Exit Diversion
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEmergencyHudMinimized(true)}
+                    className="railway-map-emergency-hud__icon-btn"
+                    title="Minimize notification"
+                    aria-label="Minimize notification"
+                  >
+                    <Minus size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEmergencyHudDismissed(true)}
+                    className="railway-map-emergency-hud__icon-btn"
+                    title="Cut / Hide notification banner"
+                    aria-label="Cut notification banner"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
               </div>
-            </div>
+            )
           )}
           <div className="railway-map-canvas-empty">
             {!selectedTrain && (
@@ -1006,28 +1411,70 @@ export default function RailwayMap() {
               </>
             )}
           </div>
-          <NetworkStatusHud trains={hudTrains} activeBlocks={hudBlocks} maintenance={hudMaintenance} conflicts={hudConflicts} />
-          <div className="railway-map-legend">
-            <strong>Legend</strong>
-            <span><i className="railway-map-legend-line" />Selected route</span>
-            <span><i className="railway-map-legend-line railway-map-legend-line--dim" />Railway corridor</span>
-            <span><i className="railway-map-legend-dot railway-map-legend-dot--source" />Source</span>
-            <span><i className="railway-map-legend-dot railway-map-legend-dot--destination" />Destination</span>
-            <span><i className="railway-map-legend-dot railway-map-legend-dot--station" />Station</span>
-            <span><i className="railway-map-legend-dot railway-map-legend-dot--engineering" />Engineering</span>
-            <span><i className="railway-map-legend-dot railway-map-legend-dot--traction" />Traction</span>
-            <span><i className="railway-map-legend-dot railway-map-legend-dot--signalling" />Signalling</span>
-            <span><i className="railway-map-legend-dot railway-map-legend-dot--critical" />Critical / conflict</span>
-            {emergencyReroute && (
-              <>
-                <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
-                <span><i className="railway-map-legend-line" style={{ background: "#94a3b8" }} />Original scheduled path</span>
-                <span><i className="railway-map-legend-line" style={{ background: emergencyReroute.strategy === "CHORD_BYPASS" ? "#f59e0b" : "#22c55e" }} />Rerouted trajectory</span>
-                <span><i className="railway-map-legend-dot" style={{ background: "#22c55e", boxShadow: "0 0 8px #22c55e" }} />Preserved stop</span>
-                <span><i className="railway-map-legend-dot" style={{ background: "#ef4444", boxShadow: "0 0 8px #ef4444" }} />Bypassed / skipped stop</span>
-              </>
-            )}
-          </div>
+          <NetworkStatusHud
+            trains={hudTrains}
+            activeBlocks={hudBlocks}
+            maintenance={hudMaintenance}
+            conflicts={hudConflicts}
+            layers={layers}
+            onToggleLayer={toggleLayer}
+            isMinimized={isNetworkHudMinimized}
+            onToggleMinimize={setIsNetworkHudMinimized}
+          />
+          {isLegendMinimized ? (
+            <div
+              className="railway-map-legend railway-map-legend--minimized"
+              onClick={() => setIsLegendMinimized(false)}
+              title="Click to expand Legend"
+              role="button"
+              tabIndex={0}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer" }}>
+                <Layers3 size={13} color="#67e8f9" />
+                <strong style={{ margin: 0, color: "#f0f8ff", fontSize: 11, letterSpacing: "0.08em" }}>Legend</strong>
+                <ChevronUp size={14} style={{ color: "#67e8f9", marginLeft: 4 }} />
+              </div>
+            </div>
+          ) : (
+            <div className="railway-map-legend">
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                  <Layers3 size={13} color="#67e8f9" />
+                  <strong style={{ margin: 0, color: "#f0f8ff", fontSize: 11, letterSpacing: "0.1em" }}>Legend</strong>
+                </div>
+                <button
+                  type="button"
+                  className="railway-map-legend__btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsLegendMinimized(true);
+                  }}
+                  title="Minimize Legend"
+                  aria-label="Minimize Legend"
+                >
+                  <ChevronDown size={14} />
+                </button>
+              </div>
+              <span><i className="railway-map-legend-line" />Selected route</span>
+              <span><i className="railway-map-legend-line railway-map-legend-line--dim" />Railway corridor</span>
+              <span><i className="railway-map-legend-dot railway-map-legend-dot--source" />Source</span>
+              <span><i className="railway-map-legend-dot railway-map-legend-dot--destination" />Destination</span>
+              <span><i className="railway-map-legend-dot railway-map-legend-dot--station" />Station</span>
+              <span><i className="railway-map-legend-dot railway-map-legend-dot--engineering" />Engineering</span>
+              <span><i className="railway-map-legend-dot railway-map-legend-dot--traction" />Traction</span>
+              <span><i className="railway-map-legend-dot railway-map-legend-dot--signalling" />Signalling</span>
+              <span><i className="railway-map-legend-dot railway-map-legend-dot--critical" />Critical / conflict</span>
+              {emergencyReroute && (
+                <>
+                  <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
+                  <span><i className="railway-map-legend-line" style={{ background: "#94a3b8" }} />Original scheduled path</span>
+                  <span><i className="railway-map-legend-line" style={{ background: emergencyReroute.strategy === "CHORD_BYPASS" ? "#f59e0b" : "#22c55e" }} />Rerouted trajectory</span>
+                  <span><i className="railway-map-legend-dot" style={{ background: "#22c55e", boxShadow: "0 0 8px #22c55e" }} />Preserved stop</span>
+                  <span><i className="railway-map-legend-dot" style={{ background: "#ef4444", boxShadow: "0 0 8px #ef4444" }} />Bypassed / skipped stop</span>
+                </>
+              )}
+            </div>
+          )}
         </div>
         {selectedTrain && (
           <div className="railway-map-statusbar">

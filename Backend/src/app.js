@@ -13,6 +13,8 @@ const schedulesRoutes = require("./routes/schedules.routes");
 const integrationRoutes = require("./routes/integration.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
 const blockPlanningRoutes = require("./routes/blockPlanning.routes");
+const conflictsRoutes = require("./routes/conflicts.routes");
+const trainImpactsRoutes = require("./routes/trainImpacts.routes");
 
 dotenv.config();
 
@@ -29,6 +31,8 @@ app.use("/api/blocks", blocksRoutes);
 app.use("/api/trains", trainsRoutes);
 app.use("/api/assets", assetsRoutes);
 app.use("/api/schedules", schedulesRoutes);
+app.use("/api/conflicts", conflictsRoutes);
+app.use("/api/train-impacts", trainImpactsRoutes);
 app.use("/api/integration", integrationRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 // ML 2-stage block planning pipeline (clustering + constraint optimization)

@@ -18,7 +18,7 @@ const QUICK_ACTIONS = [
   { label: "Maintenance Tasks", sub: "Review all maintenance requests", to: "/maintenance" },
   { label: "Infrastructure Blocks", sub: "Block availability and status", to: "/blocks" },
   { label: "Train Operations", sub: "Active trains and movements", to: "/trains" },
-  { label: "Generate Plan", sub: "Run the block planning engine", to: "/planning" },
+  { label: "Custom Window Generator", sub: "Generate blocks for a specific date window", to: "/planning" },
   { label: "View Plans", sub: "Saved optimised block plans", to: "/schedules" },
   { label: "Railway Map", sub: "Interactive route and maintenance map", to: "/map" },
 ];

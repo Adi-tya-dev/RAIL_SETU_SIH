@@ -9,6 +9,7 @@ import Button from "../components/common/Button";
 import StateBlock from "../components/common/StateBlock";
 import { CalendarCog, Zap, ArrowRight, AlertCircle, CheckCircle2, Clock, Train, Wrench, Loader2 } from "lucide-react";
 import PlanResult from "../components/planning/PlanResult";
+import ScheduleDetail from "../components/schedules/ScheduleDetail";
 
 const GENERATE_STEPS = [
   "Analyzing maintenance tasks...",
@@ -38,6 +39,7 @@ export default function Planning() {
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [selectedPlanId, setSelectedPlanId] = useState(null);
   const [engineState, setEngineState] = useState("idle");
   const [stepIndex, setStepIndex] = useState(0);
 
@@ -107,14 +109,14 @@ export default function Planning() {
   return (
     <>
       <PageHeader
-        title="Automatic Block Planning"
-        subtitle="Generate a coordinated maintenance plan using infrastructure constraints, maintenance priority and train movements"
+        title="Custom Window Block Generator"
+        subtitle="Generate on-demand coordinated maintenance blocks for a specific operational date range and corridor window"
       />
 
       <section className="card">
         <div className="card__head">
-          <h2>Planning Window</h2>
-          <p>Select the date range for the maintenance planning horizon</p>
+          <h2>Target Planning Window</h2>
+          <p>Select the specific date range to compute dynamic block allocations and traffic gap opportunities</p>
         </div>
         <form onSubmit={handleGenerate}>
           <div className="plan-form">
@@ -215,7 +217,9 @@ export default function Planning() {
           </div>
         )}
 
-        {engineState === "success" && result && <PlanResult plan={result} />}
+        {engineState === "success" && result && (
+          <PlanResult plan={result} onSelectPlan={setSelectedPlanId} />
+        )}
 
         {engineState === "idle" && (
           <div className="card">
@@ -240,6 +244,8 @@ export default function Planning() {
           </div>
         )}
       </div>
+
+      <ScheduleDetail planId={selectedPlanId} onClose={() => setSelectedPlanId(null)} />
     </>
   );
 }

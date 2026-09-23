@@ -131,24 +131,15 @@ export default function Assets() {
         >
           <AssetsTable rows={rows} loading={loading} onRowClick={setSelected} />
 
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "8px 16px 0" }}>
-            <select
-              className="select"
-              style={{ width: "auto", minWidth: 90 }}
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
-                setPage(1);
-              }}
-              aria-label="Records per page"
-            >
-              {PAGE_SIZE_OPTIONS.map((n) => (
-                <option key={n} value={n}>{n} / page</option>
-              ))}
-            </select>
-          </div>
-
-          {pagination && <Pagination pagination={pagination} onChange={setPage} disabled={loading} />}
+          {pagination && (
+            <Pagination
+              pagination={pagination}
+              onChange={setPage}
+              pageSize={pageSize}
+              onPageSizeChange={setPageSize}
+              disabled={loading}
+            />
+          )}
         </StateBlock>
       </section>
 

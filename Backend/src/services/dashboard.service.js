@@ -8,6 +8,47 @@ const COMPLETED_TASK_STATUS = "COMPLETED";
 const DEFECTIVE_ASSET_STATUS = "DEFECTIVE";
 const TERMINAL_PLAN_STATUSES = ["COMPLETED", "CANCELLED"];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Operational KPI Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * countOverdueTasks — tasks past deadline that are not completed/cancelled
+ */
+function countOverdueTasks(tasks) {
+  const now = Date.now();
+  return tasks.filter(
+    (t) => t.deadline && new Date(t.deadline).getTime() < now &&
+    !['COMPLETED', 'CANCELLED'].includes(t.status)
+  ).length;
+}
+
+/**
+ * computeAvgOptScore — average optimization_score across non-terminal plans
+ */
+function computeAvgOptScore(plans) {
+  const activePlans = plans.filter(
+    (p) => !TERMINAL_PLAN_STATUSES.includes(p.status) && typeof p.optimization_score === 'number'
+  );
+  if (activePlans.length === 0) return null;
+  const total = activePlans.reduce((sum, p) => sum + p.optimization_score, 0);
+  return Math.round((total / activePlans.length) * 1000) / 1000;
+}
+
+/**
+ * countPendingApproval — plans in PROPOSED state awaiting controller sign-off
+ */
+function countPendingApproval(plans) {
+  return plans.filter((p) => p.status === 'PROPOSED').length;
+}
+
+/**
+ * computeTimeSavedMins — total minutes saved via multi-crew clubbing across all plans
+ */
+function computeTimeSavedMins(plans) {
+  return plans.reduce((sum, p) => sum + (Number(p.time_saved_mins) || 0), 0);
+}
+
 async function getSummary() {
   try {
     const [
@@ -105,6 +146,12 @@ async function getSummary() {
     plans: {
       total: plns.length,
       active: plns.filter((p) => !TERMINAL_PLAN_STATUSES.includes(p.status)).length,
+    },
+    optimization: {
+      overdue_tasks:         countOverdueTasks(mTasks),
+      pending_approval:      countPendingApproval(plns),
+      avg_optimization_score: computeAvgOptScore(plns),
+      total_time_saved_mins: computeTimeSavedMins(plns),
     },
   };
 }

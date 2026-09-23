@@ -426,11 +426,11 @@ const allRawTrains = [
   { id: 10, num: "12903", name: "Golden Temple Mail", type: "MAIL_EXPRESS", pri: 2, startH: 18.0, speed: 65, stops: ["BCT", "ST", "ADI"], moves: [["B010", 18.5, 18.83], ["B011", 19.0, 19.5]] },
 
   // === 11-30: Long-Distance Expresses (from seed-longdistance.js) ===
-  { id: 11, num: "12615", name: "Grand Trunk Express", type: "MAIL_EXPRESS", pri: 3, startH: 5.0, speed: 60, stops: ["MAS", "GDR", "NLR", "BZA", "KZJ", "NGP", "ET", "JBP", "BPL", "GWL", "AGC", "NDLS"], moves: [["B001", 35.0, 35.4]] },
+  { id: 11, num: "12615", name: "Grand Trunk Express", type: "MAIL_EXPRESS", pri: 3, startH: 5.0, speed: 60, stops: ["MAS", "GDR", "NLR", "BZA", "KZJ", "NGP", "JBP", "GWL", "AGC", "NDLS"], moves: [["B001", 35.0, 35.4]] },
   { id: 12, num: "12627", name: "Karnataka Express", type: "SUPERFAST", pri: 3, startH: 8.0, speed: 65, stops: ["SBC", "GTL", "SUR", "BPL", "GWL", "AGC", "NDLS"], moves: [["B002", 37.0, 37.5]] },
   { id: 13, num: "12625", name: "Kerala Express", type: "MAIL_EXPRESS", pri: 3, startH: 12.0, speed: 60, stops: ["TVC", "QLN", "ERS", "CLT", "MAO", "LTT", "BSL", "BPL", "AGC", "NDLS"], moves: [["B001", 48.0, 48.6]] },
   { id: 14, num: "12303", name: "Poorva Express", type: "MAIL_EXPRESS", pri: 3, startH: 16.0, speed: 65, stops: ["HWH", "DGR", "GAYA", "DDU", "CNB", "NDLS"], moves: [["B003", 34.0, 34.5]] },
-  { id: 15, num: "12839", name: "Howrah-Chennai Mail", type: "MAIL_EXPRESS", pri: 3, startH: 21.0, speed: 58, stops: ["HWH", "BLS", "BBS", "VSKP", "VZM", "BZA", "GDR", "MAS"], moves: [] },
+  { id: 15, num: "12839", name: "Howrah-Chennai Mail", type: "MAIL_EXPRESS", pri: 3, startH: 21.0, speed: 58, stops: ["HWH", "BLS", "BBS", "VSKP", "VZM", "BZA", "NLR", "GDR", "MAS"], moves: [] },
   { id: 16, num: "12163", name: "Chennai-Mumbai Express", type: "MAIL_EXPRESS", pri: 3, startH: 9.0, speed: 58, stops: ["MAS", "KJM", "SBC", "GTL", "SUR", "PUNE", "CSMT"], moves: [["B013", 30.5, 31.0]] },
   { id: 17, num: "12137", name: "Punjab Mail", type: "MAIL_EXPRESS", pri: 3, startH: 13.0, speed: 60, stops: ["CSMT", "BSL", "NGP", "BPL", "AGC", "NDLS", "LDH", "FZR"], moves: [["B004", 39.0, 39.4]] },
   { id: 18, num: "12423", name: "Dibrugarh Rajdhani", type: "RAJDHANI", pri: 1, startH: 7.0, speed: 75, stops: ["NDLS", "CNB", "LKO", "GKP", "NJP", "NBQ", "GHY", "LMG", "DBRG"], moves: [["B005", 8.0, 8.4]] },
@@ -442,13 +442,13 @@ const allRawTrains = [
   { id: 24, num: "12801", name: "Purushottam Express", type: "MAIL_EXPRESS", pri: 3, startH: 6.0, speed: 62, stops: ["PURI", "BBS", "CTC", "ROU", "TATA", "GMO", "PRYJ", "CNB", "NDLS"], moves: [["B002", 33.0, 33.5]] },
   { id: 25, num: "12958", name: "Swarna Jayanti Rajdhani", type: "RAJDHANI", pri: 1, startH: 15.0, speed: 80, stops: ["ASR", "UMB", "NDLS", "AGC", "BPL", "PUNE", "KPD", "MAS"], moves: [["B004", 17.0, 17.3], ["B014", 32.0, 32.4]] },
   { id: 26, num: "12967", name: "Jaipur-Chennai Express", type: "SUPERFAST", pri: 3, startH: 19.0, speed: 62, stops: ["JP", "SWM", "BRC", "ST", "PUNE", "GTL", "SBC", "KPD", "MAS"], moves: [["B013", 26.0, 26.4]] },
-  { id: 27, num: "12621", name: "Tamil Nadu Express", type: "SUPERFAST", pri: 3, startH: 22.0, speed: 70, stops: ["NDLS", "AGC", "BPL", "ET", "NGP", "BZA", "GDR", "MAS"], moves: [["B001", 22.2, 22.6]] },
+  { id: 27, num: "12621", name: "Tamil Nadu Express", type: "SUPERFAST", pri: 3, startH: 22.0, speed: 70, stops: ["NDLS", "AGC", "BPL", "ET", "NGP", "BZA", "NLR", "GDR", "MAS"], moves: [["B001", 22.2, 22.6]] },
   { id: 28, num: "12311", name: "Howrah-Jammu Tawi Express", type: "MAIL_EXPRESS", pri: 3, startH: 4.0, speed: 58, stops: ["HWH", "DGR", "GAYA", "CNB", "NDLS", "UMB", "JAT"], moves: [["B005", 28.0, 28.5]] },
   { id: 29, num: "16346", name: "Netravati Express", type: "SUPERFAST", pri: 3, startH: 11.0, speed: 60, stops: ["TVC", "QLN", "ERS", "CLT", "MAO", "PNVL", "LTT"], moves: [["B013", 35.0, 35.5]] },
-  { id: 30, num: "12841", name: "Coromandel Express", type: "MAIL_EXPRESS", pri: 3, startH: 17.0, speed: 68, stops: ["SHM", "KGP", "BBS", "VSKP", "BZA", "GDR", "MAS"], moves: [] },
+  { id: 30, num: "12841", name: "Coromandel Express", type: "MAIL_EXPRESS", pri: 3, startH: 17.0, speed: 68, stops: ["SHM", "KGP", "BBS", "VSKP", "BZA", "NLR", "GDR", "MAS"], moves: [] },
 
   // === 31: Sanghamitra Express (from seed-sanghamitra.js) ===
-  { id: 31, num: "12313", name: "Sanghamitra Express", type: "SUPERFAST", pri: 2, startH: 21.0, speed: 65, stops: ["SMVB", "KJM", "BWT", "JTJ", "SA", "ED", "TPJ", "TPTY", "MAS", "NLR", "BZA", "KMM", "WL", "BPQ", "NGP", "JBP", "KTE", "MKP", "PRYJ", "DDU", "DNR"], moves: [["B101", 21.0, 22.2], ["B102", 22.2, 24.2], ["B105", 30.4, 34.6]] },
+  { id: 31, num: "12313", name: "Sanghamitra Express", type: "SUPERFAST", pri: 2, startH: 21.0, speed: 65, stops: ["SMVB", "KJM", "BWT", "JTJ", "SA", "ED", "TPJ", "TPTY", "MAS", "GDR", "NLR", "BZA", "KMM", "WL", "BPQ", "NGP", "JBP", "KTE", "MKP", "PRYJ", "DDU", "DNR"], moves: [["B101", 21.0, 22.2], ["B102", 22.2, 24.2], ["B105", 30.4, 34.6]] },
 
   // === 32-35: Vande Bharat Expresses (from seed-priority.js) ===
   { id: 32, num: "20901", name: "Vande Bharat Express (Prayagraj)", type: "VANDE_BHARAT", pri: 1, startH: 6.0, speed: 95, stops: ["PRYJ", "CNB", "NDLS"], moves: [["B001", 11.8, 12.1]] },

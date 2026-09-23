@@ -89,18 +89,66 @@ async function findAll(query) {
 }
 
 async function findById(id) {
-  const maintenance_task_id = parsePositiveInt(id, "id");
+  const numId = Number(id);
+  const maintenance_task_id = !Number.isNaN(numId) && numId > 0 ? numId : null;
   try {
-    const task = await prisma.maintenanceTask.findUnique({
-      where: { maintenance_task_id },
-      include: listInclude,
-    });
-    if (task) return task;
+    if (maintenance_task_id) {
+      const task = await prisma.maintenanceTask.findUnique({
+        where: { maintenance_task_id },
+        include: listInclude,
+      });
+      if (task) return task;
+    } else {
+      const task = await prisma.maintenanceTask.findFirst({
+        where: { external_ref: String(id) },
+        include: listInclude,
+      });
+      if (task) return task;
+    }
   } catch (err) {
     // Database offline or error
   }
 
-  return seedData.taskIdMap.get(maintenance_task_id) || null;
+  if (maintenance_task_id) {
+    return seedData.taskIdMap.get(maintenance_task_id) || null;
+  }
+  return seedData.maintenanceTasks.find((t) => t.external_ref === id) || null;
 }
 
-module.exports = { findAll, findById };
+async function updateTask(id, data) {
+  const numId = Number(id);
+  const isNumeric = !Number.isNaN(numId) && numId > 0;
+
+  try {
+    const where = isNumeric
+      ? { maintenance_task_id: BigInt(numId) }
+      : { external_ref: String(id) };
+
+    const updated = await prisma.maintenanceTask.update({
+      where,
+      data: {
+        ...data,
+        updated_at: new Date(),
+      },
+      include: listInclude,
+    });
+    return updated;
+  } catch (err) {
+    // Fallback in memory
+    const existing = isNumeric
+      ? seedData.taskIdMap.get(numId)
+      : seedData.maintenanceTasks.find((t) => t.external_ref === id);
+
+    if (existing) {
+      Object.assign(existing, data);
+      return existing;
+    }
+    throw err;
+  }
+}
+
+async function approveTask(id) {
+  return updateTask(id, { status: "APPROVED" });
+}
+
+module.exports = { findAll, findById, updateTask, approveTask };

@@ -54,7 +54,7 @@ export const NAV_SECTIONS = [
   {
     label: "PLANNING",
     items: [
-      { path: "/planning",    label: "Automatic Planning",  icon: "CalendarCog" },
+      { path: "/planning",    label: "Custom Window Generator", icon: "CalendarCog" },
       { path: "/ml-planning", label: "ML Pipeline Optimizer", icon: "BrainCircuit" },
       { path: "/slots",       label: "Timetable Slots",     icon: "Clock" },
       { path: "/schedules",   label: "Generated Plans",     icon: "ClipboardList" },
@@ -80,7 +80,7 @@ export const ROUTE_TITLES = {
   blocks:                 "Block Sections",
   trains:                 "Train Movements",
   assets:                 "Asset Health Monitor",
-  planning:               "Automatic Block Planning",
+  planning:               "Custom Window Block Generator",
   "ml-planning":          "ML Pipeline Optimizer",
   slots:                  "Timetable Slots & Maintenance Windows Explorer",
   schedules:              "Optimised Block Plans",

@@ -1,5 +1,7 @@
 import Badge from "../common/Badge";
+import Button from "../common/Button";
 import { formatScore, formatDuration, formatTime, humanize } from "../../utils/formatters";
+import { ArrowUpRight } from "lucide-react";
 
 function pick(obj, ...keys) {
   for (const key of keys) {
@@ -23,8 +25,9 @@ function computeDuration(mb, start, end) {
   return "—";
 }
 
-export default function MegaBlockCard({ mb }) {
-  const id = mb?.mega_block_id ?? mb?.mb_id ?? mb?.id ?? mb?.code ?? "MB";
+export default function MegaBlockCard({ mb, onSelectPlan }) {
+  const planId = mb?.plan_id ?? mb?.id;
+  const id = mb?.mega_block_id ?? mb?.mb_id ?? (planId ? `MB #${planId}` : "MB");
   const blockCode = mb?.block_code ?? mb?.block?.block_code ?? mb?.block ?? "—";
   const start = mb?.start ?? mb?.start_time ?? mb?.planned_start ?? mb?.time_window?.start;
   const end = mb?.end ?? mb?.end_time ?? mb?.planned_end ?? mb?.time_window?.end;
@@ -38,14 +41,43 @@ export default function MegaBlockCard({ mb }) {
   const reason = pick(mb, "reason", "rationale", "consolidation_reason");
   const departments = asArray(mb?.departments ?? mb?.department);
 
+  const isClickable = Boolean(onSelectPlan && planId);
+
   return (
-    <article className="megablock">
+    <article
+      className={`megablock ${isClickable ? "is-clickable" : ""}`}
+      onClick={isClickable ? () => onSelectPlan(planId) : undefined}
+      role={isClickable ? "button" : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      onKeyDown={
+        isClickable
+          ? (e) => {
+              if (e.key === "Enter") onSelectPlan(planId);
+            }
+          : undefined
+      }
+    >
       <header className="megablock__head">
-        <span className="megablock__id">{id}</span>
-        <Badge tone="amber">Block {blockCode}</Badge>
-        <span className="megablock__time">
-          {start ? formatTime(start) : "—"} → {end ? formatTime(end) : "—"}
-        </span>
+        <div className="megablock__title-group">
+          <span className="megablock__id">{id}</span>
+          <Badge tone="amber">Block {blockCode}</Badge>
+          <span className="megablock__time">
+            {start ? formatTime(start) : "—"} → {end ? formatTime(end) : "—"}
+          </span>
+        </div>
+
+        {isClickable && (
+          <Button
+            size="xs"
+            variant="secondary"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectPlan(planId);
+            }}
+          >
+            Inspect Plan <ArrowUpRight size={13} style={{ marginLeft: 2 }} />
+          </Button>
+        )}
       </header>
 
       <div className="megablock__body">
@@ -75,7 +107,7 @@ export default function MegaBlockCard({ mb }) {
 
       <div className="megablock__row">
         <span className="megablock__stat">
-          Departments
+          <span>Departments</span>
           <b className="pill-list">
             {departments.length > 0
               ? departments.map((d, i) => <Badge key={i} tone="blue">{humanize(d)}</Badge>)
@@ -83,7 +115,7 @@ export default function MegaBlockCard({ mb }) {
           </b>
         </span>
         <span className="megablock__stat">
-          Block
+          <span>Block Section</span>
           <b className="mono">{blockCode}</b>
         </span>
       </div>

@@ -39,11 +39,11 @@ function LiveIndicator({ status, newCount }) {
   const isError = status === "error";
 
   const dotStyle = {
-    width: 6,
-    height: 6,
+    width: 7,
+    height: 7,
     borderRadius: "50%",
-    background: isLive ? "var(--success, #22c55e)" : isError ? "var(--danger, #ef4444)" : "var(--text-muted, #888)",
-    boxShadow: isLive ? "0 0 6px var(--success, #22c55e)" : "none",
+    background: isLive ? "#22c55e" : isError ? "#ef4444" : "var(--text-muted, #888)",
+    boxShadow: isLive ? "0 0 8px #22c55e" : "none",
     animation: isLive ? "livePulse 2s ease-in-out infinite" : "none",
     flexShrink: 0,
   };
@@ -51,20 +51,21 @@ function LiveIndicator({ status, newCount }) {
   const wrapStyle = {
     display: "flex",
     alignItems: "center",
-    gap: 5,
-    padding: "2px 8px 2px 6px",
+    gap: 6,
+    padding: "3px 10px",
     borderRadius: 999,
-    border: `1px solid ${isLive ? "rgba(34,197,94,0.28)" : isError ? "rgba(239,68,68,0.28)" : "var(--border, rgba(255,255,255,0.07))"}`,
-    background: isLive ? "rgba(34,197,94,0.07)" : "transparent",
-    fontSize: 10.5,
-    fontWeight: 600,
-    color: isLive ? "var(--success, #22c55e)" : isError ? "var(--danger-bright, #f87171)" : "var(--text-muted, #888)",
+    border: `1px solid ${isLive ? "rgba(34,197,94,0.4)" : isError ? "rgba(239,68,68,0.4)" : "var(--border, rgba(255,255,255,0.1))"}`,
+    background: isLive ? "rgba(34,197,94,0.12)" : isError ? "rgba(239,68,68,0.12)" : "transparent",
+    fontSize: 12,
+    fontWeight: 700,
+    letterSpacing: "0.03em",
+    color: isLive ? "#4ade80" : isError ? "#f87171" : "var(--text-muted, #888)",
     whiteSpace: "nowrap",
     userSelect: "none",
     cursor: "default",
   };
 
-  const label = isLive ? "Live" : isError ? "Disconnected" : "Connecting…";
+  const label = isLive ? "LIVE" : isError ? "Disconnected" : "Connecting…";
 
   return (
     <div
@@ -82,18 +83,19 @@ function LiveIndicator({ status, newCount }) {
       {isLive && newCount > 0 && (
         <span
           style={{
-            background: "var(--success, #22c55e)",
-            color: "#000",
+            background: "rgba(34,197,94,0.25)",
+            border: "1px solid rgba(34,197,94,0.5)",
+            color: "#4ade80",
             borderRadius: 999,
-            padding: "0 5px",
-            fontSize: 9.5,
-            fontWeight: 700,
-            lineHeight: "15px",
-            minWidth: 15,
+            padding: "1px 6px",
+            fontSize: 11,
+            fontWeight: 800,
+            lineHeight: "14px",
+            minWidth: 16,
             textAlign: "center",
           }}
         >
-          {newCount > 99 ? "99+" : newCount}
+          +{newCount > 99 ? "99+" : newCount}
         </span>
       )}
     </div>
@@ -101,7 +103,7 @@ function LiveIndicator({ status, newCount }) {
 }
 
 export default function Header({ currentPath, onToggleSidebar, collapsed }) {
-  const { backend, database, schedulingEngine, refresh } = useSystemStatus();
+  const { backend, database, refresh } = useSystemStatus();
   const { liveStatus, newRequestCount } = useLiveEvents();
 
   const path     = currentPath.split("?")[0].replace(/\/$/, "") || "/dashboard";
@@ -120,10 +122,12 @@ export default function Header({ currentPath, onToggleSidebar, collapsed }) {
             <span className="brand-mark__rail" />
             <span className="brand-mark__bridge" />
           </div>
-          <div className="brand-name">
-            <span className="brand-name__hindi">रेल</span><span className="brand-name__english">Setu</span>
+          <div className="brand-text">
+            <div className="brand-name">
+              <span className="brand-name__hindi">रेल</span><span className="brand-name__english">Setu</span>
+            </div>
+            <div className="brand-tag">Operations control</div>
           </div>
-          <div className="brand-tag">Operations control</div>
         </div>
       </div>
 
@@ -139,9 +143,9 @@ export default function Header({ currentPath, onToggleSidebar, collapsed }) {
         <div className="topbar__status">
           <StatusChip label="Backend"  status={backend} />
           <StatusChip label="Database" status={database} />
-          <StatusChip label="Planner"  status={schedulingEngine} />
         </div>
-        <button className="topbar__refresh" onClick={refresh} aria-label="Refresh status">
+
+        <button className="topbar__refresh" onClick={refresh} aria-label="Refresh status" title="Refresh status">
           <RefreshCw size={14} />
         </button>
       </div>

@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import MegaBlockCard from "./MegaBlockCard";
 import { formatScore } from "../../utils/formatters";
 
@@ -9,12 +10,32 @@ function pick(obj, ...keys) {
 }
 
 function asArray(value) {
-  return Array.isArray(value) ? value : [];
+  if (Array.isArray(value)) return value;
+  return value ? [value] : [];
 }
 
-export default function PlanResult({ plan }) {
-  const mb = plan?.mega_blocks ?? plan?.blocks ?? [];
-  const megaBlocks = asArray(mb);
+export default function PlanResult({ plan, onSelectPlan }) {
+  const rawMb = plan?.mega_blocks ?? plan?.blocks ?? [];
+  const planIds = useMemo(() => {
+    if (Array.isArray(plan?.plan_ids) && plan.plan_ids.length > 0) {
+      return plan.plan_ids.map(String);
+    }
+    const rawId = pick(plan, "plan_id", "id");
+    if (rawId) {
+      return String(rawId)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+    return [];
+  }, [plan]);
+
+  const megaBlocks = useMemo(() => {
+    return asArray(rawMb).map((mb, idx) => ({
+      ...mb,
+      plan_id: mb?.plan_id ?? planIds[idx] ?? mb?.id,
+    }));
+  }, [rawMb, planIds]);
 
   const scheduledTasks =
     pick(plan, "tasks_scheduled", "scheduled_task_count") ??
@@ -32,46 +53,101 @@ export default function PlanResult({ plan }) {
 
   const estimatedDelay = pick(plan, "estimated_delay_minutes", "expected_delay_minutes", "total_delay_minutes");
 
-  const metrics = [
-    { label: "Plan ID", value: pick(plan, "plan_id", "id") ?? "—", accent: false, mono: true },
-    { label: "Optimization Score", value: pick(plan, "optimization_score") != null ? formatScore(plan.optimization_score) : "—", accent: true },
-    { label: "Asset Availability Score", value: pick(plan, "asset_availability_score") != null ? formatScore(plan.asset_availability_score) : "—", accent: false },
-    { label: "Tasks Scheduled", value: scheduledTasks ?? "—", accent: false },
-    { label: "Tasks Unscheduled", value: unscheduledTasks ?? "—", accent: false },
-    { label: "Mega Blocks", value: megaBlocks.length || "—", accent: false },
-    { label: "Affected Trains", value: affectedTrains ?? "—", accent: false },
-    { label: "Estimated Delay", value: estimatedDelay != null ? `${formatScore(estimatedDelay, 0)} min` : "—", accent: false },
-  ];
-
   return (
     <div className="stack">
       <section className="section-block">
         <div className="section-block__head">
-          <h3>Generated Plan</h3>
+          <h3>Generated Plan Overview</h3>
+          <p className="text-xs text-faint">
+            Summary metrics for the generated planning window. Click on any Plan ID or card to inspect full tasks and conflicts.
+          </p>
         </div>
         <div className="plan-metrics">
-          {metrics.map((metric) => (
-            <div className={`metric ${metric.accent ? "metric--accent" : ""}`} key={metric.label}>
-              <div className="metric__label">{metric.label}</div>
-              <div className={`metric__value ${metric.mono ? "mono" : ""}`}>{metric.value}</div>
-            </div>
-          ))}
+          <div className="metric">
+            <div className="metric__label">Plan ID(s)</div>
+            {planIds.length > 0 ? (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, maxHeight: 85, overflowY: "auto", padding: "2px 0" }}>
+                {planIds.map((id) => (
+                  <span
+                    key={id}
+                    className="plan-id-pill"
+                    onClick={() => onSelectPlan && onSelectPlan(id)}
+                    title={`Click to inspect Plan #${id}`}
+                  >
+                    #{id}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <div className="metric__value mono">{pick(plan, "plan_id", "id") ?? "—"}</div>
+            )}
+          </div>
+
+          <div className="metric metric--accent">
+            <div className="metric__label">Optimization Score</div>
+            <div className="metric__value">{pick(plan, "optimization_score") != null ? formatScore(plan.optimization_score) : "—"}</div>
+          </div>
+
+          <div className="metric">
+            <div className="metric__label">Asset Availability Score</div>
+            <div className="metric__value">{pick(plan, "asset_availability_score") != null ? formatScore(plan.asset_availability_score) : "—"}</div>
+          </div>
+
+          <div className="metric">
+            <div className="metric__label">Tasks Scheduled</div>
+            <div className="metric__value">{scheduledTasks ?? "—"}</div>
+          </div>
+
+          <div className="metric">
+            <div className="metric__label">Tasks Unscheduled</div>
+            <div className="metric__value">{unscheduledTasks ?? "—"}</div>
+          </div>
+
+          <div
+            className="metric is-interactive"
+            onClick={() => {
+              const el = document.getElementById("mega-blocks-section");
+              if (el) el.scrollIntoView({ behavior: "smooth" });
+            }}
+            title="Click to jump to Mega Blocks section"
+          >
+            <div className="metric__label">Mega Blocks</div>
+            <div className="metric__value" style={{ color: "var(--accent)" }}>{megaBlocks.length || "—"}</div>
+          </div>
+
+          <div className="metric">
+            <div className="metric__label">Affected Trains</div>
+            <div className="metric__value">{affectedTrains ?? "—"}</div>
+          </div>
+
+          <div className="metric">
+            <div className="metric__label">Estimated Delay</div>
+            <div className="metric__value">{estimatedDelay != null ? `${formatScore(estimatedDelay, 0)} min` : "—"}</div>
+          </div>
         </div>
       </section>
 
-      <section className="section-block">
+      <section className="section-block" id="mega-blocks-section">
         <div className="section-block__head">
-          <h3>Mega Blocks</h3>
+          <h3>Generated Mega Blocks ({megaBlocks.length})</h3>
+          <p className="text-xs text-faint">
+            Coordinated multi-department track possessions. Click on any card to inspect complete task assignments, train impacts, and conflicts.
+          </p>
         </div>
-        <div className="card__body">
+
+        <div className="card__body" style={{ padding: 0 }}>
           {megaBlocks.length === 0 ? (
             <div className="state state--empty">
               The plan did not include any mega blocks.
             </div>
           ) : (
-            <div className="stack">
+            <div className="stack" style={{ padding: "16px 0" }}>
               {megaBlocks.map((mb, index) => (
-                <MegaBlockCard key={index} mb={mb} />
+                <MegaBlockCard
+                  key={index}
+                  mb={mb}
+                  onSelectPlan={onSelectPlan}
+                />
               ))}
             </div>
           )}

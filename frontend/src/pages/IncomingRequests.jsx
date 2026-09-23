@@ -30,8 +30,10 @@ import Button from "../components/common/Button";
 import Badge from "../components/common/Badge";
 import SourceSyncBar from "../components/integration/SourceSyncBar";
 import RequestLifecycleDrawer from "../components/integration/RequestLifecycleDrawer";
+import { getTaskWorkPackage } from "../utils/workPackageHelper";
 
 const EMPTY_FILTERS = { source: "", status: "", urgency: "", criticality: "" };
+
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 const DEFAULT_PAGE_SIZE = 20;
 
@@ -331,13 +333,36 @@ export default function IncomingRequests() {
       },
       {
         key: "location",
-        label: "Block · Section",
-        render: (r) => (
-          <span>
-            <strong style={{ display: "block" }}>{r.block?.block_code || r.block_code || "—"}</strong>
-            <span className="cell-muted">{r.section?.section_code || r.section_code || r.asset?.asset_code || ""}</span>
-          </span>
-        ),
+        label: "Block · Package",
+        render: (r) => {
+          const pkg = getTaskWorkPackage(r);
+          const isPending = String(r.status || "").toUpperCase() === "PENDING";
+          return (
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <strong className="cell-mono">{r.block?.block_code || r.block_code || "—"}</strong>
+                <span
+                  style={{
+                    fontSize: 10.5,
+                    fontFamily: "monospace",
+                    fontWeight: 700,
+                    padding: "1px 6px",
+                    borderRadius: 4,
+                    background: isPending ? "rgba(245,158,11,0.12)" : "rgba(34,197,94,0.15)",
+                    color: isPending ? "#fbbf24" : "#4ade80",
+                    border: `1px solid ${isPending ? "rgba(245,158,11,0.3)" : "rgba(34,197,94,0.3)"}`,
+                  }}
+                  title={isPending ? `Pending clubbing into ${pkg.package_id}` : `Assigned to Work Package ${pkg.package_id}`}
+                >
+                  {pkg.package_id}
+                </span>
+              </div>
+              <span className="cell-muted" style={{ fontSize: 11 }}>
+                {r.section?.section_code || r.section_code || r.asset?.asset_code || ""}
+              </span>
+            </div>
+          );
+        },
       },
       {
         key: "pcu",
@@ -423,8 +448,22 @@ export default function IncomingRequests() {
       {
         key: "status",
         label: "Status",
-        render: (r) => <Badge tone={statusTone(r.status)} dot>{r.status}</Badge>,
+        render: (r) => {
+          const isPending = String(r.status || "").toUpperCase() === "PENDING";
+          return (
+            <div
+              style={{ cursor: "pointer" }}
+              title={isPending ? "Click to view hold reasons and approve task" : "Click to view assigned work package"}
+            >
+              <Badge tone={statusTone(r.status)} dot>
+                {r.status}
+                {isPending && " ⚠️"}
+              </Badge>
+            </div>
+          );
+        },
       },
+
     ],
     []
   );
@@ -443,36 +482,69 @@ export default function IncomingRequests() {
     <>
       <PageHeader
         title={
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
-            Incoming Maintenance Requests
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+            <span style={{ letterSpacing: "-0.02em" }}>Incoming Maintenance Requests</span>
+
             {/* Live badge */}
-            <span
+            <div
               style={{
-                display: "inline-flex", alignItems: "center", gap: 5,
-                padding: "2px 8px", borderRadius: 999, fontSize: 10.5, fontWeight: 700,
-                background: liveStatus === "live" ? "rgba(34,197,94,0.12)" : "rgba(255,255,255,0.06)",
-                border: `1px solid ${liveStatus === "live" ? "rgba(34,197,94,0.35)" : "rgba(255,255,255,0.1)"}`,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 7,
+                padding: "4px 12px",
+                borderRadius: 999,
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                background: liveStatus === "live" ? "rgba(34,197,94,0.14)" : "rgba(255,255,255,0.06)",
+                border: `1px solid ${liveStatus === "live" ? "rgba(34,197,94,0.4)" : "rgba(255,255,255,0.12)"}`,
                 color: liveStatus === "live" ? "#4ade80" : "var(--text-muted)",
+                boxShadow: liveStatus === "live" ? "0 0 12px rgba(34,197,94,0.2)" : "none",
+                lineHeight: 1,
               }}
+              title={liveStatus === "live" ? "Live Pub/Sub WebSocket / SSE active" : "Status: " + liveStatus}
             >
-              <span style={{
-                width: 6, height: 6, borderRadius: "50%",
-                background: liveStatus === "live" ? "#22c55e" : "#888",
-                animation: liveStatus === "live" ? "livePulse 2s ease-in-out infinite" : "none",
-              }} />
-              {liveStatus === "live" ? "● LIVE" : liveStatus === "error" ? "Disconnected" : "Connecting…"}
-            </span>
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: liveStatus === "live" ? "#22c55e" : "#888",
+                  boxShadow: liveStatus === "live" ? "0 0 8px #22c55e" : "none",
+                  animation: liveStatus === "live" ? "livePulse 2s ease-in-out infinite" : "none",
+                  flexShrink: 0,
+                }}
+              />
+              <span>{liveStatus === "live" ? "LIVE" : liveStatus === "error" ? "Disconnected" : "Connecting…"}</span>
+            </div>
+
+            {/* New requests counter badge */}
             {newRequestCount > 0 && (
-              <span style={{
-                background: "var(--accent, #f59e0b)", color: "#000",
-                borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800,
-              }}>
-                +{newRequestCount} new
-              </span>
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "4px 12px",
+                  borderRadius: 999,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: "0.02em",
+                  background: "rgba(245, 158, 11, 0.16)",
+                  border: "1px solid rgba(245, 158, 11, 0.45)",
+                  color: "#fbbf24",
+                  boxShadow: "0 0 12px rgba(245, 158, 11, 0.25)",
+                  lineHeight: 1,
+                }}
+              >
+                <Zap size={13} style={{ fill: "#fbbf24", flexShrink: 0 }} />
+                <span>+{newRequestCount} new</span>
+              </div>
             )}
-          </span>
+          </div>
         }
-        subtitle="Engineering, signalling and traction requests pulled from railway source systems"
+        subtitle="Engineering, signalling and traction requests pulled from railway source systems (TMS / SMMS / TDMS)"
       />
 
       {/* Plan-updated banner */}
@@ -610,24 +682,15 @@ export default function IncomingRequests() {
             ariaLabel="Incoming source maintenance requests"
           />
 
-          <div className="list-toolbar">
-            <select
-              className="select"
-              style={{ width: "auto", minWidth: 90 }}
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
-                setPage(1);
-              }}
-              aria-label="Records per page"
-            >
-              {PAGE_SIZE_OPTIONS.map((n) => (
-                <option key={n} value={n}>{n} / page</option>
-              ))}
-            </select>
-          </div>
-
-          {pagination && <Pagination pagination={pagination} onChange={setPage} disabled={loading} />}
+          {pagination && (
+            <Pagination
+              pagination={pagination}
+              onChange={setPage}
+              pageSize={pageSize}
+              onPageSizeChange={setPageSize}
+              disabled={loading}
+            />
+          )}
         </StateBlock>
       </section>
 
@@ -635,7 +698,12 @@ export default function IncomingRequests() {
       <RequestLifecycleDrawer
         task={selectedTask}
         onClose={() => setSelectedTask(null)}
+        onTaskUpdated={(updated) => {
+          setSelectedTask(updated);
+          reload();
+        }}
       />
+
     </>
   );
 }

@@ -1,7 +1,7 @@
 /**
  * blockPlanning.service.js
  *
- * Orchestrates the full 2-stage ML/optimization pipeline:
+ * Orchestrates the full 4-stage AI/ML optimization pipeline:
  *
  *   Stage 1 — Fetch raw data from all 4 source APIs:
  *     TMS  (Track Maintenance System)       → Engineering tasks
@@ -9,12 +9,18 @@
  *     TDMS (Traction Distribution System)  → Traction/Electrical tasks
  *     COA  (Corridor Ops & Availability)   → Block windows + timetable
  *
- *   Stage 2 — Run AI/ML Clustering:
+ *   Stage 2 — Run Spatial Clustering:
  *     clusteringEngine.generateWorkPackages(rawTasks)
- *     → clusters tasks by physical proximity (2 km radius)
+ *     → clusters tasks by physical proximity (2 km radius, DBSCAN-like)
  *
- *   Stage 3 — Run Constraint Optimization:
- *     optimizationEngine.optimizeBlockSchedule(clusteredPackages, coaWindows)
+ *   Stage 2.5 — ML Priority Scoring (MCDM):
+ *     mlScoring.scoreAndRankPackages(workPackages)
+ *     → assigns each package a Smart Priority Index (SPI) via weighted
+ *       multi-criteria feature normalization (urgency, criticality, deadline,
+ *       time-savings, consolidation gain). Re-ranks the queue before CSP.
+ *
+ *   Stage 3 — Run Constraint Optimization (CSP):
+ *     optimizationEngine.optimizeBlockSchedule(rankedPackages, coaWindows)
  *     → assigns packages to COA windows, enforces capacity & section constraints
  *
  *   Stage 4 — Return structured response with metrics
@@ -26,6 +32,7 @@ const prisma = require("../config/prisma");
 const logger = require("../utils/logger");
 const { generateWorkPackages } = require("../algorithms/clusteringEngine");
 const { optimizeBlockSchedule, computeOptimizationMetrics } = require("../algorithms/optimizationEngine");
+const { scoreAndRankPackages, FEATURE_WEIGHTS } = require("../algorithms/mlScoring.engine");
 
 const { TMS_CATALOG } = require("../integration/simulators/tms.simulator");
 const { SMMS_CATALOG } = require("../integration/simulators/smms.simulator");
@@ -273,17 +280,32 @@ async function runBlockPlanningPipeline({ maxDistanceKm = 2.0 } = {}) {
 
   logger.info(`[blockPlanning] Fetched ${rawTasks.length} maintenance tasks, ${coaWindows.length} COA windows`);
 
-  // ── Stage 2: AI/ML Spatial Clustering ──────────────────────────────────────
+  // ── Stage 2: Spatial Clustering (DBSCAN-like, 1D proximity) ───────────────
   logger.info(`[blockPlanning] Stage 2: Running Spatial Clustering (radius=${maxDistanceKm} km)...`);
   const workPackages = generateWorkPackages(rawTasks, maxDistanceKm);
   logger.info(`[blockPlanning] Clustering produced ${workPackages.length} Work Packages from ${rawTasks.length} tasks`);
 
-  // ── Stage 3: Constraint-Based Optimization ──────────────────────────────────
+  // ── Stage 2.5: ML Priority Scoring (Weighted MCDM) ─────────────────────────
+  // Applies min-max normalized, weighted Multi-Criteria Decision Model scoring.
+  // Each package receives an ml_priority_index (SPI) and ml_feature_vector.
+  // Re-ranks the queue before it enters the CSP optimizer — this ensures the
+  // greedy assignment loop processes the highest-value packages first.
+  logger.info("[blockPlanning] Stage 2.5: Running ML Priority Scoring (MCDM normalization)...");
+  const rankedPackages = scoreAndRankPackages(workPackages);
+  const emergencyCount = rankedPackages.filter((p) => p.has_emergency).length;
+  const topPackage = rankedPackages[0];
+  logger.info(
+    `[blockPlanning] ML Scoring complete: top package=${topPackage ? topPackage.package_id : "none"} ` +
+    `(SPI=${topPackage ? topPackage.ml_priority_index : "N/A"}), ` +
+    `emergency_packages=${emergencyCount}`
+  );
+
+  // ── Stage 3: Constraint Satisfaction Problem (CSP) Solver ──────────────────
   logger.info("[blockPlanning] Stage 3: Running Constraint Optimization Scheduler...");
-  const schedule = optimizeBlockSchedule(workPackages, coaWindows);
+  const schedule = optimizeBlockSchedule(rankedPackages, coaWindows);
 
   // ── Stage 4: Compute metrics ────────────────────────────────────────────────
-  const metrics = computeOptimizationMetrics(schedule, workPackages, coaWindows);
+  const metrics = computeOptimizationMetrics(schedule, rankedPackages, coaWindows);
   const durationMs = Date.now() - startedAt;
 
   logger.info(
@@ -295,7 +317,7 @@ async function runBlockPlanningPipeline({ maxDistanceKm = 2.0 } = {}) {
   return {
     success: true,
     pipeline: {
-      stages: ["FETCH_SOURCES", "SPATIAL_CLUSTERING", "CONSTRAINT_OPTIMIZATION"],
+      stages: ["FETCH_SOURCES", "SPATIAL_CLUSTERING", "ML_PRIORITY_SCORING", "CONSTRAINT_OPTIMIZATION"],
       clustering_radius_km: maxDistanceKm,
       duration_ms: durationMs,
     },
@@ -304,8 +326,20 @@ async function runBlockPlanningPipeline({ maxDistanceKm = 2.0 } = {}) {
       coa_windows_available: coaWindows.length,
       work_packages_generated: workPackages.length,
     },
+    ml_scoring_summary: {
+      model: "Weighted MCDM (Multi-Criteria Decision Model)",
+      normalization: "Min-Max across batch",
+      feature_weights: FEATURE_WEIGHTS,
+      top_ranked_package: topPackage ? {
+        package_id: topPackage.package_id,
+        ml_priority_index: topPackage.ml_priority_index,
+        ml_feature_vector: topPackage.ml_feature_vector,
+        has_emergency: topPackage.has_emergency,
+      } : null,
+      emergency_packages_count: emergencyCount,
+    },
     optimization_metrics: metrics,
-    work_packages: workPackages,
+    work_packages: rankedPackages,
     schedules: schedule,
     coa_windows: coaWindows,
   };

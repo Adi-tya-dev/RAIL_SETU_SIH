@@ -1,3 +1,6 @@
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { PAGE_SIZE_OPTIONS } from "../../utils/constants";
+
 function pageWindow(page, totalPages) {
   const items = [];
   const pushPage = (p) => {
@@ -18,55 +21,98 @@ function pageWindow(page, totalPages) {
   return items;
 }
 
-export default function Pagination({ pagination, onChange, disabled = false }) {
+export default function Pagination({
+  pagination,
+  onChange,
+  disabled = false,
+  pageSize,
+  onPageSizeChange,
+  pageSizeOptions = PAGE_SIZE_OPTIONS,
+}) {
   if (!pagination) return null;
 
   const { page = 1, total = 0, totalPages = 0, limit = 0 } = pagination;
-  const from = total === 0 ? 0 : (page - 1) * limit + 1;
-  const to = Math.min(page * limit, total);
+  const currentLimit = pageSize || limit || 10;
+  const from = total === 0 ? 0 : (page - 1) * currentLimit + 1;
+  const to = Math.min(page * currentLimit, total);
 
   return (
     <div className="pagination">
-      <span className="pagination__meta">
-        Showing {from}–{to} of {total} records
-      </span>
-      <button
-        type="button"
-        className="page-btn"
-        disabled={disabled || page <= 1}
-        onClick={() => onChange(page - 1)}
-        aria-label="Previous page"
-      >
-        Previous
-      </button>
-      {totalPages > 0 &&
-        pageWindow(page, totalPages).map((item, i) =>
-          item === "…" ? (
-            <span key={`e-${i}`} className="page-ellipsis">
-              …
-            </span>
-          ) : (
-            <button
-              key={item}
-              type="button"
-              className={`page-btn ${item === page ? "is-current" : ""}`}
+      <div className="pagination__info">
+        <span className="pagination__meta">
+          Showing <strong>{from}</strong>–<strong>{to}</strong> of <strong>{total}</strong> records
+        </span>
+
+        {Boolean(onPageSizeChange) && (
+          <div className="pagination__size">
+            <span className="pagination__size-divider">|</span>
+            <label htmlFor="pagination-page-size" className="pagination__size-label">
+              Show:
+            </label>
+            <select
+              id="pagination-page-size"
+              className="pagination__size-select"
+              value={pageSize || limit}
               disabled={disabled}
-              onClick={() => onChange(item)}
-              aria-current={item === page ? "page" : undefined}
+              onChange={(e) => {
+                onPageSizeChange(Number(e.target.value));
+                onChange(1);
+              }}
+              aria-label="Records per page"
             >
-              {item}
-            </button>
-          )
+              {(pageSizeOptions || PAGE_SIZE_OPTIONS).map((n) => (
+                <option key={n} value={n}>
+                  {n} / page
+                </option>
+              ))}
+            </select>
+          </div>
         )}
-      <button
-        type="button"
-        className="page-btn"
-        disabled={disabled || page >= totalPages}
-        onClick={() => onChange(page + 1)}
-        aria-label="Next page"
-      >
-        Next
-      </button>
+      </div>
+
+      <div className="pagination__pages">
+        <button
+          type="button"
+          className="page-btn page-btn--nav"
+          disabled={disabled || page <= 1}
+          onClick={() => onChange(page - 1)}
+          aria-label="Previous page"
+        >
+          <ChevronLeft size={15} />
+          <span>Previous</span>
+        </button>
+
+        {totalPages > 0 &&
+          pageWindow(page, totalPages).map((item, i) =>
+            item === "…" ? (
+              <span key={`e-${i}`} className="page-ellipsis">
+                …
+              </span>
+            ) : (
+              <button
+                key={item}
+                type="button"
+                className={`page-btn ${item === page ? "is-active is-current" : ""}`}
+                disabled={disabled}
+                onClick={() => onChange(item)}
+                aria-current={item === page ? "page" : undefined}
+              >
+                {item}
+              </button>
+            )
+          )}
+
+        <button
+          type="button"
+          className="page-btn page-btn--nav"
+          disabled={disabled || page >= totalPages}
+          onClick={() => onChange(page + 1)}
+          aria-label="Next page"
+        >
+          <span>Next</span>
+          <ChevronRight size={15} />
+        </button>
+      </div>
     </div>
   );
 }

@@ -768,13 +768,27 @@ function WeeklyHorizonView({
   actionPlanId,
 }) {
   const [activeMetric, setActiveMetric] = useState(null);
+  const [selectedConflictIndex, setSelectedConflictIndex] = useState(0);
 
-  const conflictsCount = (plans || []).filter(
-    (p) => p.original_window || p.adjustment_reason || (p.block_conflicts && p.block_conflicts.length > 0)
-  ).length;
+  const conflictingPlans = useMemo(() => {
+    return (plans || []).filter(
+      (p) =>
+        (p.block_conflicts && p.block_conflicts.length > 0) ||
+        p.has_conflict ||
+        p.conflict_details ||
+        (p.adjustment_reason && !p.adjustment_reason.includes("No conflicting movements"))
+    );
+  }, [plans]);
+
+  const conflictsCount = conflictingPlans.length;
   const awaitingCount = (plans || []).filter((p) => p.status === "PROPOSED").length;
   const approvedCount = (plans || []).filter((p) => p.status === "APPROVED").length;
-  const adjustedCount = (plans || []).filter((p) => Boolean(p.original_window)).length;
+  const adjustedCount = (plans || []).filter(
+    (p) =>
+      Boolean(p.original_window) &&
+      p.adjustment_reason &&
+      !p.adjustment_reason.includes("No conflicting movements")
+  ).length;
 
   const handleMetricClick = (key) => {
     setActiveMetric((prev) => (prev === key ? null : key));
@@ -783,12 +797,15 @@ function WeeklyHorizonView({
   const filteredPlans = useMemo(() => {
     if (!activeMetric || activeMetric === "ALL") return plans || [];
     if (activeMetric === "CONFLICTS") {
-      return (plans || []).filter(
-        (p) => p.original_window || p.adjustment_reason || (p.block_conflicts && p.block_conflicts.length > 0)
-      );
+      return conflictingPlans;
     }
     if (activeMetric === "ADJUSTED") {
-      return (plans || []).filter((p) => Boolean(p.original_window));
+      return (plans || []).filter(
+        (p) =>
+          Boolean(p.original_window) &&
+          p.adjustment_reason &&
+          !p.adjustment_reason.includes("No conflicting movements")
+      );
     }
     if (activeMetric === "PROPOSED") {
       return (plans || []).filter((p) => p.status === "PROPOSED");
@@ -797,11 +814,46 @@ function WeeklyHorizonView({
       return (plans || []).filter((p) => p.status === "APPROVED");
     }
     return plans || [];
-  }, [plans, activeMetric]);
+  }, [plans, activeMetric, conflictingPlans]);
 
-  const conflictingPlan = useMemo(() => {
-    return (plans || []).find((p) => p.original_window || p.adjustment_reason) || plans?.[0];
-  }, [plans]);
+  const conflictingPlan = conflictingPlans[selectedConflictIndex] || conflictingPlans[0] || plans?.[0];
+
+  const activeConflictInfo = useMemo(() => {
+    if (!conflictingPlan) return null;
+    const cd = conflictingPlan.conflict_details || {};
+    const bc = conflictingPlan.block_conflicts?.[0] || {};
+    const trainObj = bc.train || {};
+    const trainName = cd.conflicting_train || trainObj.train_name || "Conflicting Train Service";
+    const trainNum = cd.train_number || trainObj.train_number || "";
+    const service = cd.service || trainObj.train_type || "Commercial Railway Movement";
+    const overlapWindow = cd.overlap_window || "Live operational path";
+    const blockCode = conflictingPlan.block?.block_code || `B00${conflictingPlan.block_id || 1}`;
+    const sectionCode = conflictingPlan.block?.track?.section?.section_code || "SEC-DLJP";
+    const origWindow = conflictingPlan.original_window || "Blueprint Window";
+    const startStr = formatPlanTime(conflictingPlan.planned_start);
+    const endStr = formatPlanTime(conflictingPlan.planned_end);
+    const altWindow = `${startStr} – ${endStr} hrs`;
+    const rationale =
+      conflictingPlan.adjustment_reason ||
+      bc.description ||
+      `Timetable collision on block ${blockCode} re-optimized to alternative slot ${altWindow}.`;
+    const severity = cd.severity || bc.severity || 3;
+    const conflictType = cd.conflict_type || bc.conflict_type || "TRAIN_MAINTENANCE";
+
+    return {
+      trainName,
+      trainNum,
+      service,
+      overlapWindow,
+      blockCode,
+      sectionCode,
+      origWindow,
+      altWindow,
+      rationale,
+      severity,
+      conflictType,
+    };
+  }, [conflictingPlan]);
 
   return (
     <div>
@@ -959,12 +1011,14 @@ function WeeklyHorizonView({
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--red)" }}>
-                    Conflict Intelligence Analysis · What is Conflict Detected Here?
+                    Conflict Intelligence Analysis · Operational Clash Diagnostics
                   </h4>
-                  <Badge tone="red" dot>TRAIN_MAINTENANCE (Severity 3)</Badge>
+                  <Badge tone="red" dot>
+                    {activeConflictInfo?.conflictType || "TRAIN_MAINTENANCE"} (Severity {activeConflictInfo?.severity || 3})
+                  </Badge>
                 </div>
                 <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--text-2)" }}>
-                  Detailed clash diagnostics between 30-day possession blueprint and short-term 7-day train forecasts
+                  Showing {conflictingPlans.length} detected timetable clashes across the 7-day operational horizon
                 </p>
               </div>
             </div>
@@ -992,6 +1046,62 @@ function WeeklyHorizonView({
           </div>
 
           <div style={{ padding: "16px 18px" }}>
+            {/* Interactive Tab Selector for Conflicting Blocks */}
+            {conflictingPlans.length > 1 && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  flexWrap: "wrap",
+                  marginBottom: 16,
+                  padding: "8px 12px",
+                  background: "var(--surface)",
+                  borderRadius: 8,
+                  border: "1px solid var(--border)",
+                }}
+              >
+                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-3)", marginRight: 4 }}>
+                  Select Conflicting Block:
+                </span>
+                {conflictingPlans.map((cp, idx) => {
+                  const bCode = cp.block?.block_code || `B00${cp.block_id || idx + 1}`;
+                  const trainTag =
+                    cp.conflict_details?.train_number ||
+                    cp.block_conflicts?.[0]?.train?.train_number ||
+                    (cp.adjustment_reason?.match(/#([A-Za-z0-9]+)/)?.[1]) ||
+                    `#${idx + 1}`;
+                  const isSel = idx === selectedConflictIndex;
+                  return (
+                    <button
+                      key={cp.plan_id || idx}
+                      type="button"
+                      onClick={() => setSelectedConflictIndex(idx)}
+                      style={{
+                        padding: "4px 10px",
+                        borderRadius: 6,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        border: isSel ? "1px solid var(--red)" : "1px solid var(--border)",
+                        background: isSel ? "rgba(239, 68, 68, 0.22)" : "var(--surface-2)",
+                        color: isSel ? "#ffffff" : "var(--text-2)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      <span style={{ fontFamily: "monospace", color: isSel ? "var(--red)" : "var(--text-1)" }}>
+                        {bCode}
+                      </span>
+                      <span style={{ opacity: 0.85 }}>({trainTag})</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             <div
               style={{
                 display: "grid",
@@ -1016,16 +1126,16 @@ function WeeklyHorizonView({
                   </span>
                 </div>
                 <div style={{ fontSize: 13, color: "var(--text-1)", lineHeight: 1.5 }}>
-                  Train: <strong>Freight Container Special F123 (#F123)</strong>
+                  Train: <strong>{activeConflictInfo?.trainName || "Conflicting Service"} {activeConflictInfo?.trainNum ? `(#${activeConflictInfo.trainNum})` : ""}</strong>
                 </div>
                 <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 4 }}>
-                  • Service: <strong>Container Freight (3,400 tonnes, 5 rakes)</strong>
+                  • Service: <strong>{activeConflictInfo?.service || "Mainline Train Movement"}</strong>
                 </div>
                 <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 2 }}>
-                  • Traversing Block: <strong style={{ fontFamily: "monospace" }}>B001</strong> (DLAM - MBLK section)
+                  • Traversing Block: <strong style={{ fontFamily: "monospace" }}>{activeConflictInfo?.blockCode || "—"}</strong> ({activeConflictInfo?.sectionCode || "SEC-DLJP"} section)
                 </div>
                 <div style={{ fontSize: 12, color: "var(--amber)", marginTop: 4, fontWeight: 600 }}>
-                  • Scheduled Crossing: 11:15 hrs – 11:45 hrs (22 Sept, 2026)
+                  • Scheduled Crossing: {activeConflictInfo?.overlapWindow || "Within monthly maintenance slot"}
                 </div>
               </div>
 
@@ -1045,16 +1155,16 @@ function WeeklyHorizonView({
                   </span>
                 </div>
                 <div style={{ fontSize: 13, color: "var(--text-1)", lineHeight: 1.5 }}>
-                  Work Package: <strong>PKG_1 • Block B001</strong>
+                  Work Package: <strong>{conflictingPlan?.work_package_code || "PKG_1"} • Block {activeConflictInfo?.blockCode || "—"}</strong>
                 </div>
                 <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 4 }}>
-                  • Reserved Window: <strong style={{ textDecoration: "line-through", color: "var(--text-3)" }}>10:00 – 13:00 hrs (180 min)</strong>
+                  • Reserved Window: <strong style={{ textDecoration: "line-through", color: "var(--text-3)" }}>{activeConflictInfo?.origWindow || "—"}</strong>
                 </div>
                 <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 2 }}>
                   • Tasks: Multi-crew Track Tamping, P-Way Welding & S&T Relays
                 </div>
                 <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 4 }}>
-                  • Parent Plan: <strong>Blueprint #1</strong> (30-day horizon)
+                  • Parent Plan: <strong>{conflictingPlan?.parent_plan_id ? `Blueprint #${conflictingPlan.parent_plan_id}` : "30-Day Monthly Blueprint"}</strong>
                 </div>
               </div>
 
@@ -1074,16 +1184,16 @@ function WeeklyHorizonView({
                   </span>
                 </div>
                 <div style={{ fontSize: 13, color: "var(--text-1)", lineHeight: 1.5 }}>
-                  Alternative Slot: <strong style={{ color: "var(--green)" }}>14:00 – 17:00 hrs</strong> (Shifted +4.0h)
+                  Alternative Slot: <strong style={{ color: "var(--green)" }}>{activeConflictInfo?.altWindow || "Re-optimized window"}</strong>
                 </div>
                 <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 4 }}>
-                  • Overlap Avoided: <strong>30 min collision completely bypassed</strong>
+                  • Overlap Avoided: <strong>Timetable collision completely bypassed</strong>
                 </div>
                 <div style={{ fontSize: 12, color: "var(--green)", marginTop: 2, fontWeight: 600 }}>
                   • Resulting Train Delay: 0 min (Protected via Greedy CSP)
                 </div>
                 <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 4 }}>
-                  • Full 180 min multi-crew possession duration guaranteed
+                  • Full multi-crew possession duration guaranteed
                 </div>
               </div>
             </div>
@@ -1103,7 +1213,7 @@ function WeeklyHorizonView({
               }}
             >
               <div style={{ fontSize: 13, color: "var(--text-1)", flex: 1, minWidth: 260 }}>
-                <strong>Conflict Rationale:</strong> Maintenance requires total physical possession of Track B001. Goods Train F123 cannot proceed while crews and heavy CSM tamping machinery occupy the line. Halting F123 at the outer signal would block the junction, causing a <strong>45-minute cascading delay</strong> across following passenger express trains (12002 Shatabdi & 12958 Ashram Exp). The engine shifted the possession window to 14:00–17:00 where the corridor has a zero-traffic gap.
+                <strong>Conflict Rationale:</strong> {activeConflictInfo?.rationale || "Possession adjusted to zero-traffic gap to protect mainline passenger and freight services."}
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <Button

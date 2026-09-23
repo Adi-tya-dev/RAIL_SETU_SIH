@@ -294,7 +294,10 @@ async function generate(body = {}) {
     plan_ids: persisted.map((plan) => String(plan.plan_id)),
     planning_window: output.planning_window,
     ...output.metrics,
-    mega_blocks: output.mega_blocks,
+    mega_blocks: (output.mega_blocks || []).map((mb, idx) => ({
+      ...mb,
+      plan_id: persisted[idx]?.plan_id ? String(persisted[idx].plan_id) : mb.plan_id,
+    })),
     scheduled_tasks: output.scheduled_tasks,
     unscheduled_tasks: output.unscheduled_tasks,
     train_impacts: output.train_impacts,

@@ -6,11 +6,31 @@ async function list(req, res) {
 }
 
 async function getOne(req, res) {
-  const task = await maintenanceService.findById(req.params.id);
-  if (!task) {
-    return res.status(404).json({ success: false, message: "Maintenance task not found" });
+  try {
+    const task = await maintenanceService.findById(req.params.id);
+    if (!task) return res.status(404).json({ success: false, message: "Task not found" });
+    res.json({ success: true, data: task });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
-  res.json({ success: true, data: task });
 }
 
-module.exports = { list, getOne };
+async function update(req, res) {
+  try {
+    const task = await maintenanceService.updateTask(req.params.id, req.body);
+    res.json({ success: true, data: task, message: "Maintenance task updated successfully" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+}
+
+async function approve(req, res) {
+  try {
+    const task = await maintenanceService.approveTask(req.params.id);
+    res.json({ success: true, data: task, message: `Maintenance task #${req.params.id} has been approved` });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+}
+
+module.exports = { list, getOne, update, approve };

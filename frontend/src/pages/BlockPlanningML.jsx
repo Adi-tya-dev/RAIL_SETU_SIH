@@ -28,7 +28,8 @@ const PIPELINE_STEPS = [
   { icon: Train,        label: "Fetching TMS / SMMS / TDMS tasks..." },
   { icon: Calendar,     label: "Loading COA maintenance windows..." },
   { icon: MapPin,       label: "Running spatial clustering (2 km radius)..." },
-  { icon: BrainCircuit, label: "Applying constraint optimization..." },
+  { icon: BrainCircuit, label: "ML Priority Scoring (MCDM normalization)..." },
+  { icon: Cpu,          label: "Applying constraint optimization (CSP)..." },
   { icon: BarChart3,    label: "Computing efficiency metrics..." },
 ];
 
@@ -152,15 +153,28 @@ function InteractiveMetricCard({
 /**
  * Detailed Work Package Card with full Clubbed Tasks table
  */
-function PackageCard({ pkg, index, defaultOpen = false }) {
-  const [open, setOpen] = useState(defaultOpen);
+function PackageCard({ pkg, index, defaultOpen = false, isHighlighted = false, targetSearchRef = null, targetPackageId = null }) {
+  const [open, setOpen] = useState(defaultOpen || isHighlighted);
   const isAssigned = pkg.status === "ASSIGNED";
   const isEmergency = pkg.has_emergency;
 
+  useEffect(() => {
+    if (targetPackageId) {
+      setOpen(pkg.package_id === targetPackageId);
+    }
+  }, [targetPackageId, pkg.package_id]);
+
   return (
     <div
+      id={`package-card-${pkg.package_id}`}
       className={`card schedule-package${isEmergency ? " schedule-package--emergency" : ""}${!isAssigned ? " schedule-package--unassigned" : ""}`}
-      style={{ marginBottom: 12, borderLeft: isAssigned ? "4px solid var(--green)" : "4px solid var(--red)" }}
+      style={{
+        marginBottom: 12,
+        borderLeft: isAssigned ? "4px solid var(--green)" : "4px solid var(--red)",
+        border: isHighlighted ? "2px solid #38bdf8" : undefined,
+        boxShadow: isHighlighted ? "0 0 24px rgba(56, 189, 248, 0.25)" : undefined,
+        transition: "all 0.3s ease",
+      }}
     >
       {/* Header */}
       <div
@@ -170,7 +184,7 @@ function PackageCard({ pkg, index, defaultOpen = false }) {
         role="button"
         aria-expanded={open}
       >
-        <span style={{ color: "var(--text-3)", fontSize: 12, minWidth: 54, fontWeight: 700, fontFamily: "monospace" }}>
+        <span style={{ color: isHighlighted ? "#38bdf8" : "var(--text-3)", fontSize: 12, minWidth: 54, fontWeight: 700, fontFamily: "monospace" }}>
           {pkg.package_id}
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -198,6 +212,9 @@ function PackageCard({ pkg, index, defaultOpen = false }) {
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0, flexWrap: "wrap" }}>
+          {isHighlighted && (
+            <Badge tone="blue" dot>🎯 Focused Target</Badge>
+          )}
           {pkg.is_shadow_block && (
             <Badge tone="teal" dot>Shadow Block (0m Delay)</Badge>
           )}
@@ -408,33 +425,64 @@ function PackageCard({ pkg, index, defaultOpen = false }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {pkg.tasks.map((t, tidx) => (
-                      <tr key={t.id || t.external_ref || tidx}>
-                        <td style={{ padding: "8px 10px", fontFamily: "monospace", fontWeight: 600 }}>
-                          {t.external_ref || t.id}
-                        </td>
-                        <td style={{ padding: "8px 10px" }}>
-                          <DeptChip dept={t.department} />
-                        </td>
-                        <td style={{ padding: "8px 10px", maxWidth: 280 }}>
-                          {t.description}
-                        </td>
-                        <td style={{ padding: "8px 10px", fontFamily: "monospace" }}>
-                          {t.block_code || "—"}
-                        </td>
-                        <td style={{ padding: "8px 10px", fontWeight: 600 }}>
-                          {t.duration_minutes || t.duration} min
-                        </td>
-                        <td style={{ padding: "8px 10px" }}>
-                          P{t.priority}
-                        </td>
-                        <td style={{ padding: "8px 10px" }}>
-                          <Badge tone={String(t.urgency) === "4" ? "red" : "gray"}>
-                            U{t.urgency}
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))}
+                    {pkg.tasks.map((t, tidx) => {
+                      const isTarget = targetSearchRef && (
+                        (t.external_ref && t.external_ref.toLowerCase() === targetSearchRef.toLowerCase()) ||
+                        (t.id && String(t.id).toLowerCase() === targetSearchRef.toLowerCase())
+                      );
+                      return (
+                        <tr
+                          key={t.id || t.external_ref || tidx}
+                          style={
+                            isTarget
+                              ? {
+                                  background: "rgba(56, 189, 248, 0.18)",
+                                  outline: "1px solid #38bdf8",
+                                }
+                              : undefined
+                          }
+                        >
+                          <td style={{ padding: "8px 10px", fontFamily: "monospace", fontWeight: 700, color: isTarget ? "#38bdf8" : undefined }}>
+                            {t.external_ref || t.id}
+                            {isTarget && (
+                              <span
+                                style={{
+                                  marginLeft: 6,
+                                  fontSize: 10,
+                                  background: "#38bdf8",
+                                  color: "#000",
+                                  padding: "1px 5px",
+                                  borderRadius: 4,
+                                  fontWeight: 800,
+                                }}
+                              >
+                                TARGET
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: "8px 10px" }}>
+                            <DeptChip dept={t.department} />
+                          </td>
+                          <td style={{ padding: "8px 10px", maxWidth: 280 }}>
+                            {t.description}
+                          </td>
+                          <td style={{ padding: "8px 10px", fontFamily: "monospace" }}>
+                            {t.block_code || "—"}
+                          </td>
+                          <td style={{ padding: "8px 10px", fontWeight: 600 }}>
+                            {t.duration_minutes || t.duration} min
+                          </td>
+                          <td style={{ padding: "8px 10px" }}>
+                            P{t.priority}
+                          </td>
+                          <td style={{ padding: "8px 10px" }}>
+                            <Badge tone={String(t.urgency) === "4" ? "red" : "gray"}>
+                              U{t.urgency}
+                            </Badge>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -451,8 +499,8 @@ function PackageCard({ pkg, index, defaultOpen = false }) {
 /**
  * 1. Raw Tasks Explorer (when clicking "7 Work Packages / from 21 raw tasks")
  */
-function DrilldownRawTasks({ schedules, rawTasksCount, onClose }) {
-  const [searchTerm, setSearchTerm] = useState("");
+function DrilldownRawTasks({ schedules, rawTasksCount, onClose, initialSearch = "" }) {
+  const [searchTerm, setSearchTerm] = useState(initialSearch);
   const [deptFilter, setDeptFilter] = useState("ALL");
 
   const allTasks = useMemo(() => {
@@ -546,40 +594,54 @@ function DrilldownRawTasks({ schedules, rawTasksCount, onClose }) {
               </tr>
             </thead>
             <tbody>
-              {filteredTasks.map((t, idx) => (
-                <tr key={t.id || t.external_ref || idx}>
-                  <td style={{ fontFamily: "monospace", fontWeight: 700, color: "var(--accent)" }}>
-                    {t.external_ref || t.id}
-                  </td>
-                  <td>
-                    <DeptChip dept={t.department} />
-                  </td>
-                  <td style={{ maxWidth: 260 }}>{t.description}</td>
-                  <td style={{ fontFamily: "monospace" }}>{t.block_code || "—"}</td>
-                  <td>{t.start_km != null ? `Km ${Number(t.start_km).toFixed(1)}` : "—"}</td>
-                  <td style={{ fontWeight: 600 }}>{t.duration_minutes || t.duration} min</td>
-                  <td>P{t.priority}</td>
-                  <td>
-                    <Badge tone={String(t.urgency) === "4" ? "red" : "gray"}>
-                      U{t.urgency}
-                    </Badge>
-                  </td>
-                  <td>
-                    <span
-                      style={{
-                        padding: "3px 8px",
-                        borderRadius: 4,
-                        fontFamily: "monospace",
-                        fontWeight: 700,
-                        background: t.package_status === "ASSIGNED" ? "var(--green-dim)" : "var(--red-dim)",
-                        color: t.package_status === "ASSIGNED" ? "var(--green)" : "var(--red)",
-                      }}
-                    >
-                      {t.package_id}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {filteredTasks.map((t, idx) => {
+                const isTarget = initialSearch && (
+                  (t.external_ref && t.external_ref.toLowerCase() === initialSearch.toLowerCase()) ||
+                  (t.id && String(t.id).toLowerCase() === initialSearch.toLowerCase())
+                );
+                return (
+                  <tr
+                    key={t.id || t.external_ref || idx}
+                    style={isTarget ? { background: "rgba(56, 189, 248, 0.16)", outline: "1px solid #38bdf8" } : undefined}
+                  >
+                    <td style={{ fontFamily: "monospace", fontWeight: 700, color: isTarget ? "#38bdf8" : "var(--accent)" }}>
+                      {t.external_ref || t.id}
+                      {isTarget && (
+                        <span style={{ marginLeft: 6, fontSize: 10, background: "#38bdf8", color: "#000", padding: "1px 5px", borderRadius: 4, fontWeight: 800 }}>
+                          TARGET
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      <DeptChip dept={t.department} />
+                    </td>
+                    <td style={{ maxWidth: 260 }}>{t.description}</td>
+                    <td style={{ fontFamily: "monospace" }}>{t.block_code || "—"}</td>
+                    <td>{t.start_km != null ? `Km ${Number(t.start_km).toFixed(1)}` : "—"}</td>
+                    <td style={{ fontWeight: 600 }}>{t.duration_minutes || t.duration} min</td>
+                    <td>P{t.priority}</td>
+                    <td>
+                      <Badge tone={String(t.urgency) === "4" ? "red" : "gray"}>
+                        U{t.urgency}
+                      </Badge>
+                    </td>
+                    <td>
+                      <span
+                        style={{
+                          padding: "3px 8px",
+                          borderRadius: 4,
+                          fontFamily: "monospace",
+                          fontWeight: 700,
+                          background: t.package_status === "ASSIGNED" ? "var(--green-dim)" : "var(--red-dim)",
+                          color: t.package_status === "ASSIGNED" ? "var(--green)" : "var(--red)",
+                        }}
+                      >
+                        {t.package_id}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -807,6 +869,143 @@ function DrilldownTimeSaved({ metrics, schedules, onClose }) {
 }
 
 /**
+ * MLScoringPanel — Explainability panel for the ML Priority Scoring stage.
+ * Shows the MCDM model summary, feature weights as visual bars,
+ * and the top-ranked package's normalized feature vector.
+ */
+function MLScoringPanel({ mlScoring, workPackages, onClose }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!mlScoring) return null;
+
+  const weights  = mlScoring.feature_weights || {};
+  const topPkg   = mlScoring.top_ranked_package;
+  const fv       = topPkg?.ml_feature_vector || {};
+
+  const FEATURE_LABELS = [
+    { key: "urgency",       label: "Urgency Score",        color: "var(--red)",    desc: "Max operational urgency in cluster (1–4 IR scale)" },
+    { key: "criticality",   label: "Criticality Score",    color: "var(--amber)",  desc: "Max asset safety criticality in cluster" },
+    { key: "deadline",      label: "Deadline Proximity",   color: "var(--violet)", desc: "Inverse deadline slack — closer = higher score" },
+    { key: "time_savings",  label: "Time Savings Gain",    color: "var(--cyan)",   desc: "Minutes saved by multi-crew clubbing" },
+    { key: "consolidation", label: "Consolidation Gain",   color: "var(--green)",  desc: "Dept × task count merge benefit" },
+  ];
+
+  return (
+    <div className="card" style={{ marginBottom: 16, border: "2px solid var(--violet)" }}>
+      <div
+        className="card__head"
+        style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", cursor: "pointer" }}
+        onClick={() => setExpanded((e) => !e)}
+      >
+        <div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <Badge tone="violet" dot>ML Scoring Layer (Stage 2.5)</Badge>
+            <h2>MCDM Priority Scoring — Explainability Report</h2>
+          </div>
+          <p style={{ marginTop: 4 }}>
+            Weighted Multi-Criteria Decision Model with min-max normalization across {(workPackages || []).length} work packages.
+            Each package receives a <strong>Smart Priority Index (SPI ∈ [0,1])</strong> based on 5 normalized features.
+          </p>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {topPkg && (
+            <span style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 700, color: "var(--violet)" }}>
+              Top SPI: {topPkg.ml_priority_index}
+            </span>
+          )}
+          <Button variant="ghost" size="sm" icon={expanded ? ChevronDown : ChevronRight} onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}>
+            {expanded ? "Collapse" : "Expand"}
+          </Button>
+          <Button variant="ghost" size="sm" icon={X} onClick={(e) => { e.stopPropagation(); onClose(); }}>Close</Button>
+        </div>
+      </div>
+
+      {expanded && (
+        <div style={{ padding: "0 16px 20px" }}>
+
+          {/* Model Info Banner */}
+          <div style={{ background: "var(--violet-dim)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 8, padding: "12px 16px", marginBottom: 16, fontSize: 13 }}>
+            <div style={{ fontWeight: 700, color: "var(--violet)", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+              <BrainCircuit size={15} /> ML Model: Weighted MCDM (Multi-Criteria Decision Model)
+            </div>
+            <div style={{ fontFamily: "monospace", background: "var(--surface)", padding: "6px 12px", borderRadius: 4, display: "inline-block", marginBottom: 6, fontSize: 13, fontWeight: 600 }}>
+              SPI = Σ (w<sub>i</sub> × MinMaxNorm(f<sub>i</sub>)) ∈ [0, 1]
+            </div>
+            <div style={{ color: "var(--text-2)", fontSize: 12 }}>
+              Normalization: <strong>Min-Max across entire batch</strong> — prevents scale bias between features.
+              Emergency packages (<code>has_emergency=true</code>) always rank first regardless of SPI.
+            </div>
+            <div style={{ display: "flex", gap: 16, marginTop: 8, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 12, color: "var(--text-2)" }}>📦 Packages scored: <strong>{(workPackages || []).length}</strong></span>
+              <span style={{ fontSize: 12, color: "var(--red)" }}>🚨 Emergency: <strong>{mlScoring.emergency_packages_count}</strong></span>
+            </div>
+          </div>
+
+          {/* Feature Weights Grid */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10, color: "var(--text-1)" }}>Feature Weights (w<sub>i</sub>):</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 10 }}>
+              {FEATURE_LABELS.map(({ key, label, color, desc }) => {
+                const w = weights[key] || 0;
+                return (
+                  <div key={key} style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 8, padding: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                      <span style={{ fontWeight: 700, fontSize: 13, color }}>{label}</span>
+                      <span style={{ fontFamily: "monospace", fontWeight: 800, fontSize: 14, color }}>{(w * 100).toFixed(0)}%</span>
+                    </div>
+                    <div style={{ background: "var(--surface)", borderRadius: 4, height: 6, overflow: "hidden" }}>
+                      <div style={{ width: `${w * 100}%`, height: "100%", background: color, borderRadius: 4, transition: "width 0.5s ease" }} />
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 5 }}>{desc}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Top Package Feature Vector */}
+          {topPkg && (
+            <div style={{ background: "var(--surface-2)", border: "1px solid var(--violet)", borderRadius: 8, padding: 14 }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: "var(--violet)", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                <TrendingUp size={15} />
+                Highest Ranked Package: <code style={{ marginLeft: 4 }}>{topPkg.package_id}</code>
+                <span style={{ marginLeft: 8, fontFamily: "monospace", fontSize: 13, background: "var(--violet-dim)", padding: "2px 8px", borderRadius: 4 }}>
+                  SPI = {topPkg.ml_priority_index}
+                </span>
+                {topPkg.has_emergency && <Badge tone="red" dot>EMERGENCY</Badge>}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--text-2)", marginBottom: 10 }}>
+                Why was this package ranked #1? — Normalized feature scores below explain the decision:
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 8 }}>
+                {FEATURE_LABELS.map(({ key, label, color }) => {
+                  const score = fv[key] ?? 0;
+                  const w = weights[key] || 0;
+                  const contribution = (score * w).toFixed(4);
+                  return (
+                    <div key={key} style={{ background: "var(--surface)", borderRadius: 6, padding: "8px 10px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                        <span style={{ fontSize: 12, color, fontWeight: 600 }}>{label}</span>
+                        <span style={{ fontFamily: "monospace", fontWeight: 800, fontSize: 13 }}>{score.toFixed(3)}</span>
+                      </div>
+                      <div style={{ background: "var(--surface-2)", borderRadius: 3, height: 5, overflow: "hidden", marginBottom: 4 }}>
+                        <div style={{ width: `${score * 100}%`, height: "100%", background: color, borderRadius: 3, transition: "width 0.6s ease" }} />
+                      </div>
+                      <div style={{ fontSize: 10, color: "var(--text-3)" }}>
+                        Contribution: {contribution} × weight {(w * 100).toFixed(0)}%
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * 5. Efficiency & Capacity Utilization (when clicking "57.4% Efficiency Rate")
  */
 function DrilldownEfficiency({ metrics, coaWindows, schedules, onClose }) {
@@ -963,18 +1162,95 @@ function DrilldownEmergency({ schedules, onClose }) {
 export default function BlockPlanningML() {
   const toast = useToast();
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem("railsetu_last_optimizer_result") || localStorage.getItem("railsetu_last_optimizer_result");
+      if (cached) return JSON.parse(cached);
+    } catch (e) {
+      console.warn("Failed to load cached optimizer result:", e);
+    }
+    return null;
+  });
   const [error, setError] = useState(null);
   const [stepIndex, setStepIndex] = useState(0);
   const [maxDistanceKm, setMaxDistanceKm] = useState(2.0);
   const [filterStatus, setFilterStatus] = useState("ALL");
   const [activeMetric, setActiveMetric] = useState(null);
+  const [targetPackageId, setTargetPackageId] = useState(null);
+  const [targetSearchRef, setTargetSearchRef] = useState(null);
+
+  // Parse URL hash parameters on load and when hash changes
+  useEffect(() => {
+    function parseHashParams() {
+      const hash = window.location.hash || "";
+      const qIdx = hash.indexOf("?");
+      if (qIdx === -1) return;
+      const params = new URLSearchParams(hash.slice(qIdx + 1));
+      const pkg = params.get("package");
+      const search = params.get("search");
+      const openRaw = params.get("openRaw") === "1" || params.get("openRaw") === "true";
+
+      if (pkg) setTargetPackageId(pkg);
+      if (search) setTargetSearchRef(search);
+      if (openRaw) setActiveMetric("ALL");
+      else setActiveMetric(null);
+    }
+
+    parseHashParams();
+    window.addEventListener("hashchange", parseHashParams);
+    return () => window.removeEventListener("hashchange", parseHashParams);
+  }, []);
+
+  // Ensure data is always populated on initial visit or navigation if no cache is present
+  useEffect(() => {
+    if (!result && !loading) {
+      const cached = sessionStorage.getItem("railsetu_last_optimizer_result") || localStorage.getItem("railsetu_last_optimizer_result");
+      if (cached) {
+        try {
+          setResult(JSON.parse(cached));
+          return;
+        } catch {
+          // fallback to run
+        }
+      }
+      runPipeline();
+    }
+  }, []);
+
+  // If a specific task is navigated to and not found in current cached schedule, auto-refresh pipeline
+  useEffect(() => {
+    if (targetSearchRef && result && !loading) {
+      const allTasks = (result.schedules || []).flatMap((s) => s.tasks || []);
+      const found = allTasks.some(
+        (t) => (t.external_ref && t.external_ref.toLowerCase() === targetSearchRef.toLowerCase()) ||
+               (t.id && String(t.id).toLowerCase() === targetSearchRef.toLowerCase())
+      );
+      if (!found) {
+        console.log(`[BlockPlanningML] Target task "${targetSearchRef}" not found in cached schedule. Auto-refreshing pipeline...`);
+        runPipeline();
+      }
+    }
+  }, [targetSearchRef, result, loading]);
+
+  // Smooth scroll directly to focused HUD or target package at the top of the viewport
+  useEffect(() => {
+    if (targetPackageId && result) {
+      setTimeout(() => {
+        const el =
+          document.getElementById("focused-inspection-hud") ||
+          document.getElementById(`package-card-${targetPackageId}`) ||
+          document.getElementById("schedule-section");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 350);
+    }
+  }, [targetPackageId, result]);
 
   async function runPipeline() {
     if (loading) return;
     setLoading(true);
     setError(null);
-    setResult(null);
     setStepIndex(0);
     setActiveMetric(null);
 
@@ -996,9 +1272,11 @@ export default function BlockPlanningML() {
       setStepIndex(PIPELINE_STEPS.length - 1);
       setResult(res);
       try {
-        sessionStorage.setItem("railsetu_last_optimizer_result", JSON.stringify(res));
+        const payload = JSON.stringify(res);
+        sessionStorage.setItem("railsetu_last_optimizer_result", payload);
+        localStorage.setItem("railsetu_last_optimizer_result", payload);
       } catch (se) {
-        console.warn("Could not cache optimizer result in sessionStorage:", se);
+        console.warn("Could not cache optimizer result:", se);
       }
       toast.success(
         `Pipeline complete — ${res.optimization_metrics?.assigned_packages ?? 0} packages scheduled`
@@ -1014,16 +1292,25 @@ export default function BlockPlanningML() {
 
   const schedules = result?.schedules || [];
 
-  // Filter schedule rows based on filterStatus
+  // Filter and prioritize schedule rows based on filterStatus and targetPackageId
   const filtered = useMemo(() => {
-    if (filterStatus === "ALL") return schedules;
-    if (filterStatus === "ASSIGNED") return schedules.filter((s) => s.status === "ASSIGNED" || s.status === "ASSIGNED_PIGGYBACK");
-    if (filterStatus === "PULLED_FORWARD") return schedules.filter((s) => s.is_pulled_forward);
-    if (filterStatus === "SHADOW") return schedules.filter((s) => s.is_shadow_block);
-    if (filterStatus === "UNASSIGNED") return schedules.filter((s) => s.status === "UNASSIGNED");
-    if (filterStatus === "EMERGENCY") return schedules.filter((s) => s.has_emergency);
-    return schedules;
-  }, [schedules, filterStatus]);
+    let list = schedules;
+    if (filterStatus === "ASSIGNED") list = schedules.filter((s) => s.status === "ASSIGNED" || s.status === "ASSIGNED_PIGGYBACK");
+    else if (filterStatus === "PULLED_FORWARD") list = schedules.filter((s) => s.is_pulled_forward);
+    else if (filterStatus === "SHADOW") list = schedules.filter((s) => s.is_shadow_block);
+    else if (filterStatus === "UNASSIGNED") list = schedules.filter((s) => s.status === "UNASSIGNED");
+    else if (filterStatus === "EMERGENCY") list = schedules.filter((s) => s.has_emergency);
+
+    if (targetPackageId) {
+      // Prioritize target package to the very top so user sees it right under the focused HUD
+      const target = list.find((s) => s.package_id === targetPackageId);
+      if (target) {
+        const others = list.filter((s) => s.package_id !== targetPackageId);
+        return [target, ...others];
+      }
+    }
+    return list;
+  }, [schedules, filterStatus, targetPackageId]);
 
   const metrics = result?.optimization_metrics;
   const dataSummary = result?.data_summary;
@@ -1076,7 +1363,7 @@ export default function BlockPlanningML() {
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card__head">
           <h2>Pipeline Configuration</h2>
-          <p>Configure and run the 2-stage ML optimization pipeline</p>
+          <p>Configure and run the 4-stage ML optimization pipeline: Cluster → ML Score → CSP → Metrics</p>
         </div>
         <div className="card__body">
           <div className="plan-form" style={{ alignItems: "flex-end" }}>
@@ -1101,13 +1388,26 @@ export default function BlockPlanningML() {
               <Button
                 variant="primary"
                 size="lg"
-                icon={BrainCircuit}
+                icon={result ? RefreshCw : BrainCircuit}
                 onClick={runPipeline}
                 loading={loading}
                 disabled={loading}
               >
-                {loading ? "Running Pipeline..." : "Run ML Pipeline"}
+                {loading ? "Optimizing Pipeline..." : (result ? "Re-run ML Pipeline" : "Run ML Pipeline")}
               </Button>
+
+              {result && !loading && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 8px" }}>
+                  <span style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    padding: "6px 12px", borderRadius: 8,
+                    background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.3)",
+                    color: "#4ade80", fontSize: 12, fontWeight: 600
+                  }}>
+                    <CheckCircle2 size={14} /> Active Plan Loaded ({result.schedules?.length || 0} Packages)
+                  </span>
+                </div>
+              )}
 
               <Button
                 variant="secondary"
@@ -1245,15 +1545,36 @@ export default function BlockPlanningML() {
                 isActive={activeMetric === "EMERGENCY"}
                 onClick={() => handleMetricClick("EMERGENCY")}
               />
+              {result?.ml_scoring_summary && (
+                <InteractiveMetricCard
+                  metricKey="ML_SCORING"
+                  icon={BrainCircuit}
+                  value={result.ml_scoring_summary.top_ranked_package?.ml_priority_index ?? "—"}
+                  label="Top ML SPI"
+                  sub="MCDM scoring model"
+                  color="var(--violet)"
+                  isActive={activeMetric === "ML_SCORING"}
+                  onClick={() => handleMetricClick("ML_SCORING")}
+                />
+              )}
             </div>
           </div>
 
           {/* Active Metric Drilldown Panel */}
+          {activeMetric === "ML_SCORING" && (
+            <MLScoringPanel
+              mlScoring={result.ml_scoring_summary}
+              workPackages={result.work_packages}
+              onClose={() => setActiveMetric(null)}
+            />
+          )}
+
           {activeMetric === "ALL" && (
             <DrilldownRawTasks
               schedules={schedules}
               rawTasksCount={dataSummary?.raw_tasks_fetched}
               onClose={() => setActiveMetric(null)}
+              initialSearch={targetSearchRef || targetPackageId || ""}
             />
           )}
 
@@ -1333,8 +1654,63 @@ export default function BlockPlanningML() {
             </div>
           </div>
 
+          {/* Focused Inspection Banner if targeted */}
+          {(targetPackageId || targetSearchRef) && (
+            <div
+              id="focused-inspection-hud"
+              className="card"
+              style={{
+                marginBottom: 16,
+                border: "2px solid #38bdf8",
+                background: "linear-gradient(180deg, rgba(56,189,248,0.12) 0%, rgba(9,22,35,0.85) 100%)",
+                padding: "14px 18px",
+                boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <Sparkles size={22} color="#38bdf8" />
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: "#f1f5f9" }}>
+                      Focused Work Package: <span style={{ color: "#38bdf8", fontFamily: "monospace" }}>{targetPackageId || "Targeted Search"}</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 2 }}>
+                      {targetSearchRef ? (
+                        <>Auditing assigned tasks for <code style={{ color: "#38bdf8", background: "rgba(56,189,248,0.15)", padding: "2px 6px", borderRadius: 4, fontWeight: 700 }}>{targetSearchRef}</code></>
+                      ) : (
+                        `Viewing work package ${targetPackageId}`
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 8 }}>
+                  <Button
+                    size="sm"
+                    variant={activeMetric === "ALL" ? "primary" : "secondary"}
+                    onClick={() => setActiveMetric(activeMetric === "ALL" ? null : "ALL")}
+                  >
+                    {activeMetric === "ALL" ? "Hide Raw Tasks" : "Inspect Raw Tasks Table"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon={X}
+                    onClick={() => {
+                      setTargetPackageId(null);
+                      setTargetSearchRef(null);
+                      setActiveMetric(null);
+                    }}
+                  >
+                    Clear Focus
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Schedule Table / List */}
-          <div className="card" style={{ marginBottom: 16 }}>
+          <div id="schedule-section" className="card" style={{ marginBottom: 16 }}>
             <div className="card__head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
                 <h2>
@@ -1375,7 +1751,10 @@ export default function BlockPlanningML() {
                     key={pkg.package_id}
                     pkg={pkg}
                     index={i}
-                    defaultOpen={filtered.length <= 2}
+                    defaultOpen={targetPackageId ? pkg.package_id === targetPackageId : i === 0}
+                    isHighlighted={pkg.package_id === targetPackageId}
+                    targetSearchRef={targetSearchRef}
+                    targetPackageId={targetPackageId}
                   />
                 ))
               )}
@@ -1432,14 +1811,22 @@ export default function BlockPlanningML() {
         </div>
       </div>
 
-      {/* Algorithm explanation */}
-      {!result && !loading && (
-        <div className="card">
-          <div className="card__head">
-            <h2>Two-Stage ML Pipeline Logic</h2>
-            <p>How the algorithm finds the best possible time for each repair group</p>
-          </div>
-          <div className="card__body">
+      {/* Algorithm explanation: Open when no result, collapsible reference when result is loaded */}
+      {!loading && (
+        <details className="card" open={!result} style={{ marginTop: 16 }}>
+          <summary className="card__head" style={{ cursor: "pointer", userSelect: "none", listStyle: "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <h2 style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <BrainCircuit size={18} color="var(--accent)" />
+                Two-Stage ML Pipeline Logic & Architecture
+              </h2>
+              <p style={{ marginTop: 4 }}>How the algorithm clusters requests and finds optimal conflict-free windows</p>
+            </div>
+            <span style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600 }}>
+              {result ? "Click to view / hide architecture" : "Reference Guide"}
+            </span>
+          </summary>
+          <div className="card__body" style={{ borderTop: "1px solid var(--border)" }}>
             <div className="logic-steps">
               {[
                 ["Stage 1 · Data Fetch", "Pulls all PENDING/APPROVED tasks from TMS (Engineering), SMMS (Signalling), TDMS (Traction) and available windows from COA"],
@@ -1459,7 +1846,7 @@ export default function BlockPlanningML() {
               ))}
             </div>
           </div>
-        </div>
+        </details>
       )}
     </>
   );

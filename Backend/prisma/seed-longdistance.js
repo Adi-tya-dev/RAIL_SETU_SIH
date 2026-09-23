@@ -88,11 +88,11 @@ const NEW_STATIONS = {
 // ---- 20 long-distance trains ----
 // [number, name, type, priority, startHour (from BASE), [route codes source->destination]]
 const TRAINS = [
-  [12615, "Grand Trunk Express", "MAIL_EXPRESS", 3, 5, ["MAS", "GDR", "NLR", "BZA", "KZJ", "NGP", "ET", "JBP", "BPL", "GWL", "AGC", "NDLS"]],
+  [12615, "Grand Trunk Express", "MAIL_EXPRESS", 3, 5, ["MAS", "GDR", "NLR", "BZA", "KZJ", "NGP", "JBP", "GWL", "AGC", "NDLS"]],
   [12627, "Karnataka Express", "SUPERFAST", 3, 8, ["SBC", "GTL", "SUR", "BPL", "GWL", "AGC", "NDLS"]],
   [12625, "Kerala Express", "MAIL_EXPRESS", 3, 12, ["TVC", "QLN", "ERS", "CLT", "MAO", "LTT", "BSL", "BPL", "AGC", "NDLS"]],
   [12303, "Poorva Express", "MAIL_EXPRESS", 3, 16, ["HWH", "DGR", "GAYA", "DDU", "CNB", "NDLS"]],
-  [12839, "Howrah-Chennai Mail", "MAIL_EXPRESS", 3, 21, ["HWH", "BLS", "BBS", "VSKP", "VZM", "BZA", "GDR", "MAS"]],
+  [12839, "Howrah-Chennai Mail", "MAIL_EXPRESS", 3, 21, ["HWH", "BLS", "BBS", "VSKP", "VZM", "BZA", "NLR", "GDR", "MAS"]],
   [12163, "Chennai-Mumbai Express", "MAIL_EXPRESS", 3, 9, ["MAS", "KJM", "SBC", "GTL", "SUR", "PUNE", "CSMT"]],
   [12137, "Punjab Mail", "MAIL_EXPRESS", 3, 13, ["CSMT", "BSL", "NGP", "BPL", "AGC", "NDLS", "LDH", "FZR"]],
   [12423, "Dibrugarh Rajdhani", "RAJDHANI", 1, 7, ["NDLS", "CNB", "LKO", "GKP", "NJP", "NBQ", "GHY", "LMG", "DBRG"]],
@@ -104,10 +104,10 @@ const TRAINS = [
   [12801, "Purushottam Express", "MAIL_EXPRESS", 3, 6, ["PURI", "BBS", "CTC", "ROU", "TATA", "GMO", "PRYJ", "CNB", "NDLS"]],
   [12958, "Swarna Jayanti Rajdhani", "RAJDHANI", 1, 15, ["ASR", "UMB", "NDLS", "AGC", "BPL", "PUNE", "KPD", "MAS"]],
   [12967, "Jaipur-Chennai Express", "SUPERFAST", 3, 19, ["JP", "SWM", "BRC", "ST", "PUNE", "GTL", "SBC", "KPD", "MAS"]],
-  [12621, "Tamil Nadu Express", "SUPERFAST", 3, 22, ["NDLS", "AGC", "BPL", "ET", "NGP", "BZA", "GDR", "MAS"]],
+  [12621, "Tamil Nadu Express", "SUPERFAST", 3, 22, ["NDLS", "AGC", "BPL", "ET", "NGP", "BZA", "NLR", "GDR", "MAS"]],
   [12311, "Howrah-Jammu Tawi Express", "MAIL_EXPRESS", 3, 4, ["HWH", "DGR", "GAYA", "CNB", "NDLS", "UMB", "JAT"]],
   [16346, "Netravati Express", "SUPERFAST", 3, 11, ["TVC", "QLN", "ERS", "CLT", "MAO", "PNVL", "LTT"]],
-  [12841, "Coromandel Express", "MAIL_EXPRESS", 3, 17, ["SHM", "KGP", "BBS", "VSKP", "BZA", "GDR", "MAS"]],
+  [12841, "Coromandel Express", "MAIL_EXPRESS", 3, 17, ["SHM", "KGP", "BBS", "VSKP", "BZA", "NLR", "GDR", "MAS"]],
 ];
 
 function distanceKm(a, b) {
