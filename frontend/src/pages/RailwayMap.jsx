@@ -13,6 +13,7 @@ import Badge from "../components/common/Badge";
 import Button from "../components/common/Button";
 import Drawer from "../components/common/Drawer";
 import MaintenanceDrawer from "../components/maintenance/MaintenanceDrawer";
+import { DetailSection, DetailList } from "../components/common/DetailList";
 import { navigate, useRoute } from "../hooks/useRoute";
 
 const INDIA_BOUNDS = [[7.5, 68.2], [35, 97.2]];
@@ -83,13 +84,12 @@ function maintenanceIcon(department, critical) {
 }
 
 function conflictIcon(severity, count) {
-  const size = severity >= 5 ? 22 : severity >= 4 ? 18 : 15;
+  const size = severity >= 5 ? 14 : severity >= 4 ? 12 : 10;
   const anchor = Math.round(size / 2);
   const color = severity >= 5 ? "#ef4444" : severity >= 4 ? "#f97316" : severity >= 3 ? "#f59e0b" : "#eab308";
-  const label = count > 1 ? String(count) : "!";
   return L.divIcon({
     className: "railway-conflict-icon-wrap",
-    html: `<span class="railway-conflict-icon" style="--conflict:${color};--sz:${size}px">${label}</span>`,
+    html: `<span class="railway-conflict-dot" style="--conflict:${color};--sz:${size}px"></span>`,
     iconSize: [size, size],
     iconAnchor: [anchor, anchor],
   });
@@ -512,6 +512,39 @@ function pointAlongPath(points, fraction) {
   return points[points.length - 1];
 }
 
+function segmentAlongPath(points, startFrac, endFrac) {
+  if (!points || points.length < 2) return [];
+  const sFrac = Math.min(startFrac, endFrac);
+  const eFrac = Math.max(startFrac, endFrac);
+  const pStart = pointAlongPath(points, sFrac);
+  const pEnd = pointAlongPath(points, eFrac);
+  if (!pStart || !pEnd) return [];
+
+  const segments = [];
+  let total = 0;
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const length = distanceBetween(points[i], points[i + 1]);
+    segments.push(length);
+    total += length;
+  }
+  if (!total) return [pStart, pEnd];
+
+  const targetStart = total * sFrac;
+  const targetEnd = total * eFrac;
+  const subPoints = [pStart];
+
+  let currentDist = 0;
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const nextDist = currentDist + segments[i];
+    if (currentDist > targetStart && currentDist < targetEnd) {
+      subPoints.push(points[i]);
+    }
+    currentDist = nextDist;
+  }
+  subPoints.push(pEnd);
+  return subPoints;
+}
+
 function offsetPoint([lat, lng], seed, magnitude = 0.003) {
   const angle = ((seed % 360) * Math.PI) / 180;
   return [lat + Math.cos(angle) * magnitude, lng + Math.sin(angle) * magnitude * 0.85];
@@ -579,6 +612,47 @@ function placeOnSection(sectionStations, section, block, taskIndex = 0, totalTas
     fraction = Math.min(0.96, Math.max(0.04, (taskKm - start) / (end - start)));
   }
   return pointAlongPath(points, fraction);
+}
+
+// Compute the exact sub-segment polyline of the track spanning just the blocked/conflicted section/block
+function blockTrackSegment(sectionStations, section, block, fallbackPoint, routePoints) {
+  const stations = (sectionStations || []).map((s) => coordinate(s)).filter(Boolean);
+  const basePoints = stations.length >= 2 ? corridorPath(stations) : (routePoints?.length >= 2 ? routePoints : null);
+
+  if (basePoints && basePoints.length >= 2) {
+    const start = Number(section?.start_chainage);
+    const end = Number(section?.end_chainage);
+    const blockStart = Number(block?.start_chainage);
+    const blockEnd = Number(block?.end_chainage);
+
+    if (Number.isFinite(blockStart) && Number.isFinite(blockEnd) && Number.isFinite(start) && Number.isFinite(end) && end > start) {
+      const sFrac = Math.min(0.98, Math.max(0.02, (blockStart - start) / (end - start)));
+      const eFrac = Math.min(0.98, Math.max(0.02, (blockEnd - start) / (end - start)));
+      const sub = segmentAlongPath(basePoints, sFrac, eFrac);
+      if (sub && sub.length >= 2) return sub;
+    }
+  }
+
+  // Fallback: If exact chainage isn't available, build a short 6-8km track portion centered at fallbackPoint
+  if (fallbackPoint && Array.isArray(fallbackPoint)) {
+    if (basePoints && basePoints.length >= 2) {
+      const nearest = nearestOnPath(fallbackPoint, basePoints);
+      const nearestIdx = basePoints.findIndex((p) => p && p[0] === nearest[0] && p[1] === nearest[1]);
+      if (nearestIdx >= 0) {
+        const span = Math.max(2, Math.floor(basePoints.length * 0.08));
+        const sIdx = Math.max(0, nearestIdx - span);
+        const eIdx = Math.min(basePoints.length - 1, nearestIdx + span);
+        return basePoints.slice(sIdx, eIdx + 1);
+      }
+    }
+    // Lateral short segment
+    return [
+      [fallbackPoint[0] - 0.035, fallbackPoint[1] - 0.035],
+      fallbackPoint,
+      [fallbackPoint[0] + 0.035, fallbackPoint[1] + 0.035],
+    ];
+  }
+  return null;
 }
 
 function MapViewport({ points, request, focus }) {
@@ -1122,23 +1196,36 @@ export default function RailwayMap() {
     if (!layers.conflicts) return [];
     return trainConflicts.map((c) => {
       let point = null;
+      let targetSection = c.block?.track?.section || c.maintenance_task?.section || null;
+      let targetBlock = c.block || null;
+
       if (c.maintenance_task) {
         const match = maintenanceLocations.find((m) => normalizeId(m.task?.maintenance_task_id) === normalizeId(c.maintenance_task?.maintenance_task_id));
         if (match?.point) point = match.point;
+        if (!targetSection && match?.task?.section) targetSection = match.task.section;
+        if (!targetBlock && match?.task?.block) targetBlock = match.task.block;
       }
       if (!point && c.block) {
         const bId = normalizeId(c.block.block_id || c.block_id);
         const bCode = normalizeId(c.block.block_code);
         const match = maintenanceLocations.find((m) => m.blockId === bId || normalizeId(m.task?.block?.block_code) === bCode);
         if (match?.point) point = match.point;
+        if (!targetSection && match?.task?.section) targetSection = match.task.section;
+        if (!targetBlock && match?.task?.block) targetBlock = match.task.block;
       }
       if (!point && routePoints.length > 0) {
         const midIdx = Math.floor(routePoints.length / 2);
         point = routePoints[midIdx];
       }
-      return { conflict: c, point };
+
+      // Compute affected blocked portion of track in the section/block
+      const sectionId = normalizeId(targetSection?.section_id || targetBlock?.track?.section_id);
+      const sectionStations = sectionModel.sections.get(sectionId) || [];
+      const blockedTrack = blockTrackSegment(sectionStations, targetSection, targetBlock, point, routePath.length > 1 ? routePath : routePoints);
+
+      return { conflict: c, point, blockedTrack };
     }).filter((item) => Boolean(item.point) && Array.isArray(item.point) && Number.isFinite(item.point[0]) && Number.isFinite(item.point[1]));
-  }, [layers.conflicts, trainConflicts, maintenanceLocations, routePoints]);
+  }, [layers.conflicts, trainConflicts, maintenanceLocations, routePoints, routePath, sectionModel]);
 
   return (
     <div className="railway-map-page">
@@ -1488,6 +1575,61 @@ export default function RailwayMap() {
                 </Marker>
               );
             })}
+            {/* Render blocked track portion in red for each conflict */}
+            {conflictMarkers.map(({ conflict: item, blockedTrack }) => {
+              if (!blockedTrack || blockedTrack.length < 2) return null;
+              return (
+                <Polyline
+                  key={`conflict-track-${item.conflict_id}`}
+                  positions={blockedTrack}
+                  pathOptions={{
+                    color: "#ef4444",
+                    weight: 6,
+                    opacity: 0.95,
+                    dashArray: "8, 5",
+                    lineCap: "round",
+                    smoothFactor: 0,
+                  }}
+                  eventHandlers={{ click: () => focusConflict(item) }}
+                >
+                  <Tooltip className="railway-conflict-tooltip">
+                    <strong>🚫 BLOCKED TRACK: Block {item.block?.block_code || item.train?.train_number || "—"}</strong>
+                    <br />{humanize(item.conflict_type)}
+                  </Tooltip>
+                </Polyline>
+              );
+            })}
+
+            {/* Render stationary conflict point dot matching legend */}
+            {conflictMarkers.map(({ conflict: item, point }) => {
+              const sev = Number(item.severity) || 3;
+              return (
+                <Marker
+                  key={`conflict-marker-${item.conflict_id}`}
+                  position={point}
+                  icon={conflictIcon(sev, 1)}
+                  eventHandlers={{ click: () => focusConflict(item) }}
+                >
+                  <Tooltip className="railway-conflict-tooltip">
+                    <strong>⚠ Conflict: {humanize(item.conflict_type)}</strong>
+                    <br />Block: {item.block?.block_code || item.train?.train_number || "—"} · Sev {sev}
+                  </Tooltip>
+                  <Popup>
+                    <strong style={{ color: "#ef4444" }}>{humanize(item.conflict_type)}</strong><br />
+                    <span>Block: <b>{item.block?.block_code || "—"}</b></span><br />
+                    <span>Severity: <b>Level {sev}</b></span><br />
+                    <p style={{ margin: "4px 0 6px", fontSize: 11 }}>{item.description || "Operational overlap detected."}</p>
+                    <button
+                      type="button"
+                      style={{ marginTop: 4, fontSize: 11, color: "#60a5fa", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                      onClick={() => navigate("/conflicts")}
+                    >
+                      View all conflicts in detail →
+                    </button>
+                  </Popup>
+                </Marker>
+              );
+            })}
           </MapContainer>
           {emergencyReroute && !isEmergencyHudDismissed && (
             isEmergencyHudMinimized ? (
@@ -1584,9 +1726,6 @@ export default function RailwayMap() {
           <div className="railway-map-canvas-empty">
             {!selectedTrain && (
               <>
-                <div className="railway-map-canvas-empty__icon"><TrainFront size={28} /></div>
-                <strong>INDIA NETWORK OVERVIEW</strong>
-                <span>{networkRoutes.length} connected corridors - {overviewMaintenance.length} mapped maintenance locations</span>
               </>
             )}
           </div>
@@ -1643,6 +1782,7 @@ export default function RailwayMap() {
               <span><i className="railway-map-legend-dot railway-map-legend-dot--traction" />Traction</span>
               <span><i className="railway-map-legend-dot railway-map-legend-dot--signalling" />Signalling</span>
               <span><i className="railway-map-legend-dot railway-map-legend-dot--critical" />Critical / conflict</span>
+              <span><i className="railway-map-legend-line" style={{ background: "#ef4444", border: "1px dashed rgba(255,255,255,0.4)", height: "3px" }} />Blocked track segment</span>
               {emergencyReroute && (
                 <>
                   <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
@@ -1679,16 +1819,127 @@ export default function RailwayMap() {
         )}
       </Drawer>
       <MaintenanceDrawer task={maintenanceTask} onClose={() => setMaintenanceTask(null)} />
-      <Drawer open={Boolean(conflict)} onClose={() => setConflict(null)} title="Conflict details" subtitle={conflict ? `Plan ${conflict.plan_id || "Derived overlap"}` : ""}>
+      <Drawer
+        open={Boolean(conflict)}
+        onClose={() => setConflict(null)}
+        title="Conflict details"
+        subtitle={conflict ? (conflict.plan_id ? `Plan #${conflict.plan_id}` : "Operational Conflict") : ""}
+        footer={
+          conflict && (
+            <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/conflicts")}
+                style={{ borderColor: "rgba(239, 68, 68, 0.4)", color: "#ef4444" }}
+              >
+                View in Conflicts Table ↗
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setConflict(null)}>
+                Close
+              </Button>
+            </div>
+          )
+        }
+      >
         {conflict && (
-          <div className="railway-map-drawer-content">
-            <Badge tone={SEVERITY_TONE[conflict.severity] || "red"}>{SEVERITY_LABEL[conflict.severity] || "Conflict"}</Badge>
-            <p className="text-muted">{conflict.description}</p>
+          <div className="railway-map-drawer-content" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+              <Badge tone={SEVERITY_TONE[conflict.severity] || "red"}>
+                {SEVERITY_LABEL[conflict.severity] || "Conflict"} · Level {conflict.severity || 3}
+              </Badge>
+              <Badge tone={conflict.resolved ? "green" : "red"} dot>
+                {conflict.resolved ? "Resolved" : "Active Conflict"}
+              </Badge>
+            </div>
+
+            {conflict.description && (
+              <div
+                style={{
+                  background: "rgba(239, 68, 68, 0.08)",
+                  border: "1px solid rgba(239, 68, 68, 0.25)",
+                  borderRadius: 8,
+                  padding: "10px 12px",
+                  fontSize: 12,
+                  color: "#fca5a5",
+                  lineHeight: 1.5,
+                }}
+              >
+                {conflict.description}
+              </div>
+            )}
+
+            <DetailSection title="Conflict Overview">
+              <DetailList
+                items={[
+                  { label: "Conflict Type", value: humanize(conflict.conflict_type) || "—" },
+                  { label: "Severity", value: `Level ${conflict.severity || 1} (${SEVERITY_LABEL[conflict.severity] || "Standard"})` },
+                  { label: "Block Plan ID", value: conflict.plan_id ? `#${conflict.plan_id}` : "Auto-detected" },
+                  { label: "Detected At", value: conflict.created_at ? new Date(conflict.created_at).toLocaleString() : "Real-time" },
+                ]}
+              />
+            </DetailSection>
+
+            {(conflict.block || conflict.plan?.block) && (() => {
+              const blk = conflict.block || conflict.plan?.block;
+              return (
+                <DetailSection title="Affected Infrastructure Block">
+                  <DetailList
+                    items={[
+                      { label: "Block Code", value: <strong style={{ color: "#ef4444" }}>{blk.block_code || "—"}</strong> },
+                      { label: "Section", value: blk.track?.section?.section_name || blk.track?.section?.section_code || blk.section_code || "—" },
+                      { label: "Track Line", value: blk.track?.track_name || blk.track?.track_code || "—" },
+                      {
+                        label: "Chainage Span",
+                        value: blk.start_chainage != null && blk.end_chainage != null
+                          ? `${Number(blk.start_chainage).toFixed(1)} km – ${Number(blk.end_chainage).toFixed(1)} km`
+                          : "—",
+                      },
+                      { label: "Block Status", value: <Badge tone={blk.status === "AVAILABLE" ? "amber" : "red"}>{blk.status || "BLOCKED"}</Badge> },
+                    ]}
+                  />
+                </DetailSection>
+              );
+            })()}
+
+            {(conflict.maintenance_task || conflict.task) && (() => {
+              const mt = conflict.maintenance_task || conflict.task;
+              return (
+                <DetailSection title="Overlapping Maintenance Task">
+                  <DetailList
+                    items={[
+                      { label: "Activity Type", value: mt.maintenance_type || "—" },
+                      { label: "Department", value: mt.department || "—" },
+                      { label: "Criticality", value: `Level ${mt.criticality || 3}` },
+                      { label: "Duration", value: `${mt.duration_minutes || 60} minutes` },
+                      { label: "Scheduled Window", value: mt.preferred_start ? new Date(mt.preferred_start).toLocaleString() : "—" },
+                    ]}
+                  />
+                </DetailSection>
+              );
+            })()}
+
+            {conflict.train && (
+              <DetailSection title="Affected Train">
+                <DetailList
+                  items={[
+                    { label: "Train Number", value: conflict.train.train_number || "—" },
+                    { label: "Train Name", value: conflict.train.train_name || "—" },
+                    { label: "Priority", value: priorityInfo(conflict.train).short },
+                    {
+                      label: "Route Corridor",
+                      value: `${conflict.train.origin_station?.station_code || conflict.train.origin_station?.station_name || "?"} → ${conflict.train.destination_station?.station_code || conflict.train.destination_station?.station_name || "?"}`,
+                    },
+                  ]}
+                />
+              </DetailSection>
+            )}
+
             {selectedTrain && conflict.train && selectedTrain.train_id !== conflict.train.train_id && (
-              <div className="railway-map-drawer-release">
-                <div className="railway-map-section-title"><TrainFront size={15} /> Release order</div>
+              <div className="railway-map-drawer-release" style={{ marginTop: 8 }}>
+                <div className="railway-map-section-title"><TrainFront size={15} /> Collision Precedence & Release Order</div>
                 <ReleaseOrder selectedTrain={selectedTrain} otherTrain={conflict.train} />
-                <div className="railway-tree">
+                <div className="railway-tree" style={{ marginTop: 8 }}>
                   <div className="railway-tree__row">
                     <span className="railway-tree__col"><i style={{ background: priorityInfo(selectedTrain).hex }} /> {selectedTrain.train_number}</span>
                     <span>{priorityInfo(selectedTrain).short} · {selectedTrain.train_type || ""}</span>

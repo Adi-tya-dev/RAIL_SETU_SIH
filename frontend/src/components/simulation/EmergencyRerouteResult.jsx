@@ -32,19 +32,19 @@ export default function EmergencyRerouteResult({ result }) {
     <div className="stack" style={{ gap: 24, marginTop: 24 }}>
       {/* Emergency Header Banner */}
       <div
+        className="emergency-banner-card"
         style={{
-          background: "linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(15, 23, 42, 0.8))",
-          border: "1px solid rgba(239, 68, 68, 0.4)",
+          border: "1.5px solid rgba(239, 68, 68, 0.4)",
           borderRadius: 12,
           padding: 20,
-          boxShadow: "0 4px 20px rgba(239, 68, 68, 0.1)",
+          boxShadow: "0 4px 20px rgba(239, 68, 68, 0.12)",
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <ShieldAlert color="#ef4444" size={24} />
-              <h2 style={{ margin: 0, fontSize: 18, color: "#fca5a5" }}>
+              <h2 style={{ margin: 0, fontSize: 18, color: "var(--red, #ef4444)" }}>
                 Emergency Track Block Active — Immediate Rerouting Intelligence
               </h2>
             </div>
@@ -55,7 +55,7 @@ export default function EmergencyRerouteResult({ result }) {
           <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
             <div>
               <span style={{ fontSize: 11, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: 1 }}>Window Closure</span>
-              <div style={{ fontWeight: 600, fontSize: 13, color: "#ef4444" }}>
+              <div style={{ fontWeight: 600, fontSize: 13, color: "var(--red, #ef4444)" }}>
                 {formatDateTime(emergency_event?.closure_start)} → {formatDateTime(emergency_event?.closure_end)}
               </div>
             </div>
@@ -66,7 +66,7 @@ export default function EmergencyRerouteResult({ result }) {
               style={{
                 background: "rgba(239, 68, 68, 0.15)",
                 borderColor: "rgba(239, 68, 68, 0.4)",
-                color: "#fca5a5",
+                color: "var(--red, #ef4444)",
                 marginTop: 2,
               }}
             >
@@ -87,27 +87,27 @@ export default function EmergencyRerouteResult({ result }) {
             borderTop: "1px solid rgba(239, 68, 68, 0.2)",
           }}
         >
-          <div style={{ background: "rgba(15, 23, 42, 0.6)", padding: "10px 14px", borderRadius: 8 }}>
+          <div className="emergency-metric-chip" style={{ padding: "10px 14px", borderRadius: 8 }}>
             <div style={{ fontSize: 11, color: "var(--text-3)" }}>Affected Trains</div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: "#f8fafc", marginTop: 2 }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: "var(--text)", marginTop: 2 }}>
               {metrics?.affected_trains_count}
             </div>
           </div>
-          <div style={{ background: "rgba(15, 23, 42, 0.6)", padding: "10px 14px", borderRadius: 8 }}>
+          <div className="emergency-metric-chip" style={{ padding: "10px 14px", borderRadius: 8 }}>
             <div style={{ fontSize: 11, color: "var(--text-3)" }}>High-Priority VIP Services</div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: "#38bdf8", marginTop: 2 }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: "var(--blue, #38bdf8)", marginTop: 2 }}>
               {metrics?.vip_trains_count} <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text-3)" }}>(Vande Bharat / Rajdhani)</span>
             </div>
           </div>
-          <div style={{ background: "rgba(15, 23, 42, 0.6)", padding: "10px 14px", borderRadius: 8 }}>
+          <div className="emergency-metric-chip" style={{ padding: "10px 14px", borderRadius: 8 }}>
             <div style={{ fontSize: 11, color: "var(--text-3)" }}>Avg Stoppage Preservation</div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: "#22c55e", marginTop: 2 }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: "var(--green, #22c55e)", marginTop: 2 }}>
               {metrics?.average_stoppage_preservation_pct}
             </div>
           </div>
-          <div style={{ background: "rgba(15, 23, 42, 0.6)", padding: "10px 14px", borderRadius: 8 }}>
+          <div className="emergency-metric-chip" style={{ padding: "10px 14px", borderRadius: 8 }}>
             <div style={{ fontSize: 11, color: "var(--text-3)" }}>Parallel Line SLW Working</div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#a855f7", marginTop: 4 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--violet, #a855f7)", marginTop: 4 }}>
               AVAILABLE (Bi-directional)
             </div>
           </div>
@@ -145,9 +145,9 @@ export default function EmergencyRerouteResult({ result }) {
               {/* Train Title & VIP Tag */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <Train size={18} color={t.is_vip ? "#38bdf8" : "var(--text-2)"} />
+                  <Train size={18} color={t.is_vip ? "var(--blue, #38bdf8)" : "var(--text-2)"} />
                   <div>
-                    <span style={{ fontWeight: 700, fontSize: 15, color: "#f8fafc" }}>
+                    <span style={{ fontWeight: 700, fontSize: 15, color: "var(--text)" }}>
                       {t.train_number} — {t.train_name}
                     </span>
                     <span style={{ marginLeft: 8, fontSize: 12, color: "var(--text-3)" }}>
@@ -162,7 +162,7 @@ export default function EmergencyRerouteResult({ result }) {
                   <Badge tone={activeStrat.preservation_pct === 100 ? "green" : "amber"}>
                     {activeStrat.preservation_pct}% Stops Preserved
                   </Badge>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "#ef4444" }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--red, #ef4444)" }}>
                     +{activeStrat.estimated_delay_minutes} min delay
                   </span>
                 </div>
@@ -171,13 +171,13 @@ export default function EmergencyRerouteResult({ result }) {
               {/* Rationale Banner */}
               <div
                 style={{
-                  background: "rgba(30, 41, 59, 0.5)",
-                  borderLeft: "3px solid #38bdf8",
+                  background: "var(--accent-dim, rgba(56, 189, 248, 0.08))",
+                  borderLeft: "3px solid var(--blue, #38bdf8)",
                   padding: "8px 12px",
                   borderRadius: "0 6px 6px 0",
                   marginTop: 12,
                   fontSize: 12,
-                  color: "var(--text-2)",
+                  color: "var(--text)",
                 }}
               >
                 <strong>AI Dispatch Advice:</strong> {t.recommendation_rationale}
@@ -197,27 +197,27 @@ export default function EmergencyRerouteResult({ result }) {
                         padding: "10px 12px",
                         borderRadius: 8,
                         border: isSelected
-                          ? "1.5px solid #38bdf8"
+                          ? "1.5px solid var(--blue, #38bdf8)"
                           : s.is_recommended
                           ? "1px solid rgba(56, 189, 248, 0.3)"
                           : "1px solid var(--border)",
-                        background: isSelected ? "rgba(56, 189, 248, 0.08)" : "var(--surface-2)",
-                        color: isSelected ? "#f8fafc" : "var(--text-2)",
+                        background: isSelected ? "var(--accent-dim, rgba(56, 189, 248, 0.08))" : "var(--surface-2)",
+                        color: "var(--text)",
                         cursor: "pointer",
                         textAlign: "left",
                         transition: "all 0.15s ease",
                       }}
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</span>
+                        <span style={{ fontWeight: 600, fontSize: 13, color: "var(--text)" }}>{s.name}</span>
                         {s.is_recommended && (
-                          <span style={{ fontSize: 10, fontWeight: 700, color: "#38bdf8", background: "rgba(56, 189, 248, 0.15)", padding: "2px 6px", borderRadius: 4 }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: "var(--blue, #38bdf8)", background: "rgba(56, 189, 248, 0.15)", padding: "2px 6px", borderRadius: 4 }}>
                             RECOMMENDED
                           </span>
                         )}
                       </div>
                       <div style={{ display: "flex", gap: 8, marginTop: 6, fontSize: 11, color: "var(--text-3)" }}>
-                        <span>Stops: <strong style={{ color: s.preservation_pct === 100 ? "#22c55e" : "#eab308" }}>{s.preservation_pct}%</strong></span>
+                        <span>Stops: <strong style={{ color: s.preservation_pct === 100 ? "var(--green, #22c55e)" : "var(--amber, #eab308)" }}>{s.preservation_pct}%</strong></span>
                         <span>•</span>
                         <span>Delay: <strong>+{s.estimated_delay_minutes}m</strong></span>
                       </div>
@@ -238,7 +238,7 @@ export default function EmergencyRerouteResult({ result }) {
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
                   <div>
-                    <span style={{ fontWeight: 600, fontSize: 13, color: "#f8fafc" }}>
+                    <span style={{ fontWeight: 600, fontSize: 13, color: "var(--text)" }}>
                       Active Selection: {activeStrat.name}
                     </span>
                     <span style={{ marginLeft: 8, fontSize: 11, color: "var(--text-3)" }}>

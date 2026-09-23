@@ -2754,24 +2754,21 @@ path.leaflet-interactive:focus-visible {
 .railway-maint-icon--critical { box-shadow: 0 0 0 3px rgba(239,68,68,0.16), 0 1px 4px rgba(0,0,0,0.55); }
 .railway-maint-icon:hover { transform: scale(1.22); }
 .railway-conflict-icon-wrap { border: 0; background: transparent; cursor: pointer; }
-.railway-conflict-icon {
-  display: flex; align-items: center; justify-content: center;
-  width: var(--sz, 18px); height: var(--sz, 18px);
+.railway-conflict-dot {
+  display: block;
+  width: var(--sz, 10px); height: var(--sz, 10px);
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--conflict) 30%, #fff), var(--conflict));
-  border: 2px solid var(--conflict);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--conflict) 35%, transparent), 0 0 14px color-mix(in srgb, var(--conflict) 60%, transparent);
-  color: #fff; font-size: 9px; font-weight: 800; letter-spacing: 0;
-  animation: pulse-conflict 1.8s infinite ease-in-out;
-  transition: transform 160ms ease;
+  background: var(--conflict, #ef4444);
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--conflict, #ef4444) 30%, transparent), 0 0 8px color-mix(in srgb, var(--conflict, #ef4444) 70%, transparent);
+  transition: transform 160ms ease, box-shadow 160ms ease;
 }
-.railway-conflict-icon:hover { transform: scale(1.25); }
+.railway-conflict-dot:hover {
+  transform: scale(1.4);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--conflict, #ef4444) 40%, transparent), 0 0 14px color-mix(in srgb, var(--conflict, #ef4444) 90%, transparent);
+}
 .railway-conflict-tooltip { padding: 4px 10px; border: 1px solid rgba(239,68,68,0.5); border-radius: 6px; background: rgba(30,5,5,0.96); color: #fca5a5; font-size: 11px; font-weight: 600; white-space: nowrap; }
 .railway-conflict-tooltip::before { display: none; }
-@keyframes pulse-conflict {
-  0%, 100% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--conflict) 35%, transparent), 0 0 14px color-mix(in srgb, var(--conflict) 60%, transparent); }
-  50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--conflict) 45%, transparent), 0 0 24px color-mix(in srgb, var(--conflict) 80%, transparent); transform: scale(1.08); }
-}
 
 .railway-route-core, .railway-route-glow { transition: opacity 200ms ease; outline: none !important; }
 .railway-route-glow { filter: drop-shadow(0 0 8px rgba(34,211,238,0.6)); pointer-events: none !important; }
@@ -3539,6 +3536,85 @@ body.theme-white .assigned-pkg-card {
   box-shadow: 0 4px 16px rgba(22, 163, 74, 0.1);
 }
 
+/* ── White Mode: Toasts & Notifications ── */
+[data-theme="white"] .toast,
+body.theme-white .toast {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-width: 1.5px !important;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12), 0 4px 12px rgba(15, 23, 42, 0.08) !important;
+}
+[data-theme="white"] .toast__message,
+body.theme-white .toast__message {
+  color: #0f172a !important;
+  font-weight: 600 !important;
+}
+[data-theme="white"] .toast--success,
+body.theme-white .toast--success {
+  background: #f0fdf4 !important;
+  border-color: #86efac !important;
+}
+[data-theme="white"] .toast--success .toast__icon,
+body.theme-white .toast--success .toast__icon {
+  color: #16a34a !important;
+}
+[data-theme="white"] .toast--error,
+body.theme-white .toast--error {
+  background: #fef2f2 !important;
+  border-color: #fca5a5 !important;
+}
+[data-theme="white"] .toast--error .toast__icon,
+body.theme-white .toast--error .toast__icon {
+  color: #dc2626 !important;
+}
+[data-theme="white"] .toast--warning,
+body.theme-white .toast--warning {
+  background: #fffbeb !important;
+  border-color: #fde68a !important;
+}
+[data-theme="white"] .toast--warning .toast__icon,
+body.theme-white .toast--warning .toast__icon {
+  color: #d97706 !important;
+}
+[data-theme="white"] .toast--info,
+body.theme-white .toast--info {
+  background: #eff6ff !important;
+  border-color: #bfdbfe !important;
+}
+[data-theme="white"] .toast--info .toast__icon,
+body.theme-white .toast--info .toast__icon {
+  color: #2563eb !important;
+}
+[data-theme="white"] .toast__dismiss,
+body.theme-white .toast__dismiss {
+  color: #64748b !important;
+}
+[data-theme="white"] .toast__dismiss:hover,
+body.theme-white .toast__dismiss:hover {
+  color: #0f172a !important;
+}
+
+/* ── Emergency Reroute Banner & Metric Chips ── */
+.emergency-banner-card {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), var(--surface-2));
+}
+.emergency-metric-chip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+[data-theme="white"] .emergency-banner-card,
+body.theme-white .emergency-banner-card {
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  border-color: #fca5a5;
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.08);
+}
+[data-theme="white"] .emergency-metric-chip,
+body.theme-white .emergency-metric-chip {
+  background: #ffffff;
+  border-color: #fecaca;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
 /* ============================================================
    REDESIGNED DASHBOARD STYLES
    ============================================================ */
@@ -4142,6 +4218,141 @@ body.theme-white .how-it-works-step__title {
 [data-theme="white"] .how-it-works-step__desc,
 body.theme-white .how-it-works-step__desc {
   color: #475569;
+}
+
+/* ── White Mode Overrides for Railway Network Map ── */
+[data-theme="white"] .railway-map-page,
+body.theme-white .railway-map-page {
+  background: #f1f5f9;
+}
+
+[data-theme="white"] .railway-map-sidebar,
+body.theme-white .railway-map-sidebar {
+  background: #ffffff;
+  border-right-color: #e2e8f0;
+}
+
+[data-theme="white"] .railway-map-sidebar h1,
+body.theme-white .railway-map-sidebar h1 {
+  color: #0f172a;
+}
+
+[data-theme="white"] .railway-map-sidebar__top p,
+body.theme-white .railway-map-sidebar__top p {
+  color: #475569;
+}
+
+[data-theme="white"] .railway-map-control,
+body.theme-white .railway-map-control {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+}
+
+[data-theme="white"] .railway-map-label,
+body.theme-white .railway-map-label {
+  color: #334155;
+}
+
+[data-theme="white"] .railway-map-statusbar,
+body.theme-white .railway-map-statusbar {
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  color: #64748b;
+}
+
+[data-theme="white"] .railway-map-statusbar b,
+body.theme-white .railway-map-statusbar b {
+  color: #0f172a;
+}
+
+/* Floating HUD & Legend in White Mode */
+[data-theme="white"] .railway-map-hud,
+body.theme-white .railway-map-hud,
+[data-theme="white"] .railway-map-legend,
+body.theme-white .railway-map-legend {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: #cbd5e1;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12), 0 2px 8px rgba(15, 23, 42, 0.06);
+  color: #334155;
+}
+
+[data-theme="white"] .railway-map-hud__title,
+body.theme-white .railway-map-hud__title {
+  color: #1a44c8;
+}
+
+[data-theme="white"] .railway-map-hud__metric,
+body.theme-white .railway-map-hud__metric {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+[data-theme="white"] .railway-map-hud__metric:hover,
+body.theme-white .railway-map-hud__metric:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+
+[data-theme="white"] .railway-map-hud__metric b,
+body.theme-white .railway-map-hud__metric b {
+  color: #0f172a;
+}
+
+[data-theme="white"] .railway-map-hud__metric span,
+body.theme-white .railway-map-hud__metric span {
+  color: #64748b;
+}
+
+[data-theme="white"] .railway-map-hud__btn,
+body.theme-white .railway-map-hud__btn,
+[data-theme="white"] .railway-map-legend__btn,
+body.theme-white .railway-map-legend__btn {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+[data-theme="white"] .railway-map-legend strong,
+body.theme-white .railway-map-legend strong {
+  color: #0f172a;
+}
+
+/* Emergency Map Top HUD in White Mode */
+[data-theme="white"] .railway-map-emergency-hud,
+body.theme-white .railway-map-emergency-hud {
+  background: #ffffff;
+  border-color: #fca5a5;
+  box-shadow: 0 12px 32px rgba(239, 68, 68, 0.15), 0 2px 8px rgba(15, 23, 42, 0.08);
+  color: #1e293b;
+}
+
+[data-theme="white"] .railway-map-emergency-hud__icon-btn,
+body.theme-white .railway-map-emergency-hud__icon-btn {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #475569;
+}
+
+/* Tooltips in White Mode */
+[data-theme="white"] .railway-station-tooltip,
+body.theme-white .railway-station-tooltip,
+[data-theme="white"] .railway-network-tooltip,
+body.theme-white .railway-network-tooltip,
+[data-theme="white"] .railway-maint-tooltip,
+body.theme-white .railway-maint-tooltip {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.14);
+}
+
+[data-theme="white"] .railway-conflict-tooltip,
+body.theme-white .railway-conflict-tooltip {
+  background: #fef2f2 !important;
+  color: #b91c1c !important;
+  border-color: #fca5a5 !important;
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.15) !important;
 }
 
 @keyframes fadeIn {

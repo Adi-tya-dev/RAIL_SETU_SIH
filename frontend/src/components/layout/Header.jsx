@@ -127,7 +127,6 @@ export default function Header({ currentPath, onToggleSidebar, collapsed }) {
             aria-pressed={theme === "dark"}
           >
             <Moon size={13} />
-            <span>Dark</span>
           </button>
           <button
             type="button"
@@ -137,7 +136,6 @@ export default function Header({ currentPath, onToggleSidebar, collapsed }) {
             aria-pressed={theme === "white"}
           >
             <Sun size={13} />
-            <span>White</span>
           </button>
         </div>
 
