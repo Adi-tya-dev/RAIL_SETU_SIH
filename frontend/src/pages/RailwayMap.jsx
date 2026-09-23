@@ -602,54 +602,54 @@ function MapViewport({ points, request, focus }) {
 
 const STATE_LABELS = [
   // Northern Region
-  { id: "ladakh", name: "LADAKH", lat: 34.5, lng: 77.8, size: "md" },
-  { id: "jk", name: "JAMMU & KASHMIR", lat: 33.7, lng: 74.8, size: "sm" },
-  { id: "hp", name: "HIMACHAL PRADESH", lat: 31.9, lng: 77.15, size: "xs" },
-  { id: "pb", name: "PUNJAB", lat: 30.9, lng: 75.3, size: "sm" },
-  { id: "ch", name: "Chandigarh", lat: 30.74, lng: 76.78, size: "xxs" },
-  { id: "hr", name: "HARYANA", lat: 29.1, lng: 76.05, size: "sm" },
-  { id: "dl", name: "New Delhi", lat: 28.61, lng: 77.21, size: "xs", isCapital: true },
-  { id: "uk", name: "UTTARAKHAND", lat: 30.15, lng: 79.2, size: "xs" },
-  { id: "rj", name: "RAJASTHAN", lat: 26.5, lng: 73.6, size: "lg" },
+  { id: "ladakh", name: "LADAKH", lat: 34.60, lng: 77.40, size: "md" },
+  { id: "jk", name: "JAMMU & KASHMIR", lat: 33.65, lng: 74.85, size: "sm" },
+  { id: "hp", name: "HIMACHAL PRADESH", lat: 31.90, lng: 77.15, size: "xs" },
+  { id: "pb", name: "PUNJAB", lat: 30.85, lng: 75.35, size: "sm" },
+  { id: "ch", name: "Chandigarh", lat: 31.05, lng: 77.12, calloutFrom: [30.73, 76.78], size: "xxs", align: "left" },
+  { id: "hr", name: "HARYANA", lat: 29.15, lng: 76.05, size: "sm" },
+  { id: "dl", name: "New Delhi", lat: 28.61, lng: 77.38, size: "xs", isCapital: true, align: "left" },
+  { id: "uk", name: "UTTARAKHAND", lat: 30.15, lng: 79.20, size: "xs" },
+  { id: "rj", name: "RAJASTHAN", lat: 26.50, lng: 73.60, size: "lg" },
 
   // Central Region
-  { id: "up", name: "UTTAR PRADESH", lat: 27.15, lng: 80.85, size: "md" },
-  { id: "mp", name: "MADHYA PRADESH", lat: 23.4, lng: 77.8, size: "lg" },
-  { id: "cg", name: "CHHATTISGARH", lat: 21.25, lng: 81.85, size: "sm", rotate: -55 },
+  { id: "up", name: "UTTAR PRADESH", lat: 27.10, lng: 80.80, size: "md" },
+  { id: "mp", name: "MADHYA PRADESH", lat: 23.40, lng: 77.50, size: "lg" },
+  { id: "cg", name: "CHHATTISGARH", lat: 20.80, lng: 81.85, size: "sm", rotate: -55 },
 
   // Western Region
-  { id: "gj", name: "GUJARAT", lat: 22.75, lng: 71.6, size: "md" },
-  { id: "dnhdd", name: "DADRA & NAGAR HAVELI\nAND DAMAN & DIU", lat: 20.35, lng: 69.8, size: "xxs", align: "right" },
-  { id: "mh", name: "MAHARASHTRA", lat: 19.45, lng: 76.0, size: "lg" },
-  { id: "ga", name: "GOA", lat: 15.35, lng: 73.8, size: "xxs" },
+  { id: "gj", name: "GUJARAT", lat: 22.70, lng: 71.50, size: "md" },
+  { id: "dnhdd", name: "DADRA & NAGAR HAVELI\nAND DAMAN & DIU", lat: 20.35, lng: 70.10, calloutFrom: [20.24, 72.93], size: "xxs", align: "right" },
+  { id: "mh", name: "MAHARASHTRA", lat: 19.30, lng: 75.90, size: "lg" },
+  { id: "ga", name: "GOA", lat: 15.35, lng: 73.45, calloutFrom: [15.36, 74.05], size: "xxs", align: "right" },
 
   // Eastern Region
-  { id: "br", name: "BIHAR", lat: 25.75, lng: 85.8, size: "md" },
-  { id: "jh", name: "JHARKHAND", lat: 23.65, lng: 85.45, size: "sm" },
-  { id: "or", name: "ODISHA", lat: 20.45, lng: 84.4, size: "md" },
-  { id: "wb", name: "WEST BENGAL", lat: 23.1, lng: 87.8, size: "sm" },
-  { id: "sk", name: "SIKKIM", lat: 27.55, lng: 88.5, size: "xxs" },
+  { id: "br", name: "BIHAR", lat: 25.70, lng: 85.70, size: "md" },
+  { id: "jh", name: "JHARKHAND", lat: 23.65, lng: 85.50, size: "sm" },
+  { id: "or", name: "ODISHA", lat: 20.45, lng: 84.40, size: "md" },
+  { id: "wb", name: "WEST BENGAL", lat: 23.20, lng: 87.80, size: "sm" },
+  { id: "sk", name: "SIKKIM", lat: 27.95, lng: 88.47, calloutFrom: [27.57, 88.47], size: "xxs" },
 
   // North-Eastern Region
-  { id: "as", name: "ASSAM", lat: 26.2, lng: 92.8, size: "sm" },
-  { id: "ml", name: "MEGHALAYA", lat: 25.5, lng: 91.3, size: "xs" },
-  { id: "ar", name: "ARUNACHAL PRADESH", lat: 28.1, lng: 94.6, size: "xs", rotate: -15 },
-  { id: "nl", name: "NAGALAND", lat: 26.1, lng: 94.4, size: "xxs" },
-  { id: "mn", name: "MANIPUR", lat: 24.8, lng: 93.9, size: "xxs" },
-  { id: "mz", name: "MIZORAM", lat: 23.2, lng: 92.9, size: "xxs" },
-  { id: "tr", name: "TRIPURA", lat: 23.8, lng: 91.7, size: "xxs" },
+  { id: "as", name: "ASSAM", lat: 26.25, lng: 92.80, size: "sm" },
+  { id: "ml", name: "MEGHALAYA", lat: 25.45, lng: 91.30, size: "xs" },
+  { id: "ar", name: "ARUNACHAL PRADESH", lat: 28.10, lng: 94.60, size: "xs", rotate: -15 },
+  { id: "nl", name: "NAGALAND", lat: 26.10, lng: 94.45, size: "xxs" },
+  { id: "mn", name: "MANIPUR", lat: 24.80, lng: 93.90, size: "xxs" },
+  { id: "mz", name: "MIZORAM", lat: 23.20, lng: 92.85, size: "xxs" },
+  { id: "tr", name: "TRIPURA", lat: 23.40, lng: 91.15, calloutFrom: [23.75, 91.74], size: "xxs", align: "right" },
 
   // Southern Region
-  { id: "tg", name: "TELANGANA", lat: 17.85, lng: 79.1, size: "md" },
-  { id: "ap", name: "ANDHRA PRADESH", lat: 15.45, lng: 79.8, size: "md" },
-  { id: "ka", name: "KARNATAKA", lat: 14.7, lng: 75.8, size: "md" },
-  { id: "kl", name: "KERALA", lat: 10.35, lng: 76.45, size: "sm", rotate: -72 },
-  { id: "tn", name: "TAMIL NADU", lat: 11.1, lng: 78.5, size: "md" },
-  { id: "py", name: "PUDUCHERRY", lat: 11.93, lng: 80.05, size: "xxs" },
+  { id: "tg", name: "TELANGANA", lat: 17.80, lng: 79.00, size: "md" },
+  { id: "ap", name: "ANDHRA PRADESH", lat: 15.50, lng: 79.80, size: "md" },
+  { id: "ka", name: "KARNATAKA", lat: 14.65, lng: 75.80, size: "md" },
+  { id: "kl", name: "KERALA", lat: 10.35, lng: 76.40, size: "sm", rotate: -72 },
+  { id: "tn", name: "TAMIL NADU", lat: 11.00, lng: 78.40, size: "md" },
+  { id: "py", name: "PUDUCHERRY", lat: 11.85, lng: 80.55, calloutFrom: [11.85, 79.86], size: "xxs", align: "left" },
 
   // Islands
-  { id: "ld", name: "LAKSHADWEEP\n(INDIA)", lat: 10.5, lng: 71.6, size: "xs", align: "right" },
-  { id: "an", name: "ANDAMAN & NICOBAR ISLANDS\n(INDIA)", lat: 11.5, lng: 91.9, size: "xs", rotate: -80, align: "right" },
+  { id: "ld", name: "LAKSHADWEEP\n(INDIA)", lat: 10.40, lng: 71.60, size: "xs", align: "right" },
+  { id: "an", name: "ANDAMAN & NICOBAR ISLANDS\n(INDIA)", lat: 11.50, lng: 92.30, size: "xs", rotate: -80, align: "right" },
 ];
 
 function BoundaryLayers({ districts, states }) {
@@ -657,6 +657,15 @@ function BoundaryLayers({ districts, states }) {
   useEffect(() => {
     if (!districts && !states) return undefined;
     const layers = [];
+
+    // Dedicated custom pane for state labels to render cleanly above dark district fill
+    // and below station markers and route glows
+    if (!map.getPane("stateLabelsPane")) {
+      const pane = map.createPane("stateLabelsPane");
+      pane.style.zIndex = "450";
+      pane.style.pointerEvents = "none";
+    }
+
     if (districts) {
       layers.push(L.geoJSON(districts, {
         renderer: L.canvas({ padding: 0.4 }),
@@ -676,15 +685,41 @@ function BoundaryLayers({ districts, states }) {
       const labelGroup = L.layerGroup();
       STATE_LABELS.forEach((label) => {
         const isCapital = Boolean(label.isCapital);
-        const rotateStyle = label.rotate ? `transform: translate(-50%, -50%) rotate(${label.rotate}deg);` : "";
+        const xOffset = label.align === "right" ? "-100%" : label.align === "left" ? "0%" : "-50%";
+        const rotateTransform = label.rotate ? `rotate(${label.rotate}deg)` : "";
+        const inlineTransform = `transform: translate(${xOffset}, -50%) ${rotateTransform};`;
         const alignClass = label.align ? `state-label--align-${label.align}` : "";
+        const capitalClass = isCapital ? "state-label--capital" : "";
         const textHtml = isCapital
           ? `<span class="state-label__capital-icon">★</span><span class="state-label__text">${label.name}</span>`
           : `<span class="state-label__text">${label.name.replace(/\n/g, "<br/>")}</span>`;
 
+        // Draw leader line and anchor dot if state has callout
+        if (label.calloutFrom) {
+          const leaderLine = L.polyline([label.calloutFrom, [label.lat, label.lng]], {
+            pane: "stateLabelsPane",
+            color: "#4a7b9d",
+            weight: 1,
+            dashArray: "2, 3",
+            opacity: 0.65,
+            interactive: false,
+          });
+          const leaderDot = L.circleMarker(label.calloutFrom, {
+            pane: "stateLabelsPane",
+            radius: 1.5,
+            color: "#4a7b9d",
+            fillColor: "#8eb4d6",
+            fillOpacity: 0.85,
+            weight: 1,
+            interactive: false,
+          });
+          labelGroup.addLayer(leaderLine);
+          labelGroup.addLayer(leaderDot);
+        }
+
         const icon = L.divIcon({
           className: "custom-state-label-marker",
-          html: `<div class="state-label state-label--${label.size || 'sm'} ${alignClass}" style="${rotateStyle}">${textHtml}</div>`,
+          html: `<div class="state-label state-label--${label.size || 'sm'} ${alignClass} ${capitalClass}" style="${inlineTransform}">${textHtml}</div>`,
           iconSize: [0, 0],
           iconAnchor: [0, 0],
         });
@@ -692,8 +727,7 @@ function BoundaryLayers({ districts, states }) {
         const marker = L.marker([label.lat, label.lng], {
           icon,
           interactive: false,
-          pane: "overlayPane",
-          zIndexOffset: -500,
+          pane: "stateLabelsPane",
         });
         labelGroup.addLayer(marker);
       });
