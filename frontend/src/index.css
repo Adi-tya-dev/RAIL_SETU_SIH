@@ -105,6 +105,74 @@
 }
 
 /* ============================================================
+   WHITE MODE PALETTE (Royal Blue & White)
+   ============================================================ */
+[data-theme="white"],
+body.theme-white {
+  /* Background palette */
+  --bg:         #f4f6fa;
+  --bg-1:       #ffffff;
+  --bg-2:       #f8fafc;
+  --bg-3:       #eff6ff;
+  --bg-4:       #dbeafe;
+  --bg-5:       #bfdbfe;
+
+  /* Panel / Surface */
+  --surface:    #ffffff;
+  --surface-2:  #f8fafc;
+  --surface-3:  #eff6ff;
+
+  /* Borders */
+  --border:       #e2e8f0;
+  --border-2:     #cbd5e1;
+  --border-3:     #94a3b8;
+
+  /* Typography */
+  --text:       #0f172a;
+  --text-2:     #1e293b;
+  --text-3:     #475569;
+  --text-4:     #64748b;
+
+  /* Accent — Royal Blue */
+  --accent:       #1d4ed8;
+  --accent-2:     #2563eb;
+  --accent-dim:   rgba(29, 78, 216, 0.08);
+  --accent-dim-2: rgba(29, 78, 216, 0.04);
+
+  /* Semantic colors */
+  --green:      #16a34a;
+  --green-dim:  rgba(22, 163, 74, 0.10);
+  --red:        #dc2626;
+  --red-bright: #ef4444;
+  --red-dim:    rgba(220, 38, 38, 0.10);
+  --blue:       #1d4ed8;
+  --blue-dim:   rgba(29, 78, 216, 0.10);
+  --cyan:       #0284c7;
+  --cyan-dim:   rgba(2, 132, 199, 0.10);
+  --orange:     #ea580c;
+  --orange-dim: rgba(234, 88, 12, 0.10);
+  --amber:      #d97706;
+  --amber-dim:  rgba(217, 119, 6, 0.10);
+  --violet:     #7c3aed;
+  --violet-dim: rgba(124, 58, 237, 0.10);
+  --gray-dim:   rgba(100, 116, 139, 0.08);
+
+  /* Department colors */
+  --dept-eng:       #d97706;
+  --dept-eng-dim:   rgba(217, 119, 6, 0.10);
+  --dept-trc:       #1d4ed8;
+  --dept-trc-dim:   rgba(29, 78, 216, 0.10);
+  --dept-sig:       #7c3aed;
+  --dept-sig-dim:   rgba(124, 58, 237, 0.10);
+
+  /* Shadows */
+  --shadow-sm:  0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow:     0 4px 16px rgba(15, 23, 42, 0.06), 0 1px 4px rgba(15, 23, 42, 0.04);
+  --shadow-lg:  0 10px 25px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.04);
+  --shadow-xl:  0 20px 40px rgba(15, 23, 42, 0.12);
+}
+
+/* ============================================================
    RESET & BASE
    ============================================================ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -2605,4 +2673,360 @@ path.leaflet-interactive:focus-visible {
   0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(34,197,94,0.55); }
   50%      { opacity: 0.7; box-shadow: 0 0 0 5px rgba(34,197,94,0); }
 }
+
+/* ============================================================
+   THEME TOGGLE PILL
+   ============================================================ */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  padding: 2px;
+  gap: 2px;
+  margin-right: 4px;
+}
+
+.theme-toggle__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  line-height: 1;
+}
+
+.theme-toggle__btn:hover {
+  color: #ffffff;
+}
+
+.theme-toggle__btn.is-active {
+  background: #ffffff;
+  color: #0d3a94;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+  font-weight: 700;
+}
+
+/* In dark mode, active dark button */
+[data-theme="dark"] .theme-toggle__btn.is-active,
+body:not(.theme-white) .theme-toggle__btn.is-active:first-child {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+/* ============================================================
+   WHITE MODE COMPONENT OVERRIDES (Royal Blue & White)
+   ============================================================ */
+[data-theme="white"] body,
+body.theme-white {
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Topbar in Royal Blue */
+[data-theme="white"] .topbar,
+body.theme-white .topbar {
+  background: linear-gradient(90deg, #0d3a94 0%, #1351d8 50%, #1d4ed8 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 2px 12px rgba(13, 58, 148, 0.25);
+}
+
+[data-theme="white"] .topbar__brand,
+body.theme-white .topbar__brand {
+  border-right: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+[data-theme="white"] .topbar__toggle,
+body.theme-white .topbar__toggle {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme="white"] .topbar__toggle:hover,
+body.theme-white .topbar__toggle:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+}
+
+[data-theme="white"] .brand-name__hindi,
+body.theme-white .brand-name__hindi {
+  color: #ffffff;
+}
+
+[data-theme="white"] .brand-name__english,
+body.theme-white .brand-name__english {
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="white"] .brand-tag,
+body.theme-white .brand-tag {
+  color: #bfdbfe;
+  font-weight: 600;
+}
+
+[data-theme="white"] .topbar__title-main,
+body.theme-white .topbar__title-main {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+[data-theme="white"] .topbar__title-sub,
+body.theme-white .topbar__title-sub {
+  color: #dbeafe;
+}
+
+[data-theme="white"] .topbar__refresh,
+body.theme-white .topbar__refresh {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+[data-theme="white"] .topbar__refresh:hover,
+body.theme-white .topbar__refresh:hover {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255, 255, 255, 0.40);
+  color: #ffffff;
+}
+
+/* Sidebar in Crisp White */
+[data-theme="white"] .sidebar,
+body.theme-white .sidebar {
+  background: #ffffff;
+  border-right: 1px solid #e2e8f0;
+  box-shadow: 2px 0 10px rgba(15, 23, 42, 0.03);
+}
+
+[data-theme="white"] .sidebar__section-label,
+body.theme-white .sidebar__section-label {
+  color: #1e40af;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+[data-theme="white"] .sidebar__divider,
+body.theme-white .sidebar__divider {
+  background: #f1f5f9;
+}
+
+[data-theme="white"] .nav-item,
+body.theme-white .nav-item {
+  color: #334155;
+  border-radius: 8px;
+  margin: 2px 10px;
+  font-weight: 500;
+}
+
+[data-theme="white"] .nav-item:hover,
+body.theme-white .nav-item:hover {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+[data-theme="white"] .nav-item.is-active,
+body.theme-white .nav-item.is-active {
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(29, 78, 216, 0.25);
+}
+
+[data-theme="white"] .nav-item.is-active .nav-item__icon,
+body.theme-white .nav-item.is-active .nav-item__icon {
+  color: #ffffff;
+}
+
+[data-theme="white"] .nav-item.is-active::before,
+body.theme-white .nav-item.is-active::before {
+  display: none;
+}
+
+/* Page content area */
+[data-theme="white"] .page-content,
+body.theme-white .page-content {
+  background: #f4f6fa;
+}
+
+[data-theme="white"] .card,
+[data-theme="white"] .panel,
+body.theme-white .card,
+body.theme-white .panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+[data-theme="white"] .card__head,
+body.theme-white .card__head {
+  background: #ffffff;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+[data-theme="white"] .card__foot,
+body.theme-white .card__foot {
+  background: #f8fafc;
+  border-top: 1px solid #f1f5f9;
+}
+
+/* KPI Cards */
+[data-theme="white"] .kpi-card,
+body.theme-white .kpi-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.04);
+}
+
+[data-theme="white"] .kpi-card:hover,
+body.theme-white .kpi-card:hover {
+  border-color: #93c5fd;
+  box-shadow: 0 8px 24px rgba(29, 78, 216, 0.10);
+  transform: translateY(-3px);
+}
+
+/* Operations Overview / Status Grid */
+[data-theme="white"] .ops-item,
+body.theme-white .ops-item {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+}
+
+/* Tables in White Mode */
+[data-theme="white"] .table th,
+body.theme-white .table th {
+  background: #eff6ff;
+  color: #1e40af;
+  font-weight: 700;
+  border-bottom: 2px solid #bfdbfe;
+}
+
+[data-theme="white"] .table td,
+body.theme-white .table td {
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+}
+
+[data-theme="white"] .table tbody tr:hover,
+body.theme-white .table tbody tr:hover {
+  background: #f8fafc;
+}
+
+[data-theme="white"] .table td.cell--primary,
+body.theme-white .table td.cell--primary {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+/* Mega Block / Planning Cards */
+[data-theme="white"] .mega-block,
+body.theme-white .mega-block {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+}
+
+[data-theme="white"] .mega-block__head,
+body.theme-white .mega-block__head {
+  background: linear-gradient(90deg, #eff6ff 0%, #ffffff 100%);
+  border-bottom: 1px solid #e2e8f0;
+}
+
+[data-theme="white"] .mega-task,
+body.theme-white .mega-task {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+/* Buttons in White Mode */
+[data-theme="white"] .btn--primary,
+body.theme-white .btn--primary {
+  background: #1d4ed8;
+  color: #ffffff;
+  border-color: #1d4ed8;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(29, 78, 216, 0.20);
+}
+
+[data-theme="white"] .btn--primary:hover:not(:disabled),
+body.theme-white .btn--primary:hover:not(:disabled) {
+  background: #1e40af;
+  border-color: #1e40af;
+  box-shadow: 0 4px 14px rgba(29, 78, 216, 0.30);
+}
+
+[data-theme="white"] .btn--secondary,
+body.theme-white .btn--secondary {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+[data-theme="white"] .btn--secondary:hover:not(:disabled),
+body.theme-white .btn--secondary:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+/* Form controls, inputs & dropdowns */
+[data-theme="white"] input,
+[data-theme="white"] select,
+[data-theme="white"] textarea,
+body.theme-white input,
+body.theme-white select,
+body.theme-white textarea {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+[data-theme="white"] input:focus,
+[data-theme="white"] select:focus,
+[data-theme="white"] textarea:focus,
+body.theme-white input:focus,
+body.theme-white select:focus,
+body.theme-white textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+/* Status Chips on Topbar in White Mode */
+[data-theme="white"] .status-chip,
+body.theme-white .status-chip {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+[data-theme="white"] .status-chip__label,
+body.theme-white .status-chip__label {
+  color: #dbeafe;
+}
+
+[data-theme="white"] .status-chip__value,
+body.theme-white .status-chip__value {
+  color: #ffffff;
+}
+
+/* Modals & Dialogs */
+[data-theme="white"] .modal,
+[data-theme="white"] .modal-content,
+[data-theme="white"] .drawer,
+body.theme-white .modal,
+body.theme-white .modal-content,
+body.theme-white .drawer {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.15);
+}
+
 

@@ -1,6 +1,7 @@
-import { PanelLeft, RefreshCw } from "lucide-react";
+import { PanelLeft, RefreshCw, Moon, Sun } from "lucide-react";
 import { useSystemStatus } from "../../contexts/SystemStatusContext";
 import { useLiveEvents } from "../../contexts/LiveEventsContext";
+import { useTheme } from "../../contexts/ThemeContext";
 import { ROUTE_TITLES, ROUTE_SUBTITLES, APP_NAME } from "../../utils/constants";
 
 const STATUS_CLASS = {
@@ -105,6 +106,7 @@ function LiveIndicator({ status, newCount }) {
 export default function Header({ currentPath, onToggleSidebar, collapsed }) {
   const { backend, database, refresh } = useSystemStatus();
   const { liveStatus, newRequestCount } = useLiveEvents();
+  const { theme, setTheme } = useTheme();
 
   const path     = currentPath.split("?")[0].replace(/\/$/, "") || "/dashboard";
   const segment  = path.split("/")[1] || "dashboard";
@@ -137,6 +139,30 @@ export default function Header({ currentPath, onToggleSidebar, collapsed }) {
       </div>
 
       <div className="topbar__right">
+        {/* Theme Mode Toggle: Dark | White */}
+        <div className="theme-toggle" role="group" aria-label="Theme mode toggle">
+          <button
+            type="button"
+            className={`theme-toggle__btn ${theme === "dark" ? "is-active" : ""}`}
+            onClick={() => setTheme("dark")}
+            title="Switch to Dark Mode"
+            aria-pressed={theme === "dark"}
+          >
+            <Moon size={13} />
+            <span>Dark</span>
+          </button>
+          <button
+            type="button"
+            className={`theme-toggle__btn ${theme === "white" ? "is-active" : ""}`}
+            onClick={() => setTheme("white")}
+            title="Switch to White Mode (Royal Blue & White)"
+            aria-pressed={theme === "white"}
+          >
+            <Sun size={13} />
+            <span>White</span>
+          </button>
+        </div>
+
         {/* Live SSE status indicator */}
         <LiveIndicator status={liveStatus} newCount={newRequestCount} />
 
