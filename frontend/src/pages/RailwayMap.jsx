@@ -16,8 +16,8 @@ import MaintenanceDrawer from "../components/maintenance/MaintenanceDrawer";
 import { DetailSection, DetailList } from "../components/common/DetailList";
 import { navigate, useRoute } from "../hooks/useRoute";
 
-const INDIA_BOUNDS = [[7.5, 68.2], [35, 97.2]];
-const INDIA_CENTER = [22.5, 79.2];
+const INDIA_BOUNDS = [[6.5, 68.0], [37.5, 97.5]];
+const INDIA_CENTER = [22.0, 82.5];
 
 // State + district boundaries are bundled locally (public/geo) - no tiles, no API key, offline-safe.
 const STATES_GEOJSON = "/geo/india-states.geojson";
@@ -663,7 +663,7 @@ function MapViewport({ points, request, focus }) {
     if (request === lastRequest.current) return;
     lastRequest.current = request;
     const india = request % 2 === 1;
-    map.fitBounds(india || points.length < 2 ? INDIA_BOUNDS : points, { padding: [48, 48], maxZoom: india ? 5 : 8 });
+    map.fitBounds(india || points.length < 2 ? INDIA_BOUNDS : points, { padding: [32, 32], maxZoom: india ? 5 : 8 });
   }, [map, points, request]);
   useEffect(() => {
     if (!focus || focus === lastFocus.current) return;
@@ -674,11 +674,111 @@ function MapViewport({ points, request, focus }) {
   return null;
 }
 
+const STATE_LABELS = [
+  // Northern Region
+  { id: "ladakh", name: "LADAKH", lat: 34.40, lng: 77.60 },
+  { id: "jk", name: "JAMMU &\nKASHMIR", lat: 33.65, lng: 74.85 },
+  { id: "hp", name: "HIMACHAL\nPRADESH", lat: 31.90, lng: 77.15 },
+  { id: "pb", name: "PUNJAB", lat: 30.85, lng: 75.35 },
+  { id: "hr", name: "HARYANA", lat: 29.15, lng: 76.05 },
+  { id: "uk", name: "UTTARAKHAND", lat: 30.15, lng: 79.20 },
+  { id: "rj", name: "RAJASTHAN", lat: 26.50, lng: 73.60 },
+
+  // Central Region
+  { id: "up", name: "UTTAR PRADESH", lat: 27.10, lng: 80.80 },
+  { id: "mp", name: "MADHYA PRADESH", lat: 23.40, lng: 77.50 },
+  { id: "cg", name: "CHHATTISGARH", lat: 21.20, lng: 81.85 },
+
+  // Western Region
+  { id: "gj", name: "GUJARAT", lat: 22.70, lng: 71.50 },
+  { id: "mh", name: "MAHARASHTRA", lat: 19.30, lng: 75.90 },
+  { id: "ga", name: "GOA", lat: 15.35, lng: 73.80, minZoom: 5.2 },
+
+  // Eastern Region
+  { id: "br", name: "BIHAR", lat: 25.70, lng: 85.70 },
+  { id: "jh", name: "JHARKHAND", lat: 23.65, lng: 85.50 },
+  { id: "or", name: "ODISHA", lat: 20.45, lng: 84.40 },
+  { id: "wb", name: "WEST BENGAL", lat: 23.20, lng: 87.80 },
+  { id: "sk", name: "SIKKIM", lat: 27.65, lng: 88.50, minZoom: 5.2 },
+
+  // North-Eastern Region
+  { id: "as", name: "ASSAM", lat: 26.25, lng: 92.80 },
+  { id: "ml", name: "MEGHALAYA", lat: 25.45, lng: 91.30 },
+  { id: "ar", name: "ARUNACHAL PRADESH", lat: 28.15, lng: 94.60 },
+  { id: "nl", name: "NAGALAND", lat: 26.10, lng: 94.45 },
+  { id: "mn", name: "MANIPUR", lat: 24.80, lng: 93.90 },
+  { id: "mz", name: "MIZORAM", lat: 23.20, lng: 92.85 },
+  { id: "tr", name: "TRIPURA", lat: 23.75, lng: 91.75, minZoom: 5.2 },
+
+  // Southern Region
+  { id: "tg", name: "TELANGANA", lat: 17.80, lng: 79.00 },
+  { id: "ap", name: "ANDHRA PRADESH", lat: 15.50, lng: 79.80 },
+  { id: "ka", name: "KARNATAKA", lat: 14.65, lng: 75.80 },
+  { id: "kl", name: "KERALA", lat: 10.35, lng: 76.40, rotate: -72 },
+  { id: "tn", name: "TAMIL NADU", lat: 11.00, lng: 78.40 },
+];
+
 function BoundaryLayers({ districts, states }) {
   const map = useMap();
   useEffect(() => {
     if (!districts && !states) return undefined;
     const layers = [];
+
+    // Dedicated custom pane for state labels to render cleanly above dark district fill
+    // and below station markers and route glows
+    let pane = map.getPane("stateLabelsPane");
+    if (!pane) {
+      pane = map.createPane("stateLabelsPane");
+      pane.style.zIndex = "450";
+      pane.style.pointerEvents = "none";
+    }
+
+    // Dynamic responsive & zoom-based scaling system
+    const updateResponsiveScale = () => {
+      if (!pane) return;
+      const zoom = map.getZoom();
+      const size = map.getSize();
+      const minDimension = Math.min(size.x || 1000, size.y || 800);
+
+      // Proportional container scale factor (responsive map size)
+      // Small map (< 650px): ~0.72 - 0.85
+      // Medium map (650px - 1000px): ~0.85 - 1.05
+      // Large map (> 1000px): ~1.05 - 1.20
+      const containerScale = Math.min(1.2, Math.max(0.72, minDimension / 800));
+
+      // Dynamic zoom-based font size:
+      // Zoom 4 (zoomed out): ~9.5px
+      // Zoom 5 (normal overview): ~12.0px
+      // Zoom 6 (regional): ~14.5px
+      // Zoom 7+ (detailed): ~17.5px - 20px
+      const baseFontSize = Math.max(8.0, Math.min(20.0, 9.5 + (zoom - 4) * 2.5));
+      const responsiveFontSize = Math.max(7.0, Math.min(19.0, baseFontSize * containerScale));
+
+      // Proportional letter-spacing
+      const letterSpacing = Math.max(0.04, Math.min(0.10, (0.05 + (zoom - 4) * 0.015) * containerScale));
+
+      pane.style.setProperty("--state-label-size", `${responsiveFontSize.toFixed(1)}px`);
+      pane.style.setProperty("--state-label-spacing", `${letterSpacing.toFixed(3)}em`);
+
+      // Collision handling: hide tiny states at small zoom or compact map
+      const isSmallView = zoom < 4.8 || (zoom <= 5.0 && minDimension < 650);
+      pane.classList.toggle("state-labels-pane--zoomed-out", isSmallView);
+      pane.classList.toggle("state-labels-pane--deep-zoom", zoom >= 8);
+    };
+
+    map.on("zoom zoomend resize viewreset", updateResponsiveScale);
+    let resizeObserver = null;
+    try {
+      const container = map.getContainer();
+      if (container && typeof ResizeObserver !== "undefined") {
+        resizeObserver = new ResizeObserver(() => updateResponsiveScale());
+        resizeObserver.observe(container);
+      }
+    } catch {
+      // Fallback
+    }
+    updateResponsiveScale();
+
     if (districts) {
       layers.push(L.geoJSON(districts, {
         renderer: L.canvas({ padding: 0.4 }),
@@ -692,13 +792,38 @@ function BoundaryLayers({ districts, states }) {
     if (states) {
       layers.push(L.geoJSON(states, {
         style: { color: "#2c5a7c", weight: 0.8, opacity: 0.5, fillColor: "#123455", fillOpacity: 0.06 },
-        onEachFeature: (feature, layer) => {
-          const name = feature.properties?.name;
-          if (name) layer.bindTooltip(name, { permanent: true, direction: "center", className: "boundary-label" });
-        },
       }).addTo(map));
+
+      // Cartographic state labels placed at exact coordinates matching reference map
+      const labelGroup = L.layerGroup();
+      STATE_LABELS.forEach((label) => {
+        const rotateTransform = label.rotate ? `rotate(${label.rotate}deg)` : "";
+        const inlineTransform = `transform: translate(-50%, -50%) ${rotateTransform};`;
+        const minZoomClass = label.minZoom ? "state-label--minzoom-5" : "";
+        const textHtml = `<span class="state-label__text">${label.name.replace(/\n/g, "<br/>")}</span>`;
+
+        const icon = L.divIcon({
+          className: `custom-state-label-marker ${minZoomClass}`,
+          html: `<div class="state-label ${minZoomClass}" style="${inlineTransform}">${textHtml}</div>`,
+          iconSize: [0, 0],
+          iconAnchor: [0, 0],
+        });
+
+        const marker = L.marker([label.lat, label.lng], {
+          icon,
+          interactive: false,
+          pane: "stateLabelsPane",
+        });
+        labelGroup.addLayer(marker);
+      });
+      labelGroup.addTo(map);
+      layers.push(labelGroup);
     }
-    return () => layers.forEach((layer) => map.removeLayer(layer));
+    return () => {
+      map.off("zoom zoomend resize viewreset", updateResponsiveScale);
+      if (resizeObserver) resizeObserver.disconnect();
+      layers.forEach((layer) => map.removeLayer(layer));
+    };
   }, [map, districts, states]);
   return null;
 }
@@ -1414,7 +1539,7 @@ export default function RailwayMap() {
           </div>
         </div>
         <div className="railway-map-map-shell">
-          <MapContainer center={INDIA_CENTER} bounds={INDIA_BOUNDS} maxBounds={[[4, 64], [38, 101]]} maxBoundsViscosity={0.55} minZoom={4} maxZoom={13} zoom={5} zoomAnimation style={{ height: "100%", width: "100%" }}>
+          <MapContainer center={INDIA_CENTER} bounds={INDIA_BOUNDS} maxBounds={[[4, 64], [39, 102]]} maxBoundsViscosity={0.55} minZoom={4} maxZoom={13} zoom={5} zoomAnimation style={{ height: "100%", width: "100%" }}>
             <BoundaryLayers districts={boundaries.districts} states={boundaries.states} />
             <MapViewport points={routePoints} request={viewportRequest} focus={focusBounds ? { bounds: focusBounds.bounds, onDone: () => setFocusBounds(null) } : null} />
             <StationLabelManager count={routeStations.length} />
