@@ -1044,15 +1044,39 @@ export default function RailwayMap() {
         </div>
         <div className="railway-map-control">
           <label className="railway-map-label" htmlFor="train-search">Select train</label>
-          <div className="railway-map-search">
-            <Search size={16} />
+          <div className="railway-map-search railway-map-search--white">
+            <Search size={16} className="railway-map-search__icon" />
             <input id="train-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search number or name" />
-            <button type="button" onClick={() => setSearch("")} aria-label="Clear train search"><X size={14} /></button>
+            {search && <button type="button" onClick={() => setSearch("")} aria-label="Clear train search"><X size={14} /></button>}
           </div>
-          <select className="select railway-map-train-select" value={trainId} onChange={(event) => selectTrain(event.target.value)} aria-label="Select train">
-            <option value="">Select a train</option>
-            {filteredTrains.map((train) => <option key={train.train_id} value={train.train_id}>{train.train_number} - {train.train_name}</option>)}
-          </select>
+          <div className="railway-map-train-picker">
+            <select
+              className="railway-map-train-select-native"
+              value={trainId}
+              onChange={(event) => selectTrain(event.target.value)}
+              aria-label="Select train"
+            >
+              <option value="">Select a train</option>
+              {filteredTrains.map((train) => (
+                <option key={train.train_id} value={train.train_id}>
+                  {train.train_number} — {train.train_name}
+                </option>
+              ))}
+            </select>
+            <div className="railway-map-train-picker__display" aria-hidden="true">
+              <span className="railway-map-train-picker__value">
+                {trainId
+                  ? (() => {
+                      const t = filteredTrains.find((tr) => String(tr.train_id) === String(trainId)) ||
+                                trains.find((tr) => String(tr.train_id) === String(trainId));
+                      return t ? <><b>{t.train_number}</b> — {t.train_name}</> : "Select a train";
+                    })()
+                  : "Select a train"
+                }
+              </span>
+              <ChevronDown size={16} className="railway-map-train-picker__arrow" />
+            </div>
+          </div>
         </div>
         {trainId && detailQuery.loading && <div className="railway-map-inline-state"><span className="spinner spinner--xs" /> Loading train route...</div>}
         {detailQuery.error && (

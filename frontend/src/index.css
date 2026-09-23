@@ -2480,11 +2480,115 @@ path.leaflet-interactive:focus-visible {
 .railway-map-sidebar__top p { max-width: 270px; margin-top: 8px; color: #8294ad; font-size: 13px; line-height: 1.55; }
 .railway-map-control { padding: 18px; border: 1px solid rgba(148,163,184,0.14); border-radius: 16px; background: rgba(15,29,48,0.72); box-shadow: 0 14px 32px rgba(0,0,0,0.12); }
 .railway-map-label { display: block; margin-bottom: 10px; color: #b9c7d9; font-size: 12px; font-weight: 700; }
-.railway-map-search { display: flex; align-items: center; gap: 9px; min-height: 42px; padding: 0 11px; border: 1px solid rgba(148,163,184,0.17); border-radius: 10px; background: #0b1524; color: #71839d; }
+.railway-map-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 42px;
+  padding: 0 11px;
+  border: 1px solid rgba(148,163,184,0.17);
+  border-radius: 10px;
+  background: #0b1524;
+  color: #71839d;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
 .railway-map-search:focus-within { border-color: #22d3ee; box-shadow: 0 0 0 3px rgba(34,211,238,0.1); }
 .railway-map-search input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; }
 .railway-map-search input::placeholder { color: #60728b; }
 .railway-map-search button { display: grid; place-items: center; border: 0; background: transparent; color: #60728b; cursor: pointer; }
+
+/* ── White variant of search box ── */
+.railway-map-search--white {
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  color: #334155;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+.railway-map-search--white .railway-map-search__icon { color: #64748b; }
+.railway-map-search--white input { color: #0f172a; }
+.railway-map-search--white input::placeholder { color: #94a3b8; }
+.railway-map-search--white:focus-within {
+  border-color: #22d3ee;
+  box-shadow: 0 0 0 3px rgba(34,211,238,0.15);
+}
+.railway-map-search--white button { color: #94a3b8; }
+.railway-map-search--white button:hover { color: #475569; }
+
+/* ── Custom train picker (select + display overlay) ── */
+.railway-map-train-picker {
+  position: relative;
+  margin-top: 10px;
+}
+
+.railway-map-train-select-native {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.railway-map-train-picker__display {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1.5px solid rgba(148,163,184,0.22);
+  border-radius: 10px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+.railway-map-train-picker:hover .railway-map-train-picker__display {
+  border-color: #22d3ee;
+  box-shadow: 0 0 0 3px rgba(34,211,238,0.12);
+}
+
+.railway-map-train-select-native:focus + .railway-map-train-picker__display {
+  border-color: #22d3ee;
+  box-shadow: 0 0 0 3px rgba(34,211,238,0.18);
+}
+
+.railway-map-train-picker__value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  color: #1e293b;
+}
+
+.railway-map-train-picker__value b {
+  color: #0e7490;
+  font-weight: 700;
+  margin-right: 4px;
+}
+
+.railway-map-train-picker__display:has(+ *) .railway-map-train-picker__value:empty::before,
+.railway-map-train-picker__value:not(:has(b)) {
+  color: #94a3b8;
+}
+
+.railway-map-train-picker__arrow {
+  flex: none;
+  color: #64748b;
+  transition: transform 0.2s ease, color 0.18s ease;
+}
+
+.railway-map-train-picker:hover .railway-map-train-picker__arrow {
+  color: #22d3ee;
+}
+
 .railway-map-train-select { margin-top: 10px; }
 .railway-map-muted { color: #71839d; font-size: 12px; line-height: 1.5; }
 .railway-map-inline-state { display: flex; align-items: center; gap: 9px; margin: 16px 0; color: #8ea2bb; font-size: 12px; }
