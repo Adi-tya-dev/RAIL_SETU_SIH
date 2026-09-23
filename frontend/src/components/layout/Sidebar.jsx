@@ -45,7 +45,7 @@ export default function Sidebar({ currentPath, collapsed }) {
         {NAV_SECTIONS.map((section, si) => (
           <div key={section.label} className="sidebar__section">
             {si > 0 && <div className="sidebar__divider" />}
-            <div className="sidebar__section-label">{section.label}</div>
+            {!collapsed && <div className="sidebar__section-label">{section.label}</div>}
             {section.items.map((item) => {
               const Icon = ICONS[item.icon];
               const isActive = active === item.path;
@@ -57,7 +57,7 @@ export default function Sidebar({ currentPath, collapsed }) {
                   title={collapsed ? item.label : undefined}
                 >
                   {Icon && <Icon size={18} className="nav-item__icon" />}
-                  <span className="nav-item__label">{item.label}</span>
+                  {!collapsed && <span className="nav-item__label">{item.label}</span>}
                 </Link>
               );
             })}
