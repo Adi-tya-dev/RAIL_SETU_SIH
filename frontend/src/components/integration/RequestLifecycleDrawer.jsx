@@ -240,89 +240,38 @@ export default function RequestLifecycleDrawer({ task, onClose, onTaskUpdated })
       {/* ── APPROVAL FEASIBILITY & HOLD REASONS (When Status === PENDING) ── */}
       {isPending && (
         <DetailSection title="Approval Feasibility & Operational Hold Reasons">
-          <div
-            style={{
-              padding: "16px",
-              borderRadius: 12,
-              border: "1px solid rgba(245, 158, 11, 0.4)",
-              background: "linear-gradient(180deg, rgba(245, 158, 11, 0.08) 0%, rgba(20, 15, 8, 0.5) 100%)",
-              marginBottom: 16,
-              boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
-            }}
-          >
+          <div className="hold-reasons-card">
             {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div className="hold-reasons-header">
+              <div className="hold-reasons-status">
                 <AlertTriangle size={18} color="#f59e0b" />
-                <strong style={{ color: "#fbbf24", fontSize: 13 }}>
-                  Status: PENDING OPERATIONAL CLEARANCE
-                </strong>
+                Status: PENDING OPERATIONAL CLEARANCE
               </div>
-              <span
-                style={{
-                  padding: "2px 8px",
-                  borderRadius: 4,
-                  fontSize: 11,
-                  fontFamily: "monospace",
-                  fontWeight: 700,
-                  background: "rgba(245, 158, 11, 0.15)",
-                  color: "#fbbf24",
-                }}
-              >
+              <span className="hold-reasons-target">
                 Target: {pkg.package_id}
               </span>
             </div>
 
-            <p style={{ margin: "0 0 12px", fontSize: 12, color: "var(--text-2)", lineHeight: 1.4 }}>
+            <p className="hold-reasons-desc">
               Why is this task awaiting approval? RailSetu actively verifies corridor timetable slots, multi-department clubbing density, and traction safety clearances before committing track possession.
             </p>
 
             {/* Hold Reasons List */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
+            <div className="hold-reasons-list">
               {holdInfo.reasons.map((reason) => (
                 <div
                   key={reason.id}
-                  style={{
-                    padding: "10px 12px",
-                    borderRadius: 8,
-                    background: "rgba(0, 0, 0, 0.3)",
-                    border: `1px solid ${
-                      reason.tone === "amber"
-                        ? "rgba(245, 158, 11, 0.25)"
-                        : reason.tone === "blue"
-                        ? "rgba(56, 189, 248, 0.25)"
-                        : "rgba(168, 85, 247, 0.25)"
-                    }`,
-                  }}
+                  className={`hold-reason-item hold-reason-item--${reason.tone === "amber" ? "amber" : reason.tone === "blue" ? "blue" : "purple"}`}
                 >
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                    <span style={{ fontWeight: 700, fontSize: 12, color: "#f1f5f9" }}>
+                  <div className="hold-reason-item__header">
+                    <span className="hold-reason-item__title">
                       {reason.title}
                     </span>
-                    <span
-                      style={{
-                        fontSize: 10,
-                        fontWeight: 700,
-                        padding: "1px 6px",
-                        borderRadius: 4,
-                        background:
-                          reason.tone === "amber"
-                            ? "rgba(245,158,11,0.2)"
-                            : reason.tone === "blue"
-                            ? "rgba(56,189,248,0.2)"
-                            : "rgba(168,85,247,0.2)",
-                        color:
-                          reason.tone === "amber"
-                            ? "#fbbf24"
-                            : reason.tone === "blue"
-                            ? "#38bdf8"
-                            : "#c084fc",
-                      }}
-                    >
+                    <span className={`hold-reason-item__tag hold-reason-item__tag--${reason.tone === "amber" ? "amber" : reason.tone === "blue" ? "blue" : "purple"}`}>
                       {reason.tag}
                     </span>
                   </div>
-                  <p style={{ margin: 0, fontSize: 11.5, color: "var(--text-secondary)", lineHeight: 1.4 }}>
+                  <p className="hold-reason-item__detail">
                     {reason.detail}
                   </p>
                 </div>
@@ -330,7 +279,7 @@ export default function RequestLifecycleDrawer({ task, onClose, onTaskUpdated })
             </div>
 
             {/* Action Buttons */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div className="hold-reasons-actions">
               <Button
                 variant="primary"
                 size="sm"
