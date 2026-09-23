@@ -15,8 +15,8 @@ import Drawer from "../components/common/Drawer";
 import MaintenanceDrawer from "../components/maintenance/MaintenanceDrawer";
 import { navigate, useRoute } from "../hooks/useRoute";
 
-const INDIA_BOUNDS = [[6.5, 68.0], [37.5, 97.5]];
-const INDIA_CENTER = [22.0, 82.5];
+const INDIA_BOUNDS = [[7.5, 68.0], [37.2, 97.4]];
+const INDIA_CENTER = [22.35, 82.7];
 
 // State + district boundaries are bundled locally (public/geo) - no tiles, no API key, offline-safe.
 const STATES_GEOJSON = "/geo/india-states.geojson";
@@ -581,6 +581,42 @@ function placeOnSection(sectionStations, section, block, taskIndex = 0, totalTas
   return pointAlongPath(points, fraction);
 }
 
+function ResponsiveMapController({ isTrainSelected, points }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const container = map.getContainer();
+    if (!container || typeof ResizeObserver === "undefined") return undefined;
+
+    let resizeTimer = null;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width === 0 || height === 0) continue;
+
+        map.invalidateSize({ pan: false, debounceMoveEvents: true });
+
+        // If no specific train route is active, auto-fit India cleanly to container
+        if (!isTrainSelected || points.length < 2) {
+          clearTimeout(resizeTimer);
+          resizeTimer = setTimeout(() => {
+            const pad = width < 600 || height < 500 ? [14, 14] : [24, 24];
+            map.fitBounds(INDIA_BOUNDS, { padding: pad, animate: false });
+          }, 100);
+        }
+      }
+    });
+
+    observer.observe(container);
+    return () => {
+      clearTimeout(resizeTimer);
+      observer.disconnect();
+    };
+  }, [map, isTrainSelected, points]);
+
+  return null;
+}
+
 function MapViewport({ points, request, focus }) {
   const map = useMap();
   const lastRequest = useRef(0);
@@ -589,12 +625,14 @@ function MapViewport({ points, request, focus }) {
     if (request === lastRequest.current) return;
     lastRequest.current = request;
     const india = request % 2 === 1;
-    map.fitBounds(india || points.length < 2 ? INDIA_BOUNDS : points, { padding: [32, 32], maxZoom: india ? 5 : 8 });
+    const size = map.getSize();
+    const pad = size.x < 600 || size.y < 500 ? [14, 14] : [24, 24];
+    map.fitBounds(india || points.length < 2 ? INDIA_BOUNDS : points, { padding: pad, maxZoom: india ? 6 : 9, animate: true });
   }, [map, points, request]);
   useEffect(() => {
     if (!focus || focus === lastFocus.current) return;
     lastFocus.current = focus;
-    map.fitBounds(focus.bounds, { padding: [60, 60], maxZoom: 10 });
+    map.fitBounds(focus.bounds, { padding: [48, 48], maxZoom: 10, animate: true });
     focus.onDone?.();
   }, [map, focus]);
   return null;
@@ -1452,8 +1490,22 @@ export default function RailwayMap() {
           </div>
         </div>
         <div className="railway-map-map-shell">
-          <MapContainer center={INDIA_CENTER} bounds={INDIA_BOUNDS} maxBounds={[[4, 64], [39, 102]]} maxBoundsViscosity={0.55} minZoom={4} maxZoom={13} zoom={5} zoomAnimation style={{ height: "100%", width: "100%" }}>
+          <MapContainer
+            center={INDIA_CENTER}
+            bounds={INDIA_BOUNDS}
+            boundsOptions={{ padding: [20, 20] }}
+            maxBounds={[[4, 64], [39, 102]]}
+            maxBoundsViscosity={0.55}
+            minZoom={3.2}
+            maxZoom={13}
+            zoom={5}
+            zoomSnap={0.1}
+            zoomDelta={0.5}
+            zoomAnimation
+            style={{ height: "100%", width: "100%" }}
+          >
             <BoundaryLayers districts={boundaries.districts} states={boundaries.states} />
+            <ResponsiveMapController isTrainSelected={Boolean(selectedTrain)} points={routePoints} />
             <MapViewport points={routePoints} request={viewportRequest} focus={focusBounds ? { bounds: focusBounds.bounds, onDone: () => setFocusBounds(null) } : null} />
             <StationLabelManager count={routeStations.length} />
             {networkRoutes.map(({ train, path }) => {
