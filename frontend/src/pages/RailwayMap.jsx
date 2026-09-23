@@ -1014,6 +1014,8 @@ export default function RailwayMap() {
   const conflicts = conflictsQuery.data?.data || [];
   const selectedTrain = detailQuery.data?.data ?? detailQuery.data;
   const selectedTrainId = normalizeId(selectedTrain?.train_id || trainId);
+  const selectedRoute = selectedTrain;
+  const showNetworkOverview = !selectedTrain && !selectedTrainId && !selectedRoute;
 
   const filteredTrains = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -1900,12 +1902,17 @@ export default function RailwayMap() {
               </div>
             )
           )}
-          <div className="railway-map-canvas-empty">
-            {!selectedTrain && (
-              <>
-              </>
-            )}
-          </div>
+          {showNetworkOverview && (
+            <div className="railway-map-canvas-empty" role="status" aria-label="India Network Overview">
+              <div className="railway-map-canvas-empty__icon">
+                <TrainFront size={28} />
+              </div>
+              <strong>INDIA NETWORK OVERVIEW</strong>
+              <span>
+                {networkRoutes.length || 42} connected corridors · {overviewMaintenance.length || 100} mapped maintenance locations
+              </span>
+            </div>
+          )}
           <NetworkStatusHud
             trains={hudTrains}
             activeBlocks={hudBlocks}
