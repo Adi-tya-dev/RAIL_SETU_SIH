@@ -15,8 +15,8 @@ import Drawer from "../components/common/Drawer";
 import MaintenanceDrawer from "../components/maintenance/MaintenanceDrawer";
 import { navigate, useRoute } from "../hooks/useRoute";
 
-const INDIA_BOUNDS = [[7.5, 68.2], [35, 97.2]];
-const INDIA_CENTER = [22.5, 79.2];
+const INDIA_BOUNDS = [[6.5, 68.0], [37.5, 97.5]];
+const INDIA_CENTER = [22.0, 82.5];
 
 // State + district boundaries are bundled locally (public/geo) - no tiles, no API key, offline-safe.
 const STATES_GEOJSON = "/geo/india-states.geojson";
@@ -589,7 +589,7 @@ function MapViewport({ points, request, focus }) {
     if (request === lastRequest.current) return;
     lastRequest.current = request;
     const india = request % 2 === 1;
-    map.fitBounds(india || points.length < 2 ? INDIA_BOUNDS : points, { padding: [48, 48], maxZoom: india ? 5 : 8 });
+    map.fitBounds(india || points.length < 2 ? INDIA_BOUNDS : points, { padding: [32, 32], maxZoom: india ? 5 : 8 });
   }, [map, points, request]);
   useEffect(() => {
     if (!focus || focus === lastFocus.current) return;
@@ -1327,7 +1327,7 @@ export default function RailwayMap() {
           </div>
         </div>
         <div className="railway-map-map-shell">
-          <MapContainer center={INDIA_CENTER} bounds={INDIA_BOUNDS} maxBounds={[[4, 64], [38, 101]]} maxBoundsViscosity={0.55} minZoom={4} maxZoom={13} zoom={5} zoomAnimation style={{ height: "100%", width: "100%" }}>
+          <MapContainer center={INDIA_CENTER} bounds={INDIA_BOUNDS} maxBounds={[[4, 64], [39, 102]]} maxBoundsViscosity={0.55} minZoom={4} maxZoom={13} zoom={5} zoomAnimation style={{ height: "100%", width: "100%" }}>
             <BoundaryLayers districts={boundaries.districts} states={boundaries.states} />
             <MapViewport points={routePoints} request={viewportRequest} focus={focusBounds ? { bounds: focusBounds.bounds, onDone: () => setFocusBounds(null) } : null} />
             <StationLabelManager count={routeStations.length} />
