@@ -2670,7 +2670,7 @@ path.leaflet-interactive:focus-visible {
 .boundary-tooltip { padding: 2px 7px; border: 1px solid rgba(79,143,190,0.32); border-radius: 6px; background: rgba(6,17,29,0.92); box-shadow: 0 6px 16px rgba(0,0,0,0.4); color: #9fc3dd; font-size: 10px; font-weight: 600; white-space: nowrap; }
 .boundary-tooltip::before { display: none; }
 
-/* Unified Cartographic State Labels - Single shared style with Dynamic Zoom-Based Scaling */
+/* Unified Cartographic State Labels - Responsive & Dynamic Zoom-Based Scaling */
 .custom-state-label-marker {
   background: transparent !important;
   border: none !important;
@@ -2685,12 +2685,13 @@ path.leaflet-interactive:focus-visible {
   display: inline-block;
   white-space: nowrap;
   line-height: 1.15;
+  text-align: center;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  font-size: var(--state-label-size, 12px);
+  font-size: var(--state-label-size, 11px);
   font-weight: 700;
   letter-spacing: var(--state-label-spacing, 0.08em);
   color: #e2edf8;
-  opacity: 0.90;
+  opacity: 0.92;
   text-transform: uppercase;
   text-shadow:
     -1.5px -1.5px 0 #050e18,
@@ -2704,37 +2705,12 @@ path.leaflet-interactive:focus-visible {
   transition: font-size 0.2s cubic-bezier(0.2, 0, 0.2, 1), letter-spacing 0.2s ease, opacity 0.25s ease;
 }
 
-.state-label--align-right {
-  text-align: right;
-}
-
-.state-label--align-left {
-  text-align: left;
-}
-
-.state-label__capital-icon {
-  color: #ef4444;
-  font-size: calc(var(--state-label-size, 12px) * 0.85);
-  margin-right: 3px;
-  display: inline-block;
-  vertical-align: middle;
-  filter: drop-shadow(0 0 3px rgba(239, 68, 68, 0.9));
-}
-
-/* Hide tiny enclaves/territories at extreme zoom-out to avoid clutter and overlap */
+/* Hide small states at extreme zoom-out or compact map size to prevent overlap */
 .state-labels-pane--zoomed-out .state-label--minzoom-5,
-.state-labels-pane--zoomed-out .state-leader-line--minzoom-5,
-.state-labels-pane--zoomed-out .state-leader-dot--minzoom-5,
 .state-labels-pane--zoomed-out .custom-state-label-marker.state-label--minzoom-5 {
   opacity: 0 !important;
   pointer-events: none !important;
   visibility: hidden !important;
-}
-
-/* Smooth transition for leader lines and dots */
-.state-leader-line,
-.state-leader-dot {
-  transition: opacity 0.25s ease, visibility 0.25s ease;
 }
 
 /* At deep zoom (stations & local yards), keep state names soft so stations stand out */
