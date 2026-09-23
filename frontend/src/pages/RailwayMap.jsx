@@ -602,54 +602,54 @@ function MapViewport({ points, request, focus }) {
 
 const STATE_LABELS = [
   // Northern Region
-  { id: "ladakh", name: "LADAKH", lat: 34.60, lng: 77.40, size: "md" },
-  { id: "jk", name: "JAMMU & KASHMIR", lat: 33.65, lng: 74.85, size: "sm" },
-  { id: "hp", name: "HIMACHAL PRADESH", lat: 31.90, lng: 77.15, size: "xs" },
-  { id: "pb", name: "PUNJAB", lat: 30.85, lng: 75.35, size: "sm" },
-  { id: "ch", name: "Chandigarh", lat: 31.05, lng: 77.12, calloutFrom: [30.73, 76.78], size: "xxs", align: "left" },
-  { id: "hr", name: "HARYANA", lat: 29.15, lng: 76.05, size: "sm" },
-  { id: "dl", name: "New Delhi", lat: 28.61, lng: 77.38, size: "xs", isCapital: true, align: "left" },
-  { id: "uk", name: "UTTARAKHAND", lat: 30.15, lng: 79.20, size: "xs" },
-  { id: "rj", name: "RAJASTHAN", lat: 26.50, lng: 73.60, size: "lg" },
+  { id: "ladakh", name: "LADAKH", lat: 34.60, lng: 77.40 },
+  { id: "jk", name: "JAMMU & KASHMIR", lat: 33.65, lng: 74.85 },
+  { id: "hp", name: "HIMACHAL PRADESH", lat: 31.90, lng: 77.15 },
+  { id: "pb", name: "PUNJAB", lat: 30.85, lng: 75.35 },
+  { id: "ch", name: "CHANDIGARH", lat: 31.10, lng: 77.15, calloutFrom: [30.73, 76.78], align: "left" },
+  { id: "hr", name: "HARYANA", lat: 29.15, lng: 76.05 },
+  { id: "dl", name: "NEW DELHI", lat: 28.61, lng: 77.38, isCapital: true, align: "left" },
+  { id: "uk", name: "UTTARAKHAND", lat: 30.15, lng: 79.20 },
+  { id: "rj", name: "RAJASTHAN", lat: 26.50, lng: 73.60 },
 
   // Central Region
-  { id: "up", name: "UTTAR PRADESH", lat: 27.10, lng: 80.80, size: "md" },
-  { id: "mp", name: "MADHYA PRADESH", lat: 23.40, lng: 77.50, size: "lg" },
-  { id: "cg", name: "CHHATTISGARH", lat: 20.80, lng: 81.85, size: "sm", rotate: -55 },
+  { id: "up", name: "UTTAR PRADESH", lat: 27.10, lng: 80.80 },
+  { id: "mp", name: "MADHYA PRADESH", lat: 23.40, lng: 77.50 },
+  { id: "cg", name: "CHHATTISGARH", lat: 20.80, lng: 81.85, rotate: -55 },
 
   // Western Region
-  { id: "gj", name: "GUJARAT", lat: 22.70, lng: 71.50, size: "md" },
-  { id: "dnhdd", name: "DADRA & NAGAR HAVELI\nAND DAMAN & DIU", lat: 20.35, lng: 70.10, calloutFrom: [20.24, 72.93], size: "xxs", align: "right" },
-  { id: "mh", name: "MAHARASHTRA", lat: 19.30, lng: 75.90, size: "lg" },
-  { id: "ga", name: "GOA", lat: 15.35, lng: 73.45, calloutFrom: [15.36, 74.05], size: "xxs", align: "right" },
+  { id: "gj", name: "GUJARAT", lat: 22.70, lng: 71.50 },
+  { id: "dnhdd", name: "DADRA & NAGAR HAVELI\nAND DAMAN & DIU", lat: 20.35, lng: 70.10, calloutFrom: [20.24, 72.93], align: "right" },
+  { id: "mh", name: "MAHARASHTRA", lat: 19.30, lng: 75.90 },
+  { id: "ga", name: "GOA", lat: 15.35, lng: 73.40, calloutFrom: [15.36, 74.05], align: "right" },
 
   // Eastern Region
-  { id: "br", name: "BIHAR", lat: 25.70, lng: 85.70, size: "md" },
-  { id: "jh", name: "JHARKHAND", lat: 23.65, lng: 85.50, size: "sm" },
-  { id: "or", name: "ODISHA", lat: 20.45, lng: 84.40, size: "md" },
-  { id: "wb", name: "WEST BENGAL", lat: 23.20, lng: 87.80, size: "sm" },
-  { id: "sk", name: "SIKKIM", lat: 27.95, lng: 88.47, calloutFrom: [27.57, 88.47], size: "xxs" },
+  { id: "br", name: "BIHAR", lat: 25.70, lng: 85.70 },
+  { id: "jh", name: "JHARKHAND", lat: 23.65, lng: 85.50 },
+  { id: "or", name: "ODISHA", lat: 20.45, lng: 84.40 },
+  { id: "wb", name: "WEST BENGAL", lat: 23.20, lng: 87.80 },
+  { id: "sk", name: "SIKKIM", lat: 28.00, lng: 88.47, calloutFrom: [27.57, 88.47] },
 
   // North-Eastern Region
-  { id: "as", name: "ASSAM", lat: 26.25, lng: 92.80, size: "sm" },
-  { id: "ml", name: "MEGHALAYA", lat: 25.45, lng: 91.30, size: "xs" },
-  { id: "ar", name: "ARUNACHAL PRADESH", lat: 28.10, lng: 94.60, size: "xs", rotate: -15 },
-  { id: "nl", name: "NAGALAND", lat: 26.10, lng: 94.45, size: "xxs" },
-  { id: "mn", name: "MANIPUR", lat: 24.80, lng: 93.90, size: "xxs" },
-  { id: "mz", name: "MIZORAM", lat: 23.20, lng: 92.85, size: "xxs" },
-  { id: "tr", name: "TRIPURA", lat: 23.40, lng: 91.15, calloutFrom: [23.75, 91.74], size: "xxs", align: "right" },
+  { id: "as", name: "ASSAM", lat: 26.25, lng: 92.80 },
+  { id: "ml", name: "MEGHALAYA", lat: 25.45, lng: 91.30 },
+  { id: "ar", name: "ARUNACHAL PRADESH", lat: 28.10, lng: 94.60, rotate: -15 },
+  { id: "nl", name: "NAGALAND", lat: 26.10, lng: 94.45 },
+  { id: "mn", name: "MANIPUR", lat: 24.80, lng: 93.90 },
+  { id: "mz", name: "MIZORAM", lat: 23.20, lng: 92.85 },
+  { id: "tr", name: "TRIPURA", lat: 23.40, lng: 91.10, calloutFrom: [23.75, 91.74], align: "right" },
 
   // Southern Region
-  { id: "tg", name: "TELANGANA", lat: 17.80, lng: 79.00, size: "md" },
-  { id: "ap", name: "ANDHRA PRADESH", lat: 15.50, lng: 79.80, size: "md" },
-  { id: "ka", name: "KARNATAKA", lat: 14.65, lng: 75.80, size: "md" },
-  { id: "kl", name: "KERALA", lat: 10.35, lng: 76.40, size: "sm", rotate: -72 },
-  { id: "tn", name: "TAMIL NADU", lat: 11.00, lng: 78.40, size: "md" },
-  { id: "py", name: "PUDUCHERRY", lat: 11.85, lng: 80.55, calloutFrom: [11.85, 79.86], size: "xxs", align: "left" },
+  { id: "tg", name: "TELANGANA", lat: 17.80, lng: 79.00 },
+  { id: "ap", name: "ANDHRA PRADESH", lat: 15.50, lng: 79.80 },
+  { id: "ka", name: "KARNATAKA", lat: 14.65, lng: 75.80 },
+  { id: "kl", name: "KERALA", lat: 10.35, lng: 76.40, rotate: -72 },
+  { id: "tn", name: "TAMIL NADU", lat: 11.00, lng: 78.40 },
+  { id: "py", name: "PUDUCHERRY", lat: 11.85, lng: 80.60, calloutFrom: [11.85, 79.86], align: "left" },
 
   // Islands
-  { id: "ld", name: "LAKSHADWEEP\n(INDIA)", lat: 10.40, lng: 71.60, size: "xs", align: "right" },
-  { id: "an", name: "ANDAMAN & NICOBAR ISLANDS\n(INDIA)", lat: 11.50, lng: 92.30, size: "xs", rotate: -80, align: "right" },
+  { id: "ld", name: "LAKSHADWEEP\n(INDIA)", lat: 10.40, lng: 71.60, align: "right" },
+  { id: "an", name: "ANDAMAN & NICOBAR ISLANDS\n(INDIA)", lat: 11.50, lng: 92.30, rotate: -80, align: "right" },
 ];
 
 function BoundaryLayers({ districts, states }) {
@@ -719,7 +719,7 @@ function BoundaryLayers({ districts, states }) {
 
         const icon = L.divIcon({
           className: "custom-state-label-marker",
-          html: `<div class="state-label state-label--${label.size || 'sm'} ${alignClass} ${capitalClass}" style="${inlineTransform}">${textHtml}</div>`,
+          html: `<div class="state-label ${alignClass} ${capitalClass}" style="${inlineTransform}">${textHtml}</div>`,
           iconSize: [0, 0],
           iconAnchor: [0, 0],
         });
