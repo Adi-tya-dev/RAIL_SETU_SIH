@@ -10,14 +10,20 @@ import TrainDrawer from "../components/trains/TrainDrawer";
 import Pagination from "../components/common/Pagination";
 import StateBlock from "../components/common/StateBlock";
 
+import { useToast } from "../contexts/ToastContext";
+import { syncOnlineTrains, backfillTrains } from "../api/trains.api";
+import { DownloadCloud, RefreshCw } from "lucide-react";
+
 const EMPTY_FILTERS = { status: "", priority: "" };
 
 export default function Trains() {
+  const toast = useToast();
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [selected, setSelected] = useState(null);
+  const [syncing, setSyncing] = useState(false);
 
   const params = useMemo(
     () => ({
@@ -34,6 +40,22 @@ export default function Trains() {
 
   const pagination = data?.pagination;
   const rows = data?.data || [];
+
+  async function handleSyncOnlineTrains() {
+    if (syncing) return;
+    setSyncing(true);
+    try {
+      const res = await syncOnlineTrains(50);
+      toast.success(
+        `Synchronized online Indian Railways data: ${res?.data?.imported || 0} imported, ${res?.data?.updated || 0} updated with complete routes and movements.`
+      );
+      reload();
+    } catch (err) {
+      toast.error(err.message || "Failed to fetch online trains");
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -63,9 +85,22 @@ export default function Trains() {
         title="Train Operations"
         subtitle="Live train status and movement visibility"
         actions={
-          <Button variant="primary" loading={loading} loadingText="Loading…" onClick={() => reload()}>
-            Load / Refresh
-          </Button>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <Button
+              variant="secondary"
+              loading={syncing}
+              loadingText="Syncing Online Trains…"
+              onClick={handleSyncOnlineTrains}
+              disabled={syncing}
+            >
+              <DownloadCloud size={15} style={{ marginRight: 6 }} />
+              Fetch & Sync More Online Trains
+            </Button>
+            <Button variant="primary" loading={loading} loadingText="Loading…" onClick={() => reload()}>
+              <RefreshCw size={14} style={{ marginRight: 6 }} />
+              Refresh
+            </Button>
+          </div>
         }
       />
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Blocks, CalendarX2, Clock3, MapPin, TrainFront, Wrench, Zap } from "lucide-react";
+import { AlertTriangle, Blocks, CalendarX2, Clock3, TrainFront, Wrench } from "lucide-react";
 import { listConflicts } from "../api/conflicts.api";
 import { useApi } from "../hooks/useApi";
 import { navigate } from "../hooks/useRoute";
