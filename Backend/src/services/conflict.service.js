@@ -2,7 +2,7 @@ const prisma = require("../config/prisma");
 const { parsePagination, parseBoolean, optionalString, parsePositiveInt } = require("../utils/validation.util");
 
 async function findAll(query = {}) {
-  const { page, limit, skip, take } = parsePagination(query, { fallbackLimit: 100, maxLimit: 500 });
+  const { page, limit, skip, take } = parsePagination(query, { fallbackLimit: 100, maxLimit: 1000 });
   const where = {};
 
   const resolved = parseBoolean(query.resolved, "resolved");
@@ -79,45 +79,31 @@ async function findAll(query = {}) {
     }),
   ]);
 
-  // Deduplicate conflicts to avoid repeated rows
-  const seen = new Set();
-  const formatted = [];
-  for (const c of conflicts) {
+  const formatted = conflicts.map((c) => {
     const maintTask = c.plan?.plan_maintenance_tasks?.[0]?.maintenance_task || null;
-    const descKey = (c.description || "").trim().toLowerCase();
-    const trainKey = String(c.train_id || c.train?.train_number || "");
-    const blockKey = String(c.plan?.block?.block_code || "");
-    const key = `${c.conflict_type}_${trainKey}_${blockKey}_${descKey}`;
-
-    if (!seen.has(key)) {
-      seen.add(key);
-      formatted.push({
-        conflict_id: String(c.conflict_id),
-        plan_id: String(c.plan_id),
-        train_id: c.train_id ? String(c.train_id) : null,
-        conflict_type: c.conflict_type,
-        severity: c.severity,
-        description: c.description,
-        resolved: c.resolved,
-        created_at: c.created_at,
-        train: c.train,
-        plan: c.plan,
-        block: c.plan?.block || null,
-        maintenance_task: maintTask,
-      });
-    }
-  }
-
-  const totalCount = formatted.length;
-  const paged = formatted.slice(skip, skip + take);
+    return {
+      conflict_id: String(c.conflict_id),
+      plan_id: String(c.plan_id),
+      train_id: c.train_id ? String(c.train_id) : null,
+      conflict_type: c.conflict_type,
+      severity: c.severity,
+      description: c.description,
+      resolved: c.resolved,
+      created_at: c.created_at,
+      train: c.train,
+      plan: c.plan,
+      block: c.plan?.block || null,
+      maintenance_task: maintTask,
+    };
+  });
 
   return {
-    data: paged,
+    data: formatted,
     pagination: {
       page,
       limit,
-      total: totalCount,
-      totalPages: Math.ceil(totalCount / limit),
+      total,
+      totalPages: Math.ceil(total / limit),
     },
   };
 }

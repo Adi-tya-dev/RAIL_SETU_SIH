@@ -8,9 +8,10 @@ import Button from "../components/common/Button";
 import Badge from "../components/common/Badge";
 import DataTable from "../components/common/DataTable";
 import Drawer from "../components/common/Drawer";
+import Pagination from "../components/common/Pagination";
 import { DetailSection, DetailList } from "../components/common/DetailList";
 import { humanize } from "../utils/formatters";
-import { SEVERITY_TONE, SEVERITY_LABEL, trainPriorityBadge } from "../utils/constants";
+import { SEVERITY_TONE, SEVERITY_LABEL, trainPriorityBadge, PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from "../utils/constants";
 
 const TYPE_ICONS = {
   TRAIN_MAINTENANCE: TrainFront,
@@ -97,6 +98,8 @@ export default function Conflicts() {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [severityFilter, setSeverityFilter] = useState("ALL");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE || 20);
 
   useEffect(() => {
     if (targetTrainNumber || targetTrainId || targetBlock || targetConflictId) {
@@ -108,13 +111,18 @@ export default function Conflicts() {
         conflictId: targetConflictId,
       });
       setFilterMode("targeted");
+      setPage(1);
     }
   }, [targetTrainNumber, targetTrainId, targetBlock, targetConflictId, targetTrainName]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, typeFilter, severityFilter, filterMode, activeTarget]);
 
   const load = useCallback(
     () =>
       run(async () => {
-        const params = { limit: 200 };
+        const params = { limit: 1000 };
         if (filterMode === "targeted") {
           if (targetTrainNumber) params.trainNumber = targetTrainNumber;
           else if (targetTrainId) params.trainId = targetTrainId;
@@ -238,6 +246,20 @@ export default function Conflicts() {
     return result;
   }, [conflicts, activeTarget, filterMode, isConflictTargeted, typeFilter, severityFilter, searchQuery]);
 
+  const totalRecords = displayedConflicts.length;
+  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
+  const pagedConflicts = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return displayedConflicts.slice(start, start + pageSize);
+  }, [displayedConflicts, page, pageSize]);
+
   const stats = useMemo(() => {
     const open = conflicts.filter((c) => !c.resolved).length;
     const critical = conflicts.filter((c) => Number(c.severity) >= 4).length;
@@ -302,6 +324,7 @@ export default function Conflicts() {
   function clearTargetFilter() {
     setActiveTarget(null);
     setFilterMode("all");
+    setPage(1);
     navigate("/conflicts");
   }
 
@@ -517,14 +540,33 @@ export default function Conflicts() {
         )}
 
         {!loading && !error && displayedConflicts.length > 0 && (
-          <DataTable
-            columns={columns}
-            rows={displayedConflicts}
-            ariaLabel="Detected conflicts"
-            rowKey={(r, i) => String(r.conflict_id ?? i)}
-            onRowClick={setSelected}
-            rowClassName={(r) => isConflictTargeted(r) ? "row-highlighted" : ""}
-          />
+          <>
+            <DataTable
+              columns={columns}
+              rows={pagedConflicts}
+              ariaLabel="Detected conflicts"
+              rowKey={(r, i) => String(r.conflict_id ?? i)}
+              onRowClick={setSelected}
+              rowClassName={(r) => (isConflictTargeted(r) ? "row-highlighted" : "")}
+            />
+
+            <Pagination
+              pagination={{
+                page,
+                total: totalRecords,
+                totalPages,
+                limit: pageSize,
+              }}
+              onChange={setPage}
+              pageSize={pageSize}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setPage(1);
+              }}
+              disabled={loading}
+              pageSizeOptions={PAGE_SIZE_OPTIONS}
+            />
+          </>
         )}
       </section>
       <Drawer
