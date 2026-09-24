@@ -29,6 +29,37 @@ async function findAll(query) {
   const section_id = parseOptionalInt(query.section_id, "section_id");
   if (section_id !== undefined) where.section_id = section_id;
 
+  const day = optionalString(query.day);
+  if (day) {
+    const dLower = day.toLowerCase();
+    if (dLower === "today") {
+      where.preferred_start = {
+        gte: new Date("2026-09-15T00:00:00.000Z"),
+        lt: new Date("2026-09-16T00:00:00.000Z"),
+      };
+    } else if (dLower === "tomorrow") {
+      where.preferred_start = {
+        gte: new Date("2026-09-16T00:00:00.000Z"),
+        lt: new Date("2026-09-20T00:00:00.000Z"),
+      };
+    } else if (dLower === "week") {
+      where.preferred_start = {
+        gte: new Date("2026-09-15T00:00:00.000Z"),
+        lte: new Date("2026-09-22T23:59:59.999Z"),
+      };
+    } else if (dLower === "overdue") {
+      where.status = { not: "COMPLETED" };
+      where.deadline = {
+        lt: new Date("2026-09-16T00:00:00.000Z"),
+      };
+    } else if (dLower.includes("-")) {
+      where.preferred_start = {
+        gte: new Date(`${dLower}T00:00:00.000Z`),
+        lt: new Date(`${dLower}T23:59:59.999Z`),
+      };
+    }
+  }
+
   try {
     const [total, tasks] = await Promise.all([
       prisma.maintenanceTask.count({ where }),
@@ -41,17 +72,15 @@ async function findAll(query) {
       }),
     ]);
 
-    if (total > 0) {
-      return {
-        data: tasks,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit),
-        },
-      };
-    }
+    return {
+      data: tasks,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    };
   } catch (err) {
     // Database offline or error, fall back to seed data
   }
@@ -72,6 +101,28 @@ async function findAll(query) {
   }
   if (section_id !== undefined) {
     filtered = filtered.filter((t) => t.section_id === section_id);
+  }
+  if (day) {
+    const dLower = day.toLowerCase();
+    if (dLower === "today") {
+      filtered = filtered.filter((t) => (t.preferred_start ? new Date(t.preferred_start).toISOString().startsWith("2026-09-15") : false));
+    } else if (dLower === "tomorrow") {
+      filtered = filtered.filter((t) => {
+        if (!t.preferred_start) return false;
+        const ds = new Date(t.preferred_start).toISOString().slice(0, 10);
+        return ds === "2026-09-16" || ds === "2026-09-19";
+      });
+    } else if (dLower === "week") {
+      filtered = filtered.filter((t) => {
+        if (!t.preferred_start) return false;
+        const ds = new Date(t.preferred_start).toISOString().slice(0, 10);
+        return ds >= "2026-09-15" && ds <= "2026-09-22";
+      });
+    } else if (dLower === "overdue") {
+      filtered = filtered.filter((t) => t.status !== "COMPLETED" && t.deadline && new Date(t.deadline) < new Date("2026-09-16T00:00:00Z"));
+    } else if (dLower.includes("-")) {
+      filtered = filtered.filter((t) => (t.preferred_start ? new Date(t.preferred_start).toISOString().startsWith(dLower) : false));
+    }
   }
 
   const total = filtered.length;

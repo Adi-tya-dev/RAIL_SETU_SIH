@@ -271,9 +271,9 @@ export default function Dashboard() {
           <Button
             variant="outline"
             size="xs"
-            onClick={() => navigate("/maintenance")}
+            onClick={() => navigate("/maintenance?day=today")}
             style={{ fontSize: 11, display: "inline-flex", alignItems: "center", gap: 5 }}
-            title="Open full Maintenance page with database records"
+            title="Open full Maintenance page filtered to today's active tasks"
           >
             View All in Database <ArrowRight size={13} />
           </Button>
