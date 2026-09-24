@@ -5112,6 +5112,252 @@ body.theme-white .conflict-filter-bar {
   border-bottom-color: #e2e8f0;
 }
 
+/* ============================================================
+   SIMULATOR INJECT CARD (TMS / SMMS / TDMS)
+   Works seamlessly in both Dark Mode and Light Mode
+   ============================================================ */
+
+.simulator-inject-card {
+  padding: 18px 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  background: linear-gradient(180deg, rgba(14, 28, 48, 0.92) 0%, rgba(9, 17, 30, 0.96) 100%);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  font-size: 13px;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.simulator-inject-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.simulator-inject-title {
+  color: #f1f5f9;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: -0.01em;
+}
+
+.simulator-inject-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  padding: 2px 9px;
+  border-radius: 999px;
+  line-height: 1.4;
+}
+
+.simulator-inject-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.simulator-inject-close:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.simulator-inject-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+
+@media (max-width: 960px) {
+  .simulator-inject-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .simulator-inject-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.simulator-inject-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.simulator-inject-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.simulator-inject-card .input,
+.simulator-inject-card .select {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  font-size: 13px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  color: #f8fafc;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.simulator-inject-card .input:focus,
+.simulator-inject-card .select:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+}
+
+.simulator-inject-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  flex-wrap: wrap;
+}
+
+.simulator-inject-note {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 11.5px;
+  line-height: 1.45;
+  flex: 1;
+  min-width: 260px;
+}
+
+.simulator-inject-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.simulator-inject-result {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.simulator-inject-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 15px;
+  border-radius: 8px;
+  border: 1px dashed rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.05);
+  color: #38bdf8;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.simulator-inject-trigger:hover {
+  background: rgba(56, 189, 248, 0.1);
+  border-color: #38bdf8;
+  transform: translateY(-1px);
+}
+
+/* --- LIGHT MODE / WHITE THEME OVERRIDES --- */
+[data-theme="white"] .simulator-inject-card,
+body.theme-white .simulator-inject-card {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid #bae6fd;
+  box-shadow: 0 6px 20px rgba(14, 165, 233, 0.07), 0 2px 5px rgba(15, 23, 42, 0.04);
+}
+
+[data-theme="white"] .simulator-inject-title,
+body.theme-white .simulator-inject-title {
+  color: #0f172a;
+}
+
+[data-theme="white"] .simulator-inject-badge,
+body.theme-white .simulator-inject-badge {
+  color: #0284c7;
+  background: #e0f2fe;
+  border-color: #bae6fd;
+}
+
+[data-theme="white"] .simulator-inject-close,
+body.theme-white .simulator-inject-close {
+  color: #64748b;
+}
+
+[data-theme="white"] .simulator-inject-close:hover,
+body.theme-white .simulator-inject-close:hover {
+  color: #0f172a;
+  background: #f1f5f9;
+}
+
+[data-theme="white"] .simulator-inject-label,
+body.theme-white .simulator-inject-label {
+  color: #334155;
+}
+
+[data-theme="white"] .simulator-inject-card .input,
+[data-theme="white"] .simulator-inject-card .select,
+body.theme-white .simulator-inject-card .input,
+body.theme-white .simulator-inject-card .select {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="white"] .simulator-inject-card .input:focus,
+[data-theme="white"] .simulator-inject-card .select:focus,
+body.theme-white .simulator-inject-card .input:focus,
+body.theme-white .simulator-inject-card .select:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.16);
+}
+
+[data-theme="white"] .simulator-inject-footer,
+body.theme-white .simulator-inject-footer {
+  border-top-color: #e2e8f0;
+}
+
+[data-theme="white"] .simulator-inject-note,
+body.theme-white .simulator-inject-note {
+  color: #64748b;
+}
+
+[data-theme="white"] .simulator-inject-trigger,
+body.theme-white .simulator-inject-trigger {
+  color: #0284c7;
+  background: rgba(14, 165, 233, 0.06);
+  border: 1px dashed rgba(14, 165, 233, 0.45);
+}
+
+[data-theme="white"] .simulator-inject-trigger:hover,
+body.theme-white .simulator-inject-trigger:hover {
+  background: rgba(14, 165, 233, 0.12);
+  border-color: #0284c7;
+}
+
 
 
 
