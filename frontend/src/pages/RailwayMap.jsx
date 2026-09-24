@@ -1065,7 +1065,9 @@ export default function RailwayMap() {
     const pointsFromRoutes = routeStations.map((route) => coordinate(route.station)).filter(Boolean);
     if (pointsFromRoutes.length >= 2) return pointsFromRoutes;
 
-    // Fallback: If train has origin and destination station coordinates, connect them!
+    // Fallback: If train has origin and destination station coordinates, connect them.
+    // NOTE: This produces a straight-line path used ONLY for marker/label placement.
+    // The route Polyline rendering guards against this via routeHasFallback below.
     const originPoint = coordinate(selectedTrain?.origin_station);
     const destPoint = coordinate(selectedTrain?.destination_station);
     if (originPoint && destPoint) {
@@ -1073,6 +1075,12 @@ export default function RailwayMap() {
     }
     return pointsFromRoutes;
   }, [routeStations, selectedTrain]);
+
+  // True when routePoints came from the 2-point origin→destination straight-line fallback
+  // (i.e., no real ordered route stations exist yet). Used to suppress the route Polyline
+  // and RouteParticles so they do not render a straight blinking line across India.
+  const routeHasFallback = routeStations.length < 2 && routePoints.length === 2;
+
   const routePath = useMemo(() => corridorPath(routePoints), [routePoints]);
   const routeDistance = useMemo(() => routePoints.slice(1).reduce((total, point, index) => total + distanceBetween(routePoints[index], point), 0), [routePoints]);
   const routeMaxDelay = useMemo(() => {
@@ -1782,7 +1790,7 @@ export default function RailwayMap() {
                 pathOptions={{ color: "#33546e", weight: 0.8, fillColor: node.degree >= 3 ? "#6f9db8" : "#4f7a95", fillOpacity: 0.8 }}
               />
             ))}
-            {layers.route && routePath.length > 1 && (
+            {layers.route && routePath.length > 1 && !routeHasFallback && (
               <>
                 {emergencyReroute ? (
                   <>
