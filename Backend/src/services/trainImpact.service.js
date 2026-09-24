@@ -41,20 +41,34 @@ async function findAll(query = {}) {
       }),
     ]);
 
-    if (total > 0) {
-      const formatted = impacts.map((item) => ({
-        impact_id: String(item.impact_id),
-        plan_id: String(item.plan_id),
-        train_id: item.train_id ? String(item.train_id) : null,
-        impact_type: item.impact_type,
-        estimated_delay_minutes: Number(item.estimated_delay_minutes || 0),
-        train: item.train,
-        plan: item.plan,
-        block: item.plan?.block || null,
-      }));
+    if (impacts.length > 0) {
+      // Deduplicate by train and block to ensure diverse, unique operational records
+      const seen = new Set();
+      const uniqueFormatted = [];
+      for (const item of impacts) {
+        const blockCode = item.plan?.block?.block_code || item.block?.block_code || String(item.plan?.block_id || "");
+        const trainId = String(item.train_id || item.train?.train_number || "");
+        const key = `${trainId}_${blockCode}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          uniqueFormatted.push({
+            impact_id: String(item.impact_id),
+            plan_id: String(item.plan_id),
+            train_id: item.train_id ? String(item.train_id) : null,
+            impact_type: item.impact_type,
+            estimated_delay_minutes: Number(item.estimated_delay_minutes || 0),
+            train: item.train,
+            plan: item.plan,
+            block: item.plan?.block || null,
+          });
+        }
+      }
+
+      const total = uniqueFormatted.length;
+      const paged = uniqueFormatted.slice(skip, skip + take);
 
       return {
-        data: formatted,
+        data: paged,
         pagination: {
           page,
           limit,
@@ -86,8 +100,20 @@ async function findAll(query = {}) {
     ? seedImpacts.filter((i) => i.impact_type && i.impact_type.toUpperCase() === impactType.toUpperCase())
     : seedImpacts;
 
-  const total = filtered.length;
-  const paged = filtered.slice(skip, skip + take);
+  const seenSeed = new Set();
+  const uniqueSeed = [];
+  for (const item of filtered) {
+    const blockCode = item.block?.block_code || item.plan?.block?.block_code || "";
+    const trainId = String(item.train_id || item.train?.train_number || "");
+    const key = `${trainId}_${blockCode}`;
+    if (!seenSeed.has(key)) {
+      seenSeed.add(key);
+      uniqueSeed.push(item);
+    }
+  }
+
+  const total = uniqueSeed.length;
+  const paged = uniqueSeed.slice(skip, skip + take);
 
   return {
     data: paged,
