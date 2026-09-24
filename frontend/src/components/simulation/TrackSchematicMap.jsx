@@ -97,10 +97,10 @@ export default function TrackSchematicMap({ train, activeStrategy, emergencyEven
       {/* SVG Interactive Track Diagram */}
       <div style={{ position: "relative", width: "100%", overflowX: "auto", padding: "10px 0" }}>
         <svg
-          viewBox="0 0 820 180"
+          viewBox="0 0 940 200"
           style={{
             width: "100%",
-            minWidth: 680,
+            minWidth: 720,
             height: "auto",
             display: "block",
             overflow: "visible",
@@ -131,32 +131,32 @@ export default function TrackSchematicMap({ train, activeStrategy, emergencyEven
           </text>
 
           {/* MAIN LINE (Track 1) */}
-          <line x1="120" y1="50" x2="780" y2="50" stroke="#334155" strokeWidth="6" strokeLinecap="round" />
-          <line x1="120" y1="50" x2="780" y2="50" stroke="#475569" strokeWidth="2" strokeDasharray="3 6" />
+          <line x1="130" y1="50" x2="890" y2="50" stroke="#334155" strokeWidth="6" strokeLinecap="round" />
+          <line x1="130" y1="50" x2="890" y2="50" stroke="#475569" strokeWidth="2" strokeDasharray="3 6" />
 
           {/* Calculate dynamic sector geometry */}
           {(() => {
             const total = Math.max(stops.length, 1);
-            const getX = (idx) => stops.length === 1 ? 420 : 160 + (idx / (total - 1)) * 540;
+            const getX = (idx) => stops.length === 1 ? 510 : 155 + (idx / (total - 1)) * 690;
             
             // Find bypassed station indices
             const bypassedIndices = stops.map((s, idx) => bypassedStops.has(s) ? idx : -1).filter((idx) => idx !== -1);
             
-            let blockStartX = 320;
-            let blockEndX = 500;
+            let blockStartX = 340;
+            let blockEndX = 560;
             if (bypassedIndices.length > 0) {
               const minIdx = Math.min(...bypassedIndices);
               const maxIdx = Math.max(...bypassedIndices);
-              blockStartX = Math.max(120, getX(minIdx) - 45);
-              blockEndX = Math.min(760, getX(maxIdx) + 45);
+              blockStartX = Math.max(130, getX(minIdx) - 45);
+              blockEndX = Math.min(880, getX(maxIdx) + 45);
             } else if (stops.length >= 3) {
               const mid = Math.floor(stops.length / 2);
               blockStartX = getX(mid) - 50;
               blockEndX = getX(mid) + 50;
             }
 
-            const divX = Math.max(130, blockStartX - 40);
-            const convX = Math.min(750, blockEndX + 40);
+            const divX = Math.max(140, blockStartX - 40);
+            const convX = Math.min(880, blockEndX + 40);
 
             return (
               <>
@@ -192,7 +192,7 @@ export default function TrackSchematicMap({ train, activeStrategy, emergencyEven
                 {isSLW && (
                   <g>
                     {/* Approaching main track */}
-                    <line x1="120" y1="50" x2={divX} y2="50" stroke="#38bdf8" strokeWidth="4" strokeLinecap="round" />
+                    <line x1="130" y1="50" x2={divX} y2="50" stroke="#38bdf8" strokeWidth="4" strokeLinecap="round" />
                     
                     {/* Crossover 1: Main -> Parallel Track */}
                     <path
@@ -208,9 +208,31 @@ export default function TrackSchematicMap({ train, activeStrategy, emergencyEven
 
                     {/* SLW Section along parallel track */}
                     <line x1={divX + 60} y1="140" x2={convX - 60} y2="140" stroke="#22c55e" strokeWidth="5" strokeLinecap="round" filter="url(#cyan-glow)" />
-                    <text x={(divX + convX) / 2} y="162" fill="#4ade80" fontSize="9.5" textAnchor="middle" fontWeight="700">
-                      ◄── Single Line Working on Parallel Track (100% Stops Preserved) ──►
-                    </text>
+                    
+                    {/* Positioned cleanly in the open gap between tracks (y = 95) with background pill to avoid collisions */}
+                    <g transform={`translate(${(divX + convX) / 2}, 95)`}>
+                      <rect
+                        x="-185"
+                        y="-12"
+                        width="370"
+                        height="24"
+                        rx="12"
+                        fill="rgba(6, 20, 32, 0.94)"
+                        stroke="#22c55e"
+                        strokeWidth="1.2"
+                      />
+                      <text
+                        x="0"
+                        y="4.5"
+                        fill="#4ade80"
+                        fontSize="9.5"
+                        fontWeight="700"
+                        textAnchor="middle"
+                        letterSpacing="0.03em"
+                      >
+                        ◄── Single Line Working on Parallel Track (100% Stops Preserved) ──►
+                      </text>
+                    </g>
 
                     {/* Crossover 2: Parallel -> Main Track */}
                     <path
@@ -225,14 +247,14 @@ export default function TrackSchematicMap({ train, activeStrategy, emergencyEven
                     <text x={convX} y="38" fill="#38bdf8" fontSize="8.5" textAnchor="middle" fontWeight="600">Turnout 2</text>
 
                     {/* Continuing on Main Track */}
-                    <line x1={convX} y1="50" x2="780" y2="50" stroke="#38bdf8" strokeWidth="4" strokeLinecap="round" />
+                    <line x1={convX} y1="50" x2="890" y2="50" stroke="#38bdf8" strokeWidth="4" strokeLinecap="round" />
                   </g>
                 )}
 
                 {isChord && (
                   <g>
                     {/* Approaching main track before chord branch */}
-                    <line x1="120" y1="50" x2={divX} y2="50" stroke="#60a5fa" strokeWidth="4" strokeLinecap="round" />
+                    <line x1="130" y1="50" x2={divX} y2="50" stroke="#60a5fa" strokeWidth="4" strokeLinecap="round" />
 
                     {/* Chord line divergence branch */}
                     <path
@@ -248,9 +270,31 @@ export default function TrackSchematicMap({ train, activeStrategy, emergencyEven
 
                     {/* Chord line bypass track */}
                     <line x1={divX + 70} y1="140" x2={convX - 70} y2="140" stroke="#f59e0b" strokeWidth="4" strokeLinecap="round" />
-                    <text x={(divX + convX) / 2} y="162" fill="#fbbf24" fontSize="9.5" textAnchor="middle" fontWeight="700">
-                      ──► Outer Chord Bypass (Bypasses Blocked Sector) ──►
-                    </text>
+                    
+                    {/* Positioned cleanly in the open gap between tracks (y = 95) with background pill */}
+                    <g transform={`translate(${(divX + convX) / 2}, 95)`}>
+                      <rect
+                        x="-170"
+                        y="-12"
+                        width="340"
+                        height="24"
+                        rx="12"
+                        fill="rgba(24, 18, 5, 0.94)"
+                        stroke="#f59e0b"
+                        strokeWidth="1.2"
+                      />
+                      <text
+                        x="0"
+                        y="4.5"
+                        fill="#fbbf24"
+                        fontSize="9.5"
+                        fontWeight="700"
+                        textAnchor="middle"
+                        letterSpacing="0.03em"
+                      >
+                        ──► Outer Chord Bypass (Bypasses Blocked Sector) ──►
+                      </text>
+                    </g>
 
                     {/* Chord convergence back to main line */}
                     <path
@@ -264,13 +308,13 @@ export default function TrackSchematicMap({ train, activeStrategy, emergencyEven
                     <text x={convX} y="38" fill="#fbbf24" fontSize="8.5" textAnchor="middle" fontWeight="600">Rejoins Main Line</text>
 
                     {/* Continuing on Main Line */}
-                    <line x1={convX} y1="50" x2="780" y2="50" stroke="#60a5fa" strokeWidth="4" strokeLinecap="round" />
+                    <line x1={convX} y1="50" x2="890" y2="50" stroke="#60a5fa" strokeWidth="4" strokeLinecap="round" />
                   </g>
                 )}
 
                 {isHold && (
                   <g>
-                    <line x1="120" y1="50" x2={divX} y2="50" stroke="#f87171" strokeWidth="4" strokeLinecap="round" />
+                    <line x1="130" y1="50" x2={divX} y2="50" stroke="#f87171" strokeWidth="4" strokeLinecap="round" />
                     <rect x={divX} y="38" width="12" height="24" fill="#ef4444" rx="2" />
                     <text x={divX} y="32" fill="#f87171" fontSize="10" textAnchor="middle" fontWeight="700">
                       🛑 HELD AT PRECEDING PLATFORM
@@ -301,7 +345,7 @@ export default function TrackSchematicMap({ train, activeStrategy, emergencyEven
                       <circle
                         cx="0"
                         cy="0"
-                        r={isHovered ? 16 : isBypassed ? 13 : 11}
+                        r={isHovered ? 15 : isBypassed ? 12 : 10.5}
                         fill={isBypassed ? "rgba(239, 68, 68, 0.25)" : "rgba(34, 197, 94, 0.25)"}
                         stroke={isBypassed ? "#ef4444" : "#22c55e"}
                         strokeWidth={isBypassed ? 2.5 : 2}
@@ -312,16 +356,16 @@ export default function TrackSchematicMap({ train, activeStrategy, emergencyEven
                       <circle
                         cx="0"
                         cy="0"
-                        r={isBypassed ? 6 : 5}
+                        r={isBypassed ? 5.5 : 4.5}
                         fill={isBypassed ? "#dc2626" : "#16a34a"}
                       />
 
                       {/* Station Code Label */}
                       <text
                         x="0"
-                        y={yPos === 50 ? (isBypassed ? 28 : -16) : 28}
+                        y={yPos === 50 ? (isBypassed ? 25 : -16) : 25}
                         fill={isBypassed ? "#f87171" : "#4ade80"}
-                        fontSize="11.5"
+                        fontSize="11"
                         fontWeight="800"
                         textAnchor="middle"
                         fontFamily="system-ui, sans-serif"
@@ -329,16 +373,17 @@ export default function TrackSchematicMap({ train, activeStrategy, emergencyEven
                         {isBypassed ? `⚠ ${stationCode}` : `✓ ${stationCode}`}
                       </text>
 
-                      {/* Status Sub-badge */}
+                      {/* Status Sub-badge: Clean compact label to eliminate horizontal overlap */}
                       <text
                         x="0"
-                        y={yPos === 50 ? (isBypassed ? 40 : -28) : 40}
+                        y={yPos === 50 ? (isBypassed ? 36 : -27) : 36}
                         fill={isBypassed ? "#fca5a5" : "#86efac"}
-                        fontSize="8.5"
-                        fontWeight="600"
+                        fontSize="8"
+                        fontWeight="700"
+                        letterSpacing="0.04em"
                         textAnchor="middle"
                       >
-                        {isBypassed ? "BYPASSED STOP" : "SERVED STOP"}
+                        {isBypassed ? "BYPASSED" : "SERVED"}
                       </text>
                     </g>
                   );
