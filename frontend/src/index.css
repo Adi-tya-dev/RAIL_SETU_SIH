@@ -3998,8 +3998,8 @@ body.theme-white .ops-status-text--scheduled {
 }
 
 .maint-card {
-  min-width: 250px;
-  flex: 0 0 250px;
+  min-width: 255px;
+  flex: 0 0 255px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -4008,13 +4008,22 @@ body.theme-white .ops-status-text--scheduled {
   flex-direction: column;
   gap: 8px;
   box-shadow: var(--shadow-sm);
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+  text-align: left;
 }
 
 .maint-card:hover {
-  transform: translateY(-2px);
+  transform: translateY(-4px);
   border-color: var(--accent);
-  box-shadow: var(--shadow);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+}
+
+.maint-card:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
 }
 
 .maint-card__header {
@@ -4048,6 +4057,14 @@ body.theme-white .ops-status-text--scheduled {
   background: var(--surface-2);
   border: 1px solid var(--border);
   color: var(--text-2);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.maint-block-pill:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent-2);
 }
 
 .maint-card__title {
@@ -4060,9 +4077,70 @@ body.theme-white .ops-status-text--scheduled {
   text-overflow: ellipsis;
 }
 
+.maint-card__dept-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+}
+
 .maint-card__dept {
   font-size: 12px;
   color: var(--text-3);
+  font-weight: 500;
+}
+
+.maint-card__meta-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.maint-status-chip {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 1.5px 6px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.maint-status-chip--pending {
+  background: rgba(245, 158, 11, 0.14);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.maint-status-chip--approved {
+  background: rgba(34, 197, 94, 0.14);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.maint-status-chip--in_progress {
+  background: rgba(56, 189, 248, 0.14);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.maint-status-chip--completed {
+  background: rgba(148, 163, 184, 0.14);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.maint-card__arrow {
+  color: var(--text-3);
+  opacity: 0.6;
+  transition: transform 0.2s ease, opacity 0.2s ease, color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.maint-card:hover .maint-card__arrow {
+  transform: translate(2px, -2px);
+  opacity: 1;
+  color: var(--accent);
 }
 
 /* White mode overrides for Maintenance Cards */
@@ -4075,8 +4153,8 @@ body.theme-white .maint-card {
 
 [data-theme="white"] .maint-card:hover,
 body.theme-white .maint-card:hover {
-  border-color: #1d4ed8;
-  box-shadow: 0 8px 20px rgba(29, 78, 216, 0.10);
+  border-color: #3b82f6;
+  box-shadow: 0 8px 22px rgba(37, 99, 235, 0.12);
 }
 
 [data-theme="white"] .maint-time-pill,
@@ -4092,6 +4170,12 @@ body.theme-white .maint-block-pill {
   color: #1a44c8;
 }
 
+[data-theme="white"] .maint-block-pill:hover,
+body.theme-white .maint-block-pill:hover {
+  background: #dbeafe;
+  border-color: #3b82f6;
+}
+
 [data-theme="white"] .maint-card__title,
 body.theme-white .maint-card__title {
   color: #0f172a;
@@ -4100,6 +4184,39 @@ body.theme-white .maint-card__title {
 [data-theme="white"] .maint-card__dept,
 body.theme-white .maint-card__dept {
   color: #64748b;
+}
+
+[data-theme="white"] .maint-status-chip--pending,
+body.theme-white .maint-status-chip--pending {
+  background: #fef3c7;
+  color: #b45309;
+  border-color: #fde68a;
+}
+
+[data-theme="white"] .maint-status-chip--approved,
+body.theme-white .maint-status-chip--approved {
+  background: #dcfce7;
+  color: #15803d;
+  border-color: #bbf7d0;
+}
+
+[data-theme="white"] .maint-status-chip--in_progress,
+body.theme-white .maint-status-chip--in_progress {
+  background: #e0f2fe;
+  color: #0369a1;
+  border-color: #bae6fd;
+}
+
+[data-theme="white"] .maint-status-chip--completed,
+body.theme-white .maint-status-chip--completed {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #cbd5e1;
+}
+
+[data-theme="white"] .maint-card:hover .maint-card__arrow,
+body.theme-white .maint-card:hover .maint-card__arrow {
+  color: #2563eb;
 }
 
 /* ── 3. Quick Navigation (Compact Buttons) ───────────────── */

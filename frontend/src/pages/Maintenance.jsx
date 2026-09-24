@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from "react";
-import { listMaintenance } from "../api/maintenance.api";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { listMaintenance, getMaintenance } from "../api/maintenance.api";
 import { useApiQuery } from "../hooks/useApi";
 import { useReferenceData } from "../hooks/useReferenceData";
 import {
@@ -33,6 +33,20 @@ export default function Maintenance() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [selected, setSelected] = useState(null);
+
+  // Auto-open task if ?taskId=... or ?id=... is present in URL
+  useEffect(() => {
+    const raw = window.location.hash.includes("?")
+      ? window.location.hash.split("?")[1]
+      : window.location.search.replace(/^\?/, "");
+    const qParams = new URLSearchParams(raw);
+    const taskId = qParams.get("taskId") || qParams.get("id");
+    if (taskId) {
+      getMaintenance(taskId).then((res) => {
+        if (res?.data) setSelected(res.data);
+      }).catch(() => {});
+    }
+  }, []);
 
   const params = useMemo(
     () => ({
