@@ -5475,6 +5475,113 @@ body.theme-white .simulator-inject-trigger:hover {
   border-color: #0284c7;
 }
 
+/* ============================================================
+   FOCUSED INSPECTION HUD (BLOCK PLANNING ML)
+   Theme-aware banner with seamless Light/Dark mode styling
+   ============================================================ */
+
+.focused-inspection-hud {
+  margin-bottom: 16px;
+  border-radius: 12px;
+  padding: 14px 18px;
+  border: 1.5px solid rgba(56, 189, 248, 0.45);
+  background: linear-gradient(180deg, rgba(14, 28, 48, 0.92) 0%, rgba(9, 17, 30, 0.96) 100%);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.focused-inspection-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.focused-inspection-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.focused-inspection-icon {
+  color: #38bdf8;
+  flex-shrink: 0;
+}
+
+.focused-inspection-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: #f1f5f9;
+  letter-spacing: -0.01em;
+}
+
+.focused-inspection-pkg {
+  color: #38bdf8;
+  font-family: var(--mono, monospace);
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+.focused-inspection-subtitle {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 3px;
+  line-height: 1.4;
+}
+
+.focused-inspection-code {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 11.5px;
+}
+
+.focused-inspection-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Light mode / white theme overrides */
+[data-theme="white"] .focused-inspection-hud,
+body.theme-white .focused-inspection-hud {
+  background: linear-gradient(180deg, #ffffff 0%, #f0f7ff 100%);
+  border: 1.5px solid #38bdf8;
+  box-shadow: 0 6px 20px rgba(14, 165, 233, 0.08), 0 2px 5px rgba(15, 23, 42, 0.04);
+}
+
+[data-theme="white"] .focused-inspection-icon,
+body.theme-white .focused-inspection-icon {
+  color: #0284c7;
+}
+
+[data-theme="white"] .focused-inspection-title,
+body.theme-white .focused-inspection-title {
+  color: #0f172a;
+}
+
+[data-theme="white"] .focused-inspection-pkg,
+body.theme-white .focused-inspection-pkg {
+  color: #0284c7;
+}
+
+[data-theme="white"] .focused-inspection-subtitle,
+body.theme-white .focused-inspection-subtitle {
+  color: #475569;
+}
+
+[data-theme="white"] .focused-inspection-code,
+body.theme-white .focused-inspection-code {
+  color: #0369a1;
+  background: #e0f2fe;
+  border: 1px solid #bae6fd;
+}
+
+
 
 
 

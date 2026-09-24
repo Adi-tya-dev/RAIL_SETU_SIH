@@ -1658,25 +1658,18 @@ export default function BlockPlanningML() {
           {(targetPackageId || targetSearchRef) && (
             <div
               id="focused-inspection-hud"
-              className="card"
-              style={{
-                marginBottom: 16,
-                border: "2px solid #38bdf8",
-                background: "linear-gradient(180deg, rgba(56,189,248,0.12) 0%, rgba(9,22,35,0.85) 100%)",
-                padding: "14px 18px",
-                boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
-              }}
+              className="focused-inspection-hud"
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <Sparkles size={22} color="#38bdf8" />
+              <div className="focused-inspection-content">
+                <div className="focused-inspection-left">
+                  <Sparkles size={22} className="focused-inspection-icon" />
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: "#f1f5f9" }}>
-                      Focused Work Package: <span style={{ color: "#38bdf8", fontFamily: "monospace" }}>{targetPackageId || "Targeted Search"}</span>
+                    <div className="focused-inspection-title">
+                      Focused Work Package: <span className="focused-inspection-pkg">{targetPackageId || "Targeted Search"}</span>
                     </div>
-                    <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 2 }}>
+                    <div className="focused-inspection-subtitle">
                       {targetSearchRef ? (
-                        <>Auditing assigned tasks for <code style={{ color: "#38bdf8", background: "rgba(56,189,248,0.15)", padding: "2px 6px", borderRadius: 4, fontWeight: 700 }}>{targetSearchRef}</code></>
+                        <>Auditing assigned tasks for <code className="focused-inspection-code">{targetSearchRef}</code></>
                       ) : (
                         `Viewing work package ${targetPackageId}`
                       )}
@@ -1684,7 +1677,7 @@ export default function BlockPlanningML() {
                   </div>
                 </div>
 
-                <div style={{ display: "flex", gap: 8 }}>
+                <div className="focused-inspection-actions">
                   <Button
                     size="sm"
                     variant={activeMetric === "ALL" ? "primary" : "secondary"}
