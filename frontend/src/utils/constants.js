@@ -166,8 +166,8 @@ export const CONFLICT_TYPES = [
   "INCOMPATIBLE_TASKS",
 ];
 
-export const SEVERITY_TONE  = { 1: "blue", 2: "amber", 3: "orange", 4: "red" };
-export const SEVERITY_LABEL = { 1: "Low",  2: "Moderate", 3: "High", 4: "Critical" };
+export const SEVERITY_TONE  = { 1: "blue", 2: "amber", 3: "orange", 4: "red", 5: "red" };
+export const SEVERITY_LABEL = { 1: "Low",  2: "Moderate", 3: "High", 4: "Critical", 5: "Critical" };
 
 export const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 export const DEFAULT_PAGE_SIZE = 20;

@@ -119,10 +119,12 @@ export default function Conflicts() {
   const stats = useMemo(() => {
     const open = conflicts.filter((c) => !c.resolved).length;
     const critical = conflicts.filter((c) => Number(c.severity) >= 4).length;
+    const uniqueBlocks = new Set(conflicts.map((c) => c.block?.block_code || c.block_id).filter(Boolean)).size;
+    const uniqueTrains = new Set(conflicts.map((c) => c.train?.train_number || c.train_id).filter(Boolean)).size;
     const trainMaint = conflicts.filter((c) => c.conflict_type === "TRAIN_MAINTENANCE").length;
     const trainTrain = conflicts.filter((c) => c.conflict_type === "TRAIN_TRAIN_MOVEMENT").length;
     const maintMaint = conflicts.filter((c) => c.conflict_type === "MAINTENANCE_MAINTENANCE").length;
-    return { total: conflicts.length, open, critical, trainMaint, trainTrain, maintMaint };
+    return { total: conflicts.length, open, critical, uniqueBlocks, uniqueTrains, trainMaint, trainTrain, maintMaint };
   }, [conflicts]);
 
   const isUnavailable = error && (error.status === 501 || error.status === 404);
@@ -157,32 +159,26 @@ export default function Conflicts() {
         </div>
       )}
 
-      <div className="summary-grid" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))", marginBottom: 8 }}>
+      <div className="summary-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", marginBottom: 16 }}>
         <div className="summary-card summary-card--amber">
           <div className="summary-card__label">Total Conflicts</div>
           <div className="summary-card__value">{stats.total}</div>
+          <div className="summary-card__sub">{stats.open === stats.total ? "All currently open / unresolved" : `${stats.open} open · ${stats.total - stats.open} resolved`}</div>
         </div>
         <div className="summary-card summary-card--red">
-          <div className="summary-card__label">Open Conflicts</div>
-          <div className="summary-card__value">{stats.open}</div>
-        </div>
-        <div className="summary-card summary-card--orange">
           <div className="summary-card__label">Critical Severity</div>
           <div className="summary-card__value">{stats.critical}</div>
+          <div className="summary-card__sub">Level 4 & 5 collision priority</div>
         </div>
-      </div>
-      <div className="summary-grid" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))", marginBottom: 16 }}>
         <div className="summary-card summary-card--blue">
-          <div className="summary-card__label">Train ↔ Maintenance</div>
-          <div className="summary-card__value">{stats.trainMaint}</div>
-        </div>
-        <div className="summary-card summary-card--red">
-          <div className="summary-card__label">Train ↔ Train</div>
-          <div className="summary-card__value">{stats.trainTrain}</div>
+          <div className="summary-card__label">Affected Blocks</div>
+          <div className="summary-card__value">{stats.uniqueBlocks}</div>
+          <div className="summary-card__sub">Simultaneous block occupancy</div>
         </div>
         <div className="summary-card summary-card--violet">
-          <div className="summary-card__label">Maintenance ↔ Maintenance</div>
-          <div className="summary-card__value">{stats.maintMaint}</div>
+          <div className="summary-card__label">Impacted Trains</div>
+          <div className="summary-card__value">{stats.uniqueTrains}</div>
+          <div className="summary-card__sub">Scheduled services involved</div>
         </div>
       </div>
 
