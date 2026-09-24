@@ -5581,6 +5581,28 @@ body.theme-white .focused-inspection-code {
   border: 1px solid #bae6fd;
 }
 
+/* Targeted task row highlight */
+tr.targeted-task-row-active {
+  background: rgba(56, 189, 248, 0.24) !important;
+  outline: 2px solid #38bdf8 !important;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.4) !important;
+  position: relative;
+  z-index: 2;
+}
+
+[data-theme="white"] tr.targeted-task-row-active,
+body.theme-white tr.targeted-task-row-active {
+  background: #e0f2fe !important;
+  outline: 2px solid #0284c7 !important;
+  box-shadow: 0 0 14px rgba(2, 132, 199, 0.28) !important;
+}
+
+[data-theme="white"] tr.targeted-task-row-active td,
+body.theme-white tr.targeted-task-row-active td {
+  color: #0f172a !important;
+}
+
+
 
 
 

@@ -151,28 +151,54 @@ function InteractiveMetricCard({
 }
 
 /**
+ * Helper to match task against search query (supporting id, external_ref, maintenance_task_id, request_id)
+ */
+function isTaskMatch(task, searchRef) {
+  if (!task || !searchRef) return false;
+  const ref = String(searchRef).trim().toLowerCase();
+  const tId = task.id !== undefined && task.id !== null ? String(task.id).trim().toLowerCase() : "";
+  const tExt = task.external_ref ? String(task.external_ref).trim().toLowerCase() : "";
+  const tMaintId = task.maintenance_task_id ? String(task.maintenance_task_id).trim().toLowerCase() : "";
+  const tReqId = task.request_id ? String(task.request_id).trim().toLowerCase() : "";
+  return tId === ref || tExt === ref || tMaintId === ref || tReqId === ref;
+}
+
+/**
  * Detailed Work Package Card with full Clubbed Tasks table
  */
 function PackageCard({ pkg, index, defaultOpen = false, isHighlighted = false, targetSearchRef = null, targetPackageId = null }) {
-  const [open, setOpen] = useState(defaultOpen || isHighlighted);
+  const containsTargetTask = useMemo(() => {
+    return targetSearchRef ? (pkg.tasks || []).some((t) => isTaskMatch(t, targetSearchRef)) : false;
+  }, [pkg.tasks, targetSearchRef]);
+
+  const matchesTargetPackage = useMemo(() => {
+    if (!targetPackageId) return false;
+    return pkg.package_id === targetPackageId || pkg.package_id?.startsWith(`${targetPackageId}_`);
+  }, [targetPackageId, pkg.package_id]);
+
+  const shouldHighlight = isHighlighted || containsTargetTask || (matchesTargetPackage && !targetSearchRef);
+
+  const [open, setOpen] = useState(defaultOpen || shouldHighlight);
   const isAssigned = pkg.status === "ASSIGNED";
   const isEmergency = pkg.has_emergency;
 
   useEffect(() => {
-    if (targetPackageId) {
-      setOpen(pkg.package_id === targetPackageId);
+    if (containsTargetTask) {
+      setOpen(true);
+    } else if (matchesTargetPackage) {
+      setOpen(true);
     }
-  }, [targetPackageId, pkg.package_id]);
+  }, [containsTargetTask, matchesTargetPackage]);
 
   return (
     <div
       id={`package-card-${pkg.package_id}`}
-      className={`card schedule-package${isEmergency ? " schedule-package--emergency" : ""}${!isAssigned ? " schedule-package--unassigned" : ""}`}
+      className={`card schedule-package${isEmergency ? " schedule-package--emergency" : ""}${!isAssigned ? " schedule-package--unassigned" : ""}${shouldHighlight ? " schedule-package--highlighted" : ""}`}
       style={{
         marginBottom: 12,
         borderLeft: isAssigned ? "4px solid var(--green)" : "4px solid var(--red)",
-        border: isHighlighted ? "2px solid #38bdf8" : undefined,
-        boxShadow: isHighlighted ? "0 0 24px rgba(56, 189, 248, 0.25)" : undefined,
+        border: shouldHighlight ? "2px solid #38bdf8" : undefined,
+        boxShadow: shouldHighlight ? "0 0 24px rgba(56, 189, 248, 0.28)" : undefined,
         transition: "all 0.3s ease",
       }}
     >
@@ -184,7 +210,7 @@ function PackageCard({ pkg, index, defaultOpen = false, isHighlighted = false, t
         role="button"
         aria-expanded={open}
       >
-        <span style={{ color: isHighlighted ? "#38bdf8" : "var(--text-3)", fontSize: 12, minWidth: 54, fontWeight: 700, fontFamily: "monospace" }}>
+        <span style={{ color: shouldHighlight ? "#38bdf8" : "var(--text-3)", fontSize: 12, minWidth: 54, fontWeight: 700, fontFamily: "monospace" }}>
           {pkg.package_id}
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -212,7 +238,7 @@ function PackageCard({ pkg, index, defaultOpen = false, isHighlighted = false, t
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0, flexWrap: "wrap" }}>
-          {isHighlighted && (
+          {shouldHighlight && (
             <Badge tone="blue" dot>🎯 Focused Target</Badge>
           )}
           {pkg.is_shadow_block && (
@@ -426,18 +452,17 @@ function PackageCard({ pkg, index, defaultOpen = false, isHighlighted = false, t
                   </thead>
                   <tbody>
                     {pkg.tasks.map((t, tidx) => {
-                      const isTarget = targetSearchRef && (
-                        (t.external_ref && t.external_ref.toLowerCase() === targetSearchRef.toLowerCase()) ||
-                        (t.id && String(t.id).toLowerCase() === targetSearchRef.toLowerCase())
-                      );
+                      const isTarget = isTaskMatch(t, targetSearchRef);
                       return (
                         <tr
                           key={t.id || t.external_ref || tidx}
+                          id={isTarget ? "targeted-task-row" : undefined}
+                          className={isTarget ? "targeted-task-row-active" : undefined}
                           style={
                             isTarget
                               ? {
-                                  background: "rgba(56, 189, 248, 0.18)",
-                                  outline: "1px solid #38bdf8",
+                                  background: "rgba(56, 189, 248, 0.22)",
+                                  boxShadow: "inset 0 0 0 1px #38bdf8",
                                 }
                               : undefined
                           }
@@ -451,9 +476,12 @@ function PackageCard({ pkg, index, defaultOpen = false, isHighlighted = false, t
                                   fontSize: 10,
                                   background: "#38bdf8",
                                   color: "#000",
-                                  padding: "1px 5px",
+                                  padding: "2px 6px",
                                   borderRadius: 4,
                                   fontWeight: 800,
+                                  letterSpacing: "0.5px",
+                                  display: "inline-block",
+                                  boxShadow: "0 0 8px rgba(56, 189, 248, 0.6)",
                                 }}
                               >
                                 TARGET
@@ -1179,6 +1207,14 @@ export default function BlockPlanningML() {
   const [targetPackageId, setTargetPackageId] = useState(null);
   const [targetSearchRef, setTargetSearchRef] = useState(null);
 
+  const schedules = result?.schedules || [];
+
+  // Target package containing the searched task
+  const targetPackageContainingTask = useMemo(() => {
+    if (!targetSearchRef || !result?.schedules) return null;
+    return result.schedules.find((s) => (s.tasks || []).some((t) => isTaskMatch(t, targetSearchRef)));
+  }, [targetSearchRef, result]);
+
   // Parse URL hash parameters on load and when hash changes
   useEffect(() => {
     function parseHashParams() {
@@ -1221,10 +1257,7 @@ export default function BlockPlanningML() {
   useEffect(() => {
     if (targetSearchRef && result && !loading) {
       const allTasks = (result.schedules || []).flatMap((s) => s.tasks || []);
-      const found = allTasks.some(
-        (t) => (t.external_ref && t.external_ref.toLowerCase() === targetSearchRef.toLowerCase()) ||
-               (t.id && String(t.id).toLowerCase() === targetSearchRef.toLowerCase())
-      );
+      const found = allTasks.some((t) => isTaskMatch(t, targetSearchRef));
       if (!found) {
         console.log(`[BlockPlanningML] Target task "${targetSearchRef}" not found in cached schedule. Auto-refreshing pipeline...`);
         runPipeline();
@@ -1232,20 +1265,38 @@ export default function BlockPlanningML() {
     }
   }, [targetSearchRef, result, loading]);
 
-  // Smooth scroll directly to focused HUD or target package at the top of the viewport
+  // Smooth scroll directly to target task row, focused HUD, or target package
   useEffect(() => {
-    if (targetPackageId && result) {
-      setTimeout(() => {
-        const el =
-          document.getElementById("focused-inspection-hud") ||
-          document.getElementById(`package-card-${targetPackageId}`) ||
-          document.getElementById("schedule-section");
-        if (el) {
-          el.scrollIntoView({ behavior: "smooth", block: "start" });
+    if ((targetPackageId || targetSearchRef) && result) {
+      const timer = setTimeout(() => {
+        // Priority 1: targeted task row inside the expanded package
+        const targetRow = document.getElementById("targeted-task-row");
+        if (targetRow) {
+          targetRow.scrollIntoView({ behavior: "smooth", block: "center" });
+          return;
         }
-      }, 350);
+
+        // Priority 2: targeted package card
+        const pkgCardId = targetPackageContainingTask?.package_id || targetPackageId;
+        const targetCard =
+          (pkgCardId ? document.getElementById(`package-card-${pkgCardId}`) : null) ||
+          (targetPackageId ? document.querySelector(`[id^="package-card-${targetPackageId}"]`) : null);
+
+        if (targetCard) {
+          targetCard.scrollIntoView({ behavior: "smooth", block: "start" });
+          return;
+        }
+
+        // Priority 3: focused inspection hud
+        const hud = document.getElementById("focused-inspection-hud");
+        if (hud) {
+          hud.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 450);
+
+      return () => clearTimeout(timer);
     }
-  }, [targetPackageId, result]);
+  }, [targetPackageId, targetSearchRef, targetPackageContainingTask, result]);
 
   async function runPipeline() {
     if (loading) return;
@@ -1290,9 +1341,7 @@ export default function BlockPlanningML() {
     }
   }
 
-  const schedules = result?.schedules || [];
-
-  // Filter and prioritize schedule rows based on filterStatus and targetPackageId
+  // Filter and prioritize schedule rows based on filterStatus, targetSearchRef, and targetPackageId
   const filtered = useMemo(() => {
     let list = schedules;
     if (filterStatus === "ASSIGNED") list = schedules.filter((s) => s.status === "ASSIGNED" || s.status === "ASSIGNED_PIGGYBACK");
@@ -1301,16 +1350,27 @@ export default function BlockPlanningML() {
     else if (filterStatus === "UNASSIGNED") list = schedules.filter((s) => s.status === "UNASSIGNED");
     else if (filterStatus === "EMERGENCY") list = schedules.filter((s) => s.has_emergency);
 
-    if (targetPackageId) {
-      // Prioritize target package to the very top so user sees it right under the focused HUD
-      const target = list.find((s) => s.package_id === targetPackageId);
+    // 1. If a specific task was searched for, prioritize its containing package to the very top
+    if (targetPackageContainingTask) {
+      const target = list.find((s) => s.package_id === targetPackageContainingTask.package_id);
       if (target) {
-        const others = list.filter((s) => s.package_id !== targetPackageId);
+        const others = list.filter((s) => s.package_id !== target.package_id);
+        return [target, ...others];
+      }
+    }
+
+    // 2. If targetPackageId specified (exact or prefix match e.g. PKG_6 matching PKG_6_ROUTINE)
+    if (targetPackageId) {
+      const target = list.find(
+        (s) => s.package_id === targetPackageId || s.package_id?.startsWith(`${targetPackageId}_`)
+      );
+      if (target) {
+        const others = list.filter((s) => s.package_id !== target.package_id);
         return [target, ...others];
       }
     }
     return list;
-  }, [schedules, filterStatus, targetPackageId]);
+  }, [schedules, filterStatus, targetPackageContainingTask, targetPackageId]);
 
   const metrics = result?.optimization_metrics;
   const dataSummary = result?.data_summary;
@@ -1739,17 +1799,23 @@ export default function BlockPlanningML() {
               {filtered.length === 0 ? (
                 <div className="state state--empty">No packages match the selected filter.</div>
               ) : (
-                filtered.map((pkg, i) => (
-                  <PackageCard
-                    key={pkg.package_id}
-                    pkg={pkg}
-                    index={i}
-                    defaultOpen={targetPackageId ? pkg.package_id === targetPackageId : i === 0}
-                    isHighlighted={pkg.package_id === targetPackageId}
-                    targetSearchRef={targetSearchRef}
-                    targetPackageId={targetPackageId}
-                  />
-                ))
+                filtered.map((pkg, i) => {
+                  const isPkgTarget =
+                    pkg.package_id === targetPackageId ||
+                    (targetPackageContainingTask && pkg.package_id === targetPackageContainingTask.package_id) ||
+                    (targetPackageId && pkg.package_id?.startsWith(`${targetPackageId}_`));
+                  return (
+                    <PackageCard
+                      key={pkg.package_id}
+                      pkg={pkg}
+                      index={i}
+                      defaultOpen={isPkgTarget || (targetPackageId ? pkg.package_id === targetPackageId : i === 0)}
+                      isHighlighted={isPkgTarget}
+                      targetSearchRef={targetSearchRef}
+                      targetPackageId={targetPackageId}
+                    />
+                  );
+                })
               )}
             </div>
           </div>
