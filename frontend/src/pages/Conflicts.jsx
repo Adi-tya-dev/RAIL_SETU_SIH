@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Blocks, CalendarX2, Clock3, MapPin, RefreshCw, TrainFront, Wrench, Zap } from "lucide-react";
-import { listConflicts } from "../api/conflicts.api";
+import { AlertTriangle, Blocks, CalendarX2, Clock3, Filter, MapPin, RefreshCw, Search, TrainFront, Wrench, X, Zap } from "lucide-react";
+import { listConflicts, detectConflicts } from "../api/conflicts.api";
 import { useApi } from "../hooks/useApi";
-import { navigate } from "../hooks/useRoute";
+import { useRoute, navigate } from "../hooks/useRoute";
 import PageHeader from "../components/common/PageHeader";
 import Button from "../components/common/Button";
 import Badge from "../components/common/Badge";
@@ -61,32 +61,55 @@ function BlockCell({ block }) {
   );
 }
 
-const COLUMNS = [
-  { key: "conflict_type", label: "Conflict", render: (r) => <TypeCell type={r.conflict_type} /> },
-  {
-    key: "severity",
-    label: "Severity",
-    render: (r) => <Badge tone={SEVERITY_TONE[r.severity] || "gray"}>{r.severity != null ? `${r.severity} · ${SEVERITY_LABEL[r.severity]}` : "—"}</Badge>,
-  },
-  { key: "block", label: "Block", render: (r) => <BlockCell block={r.block} /> },
-  { key: "train", label: "Train", render: (r) => <TrainCell train={r.train} /> },
-  {
-    key: "description",
-    label: "Summary",
-    render: (r) => <span className="cell-muted">{r.description || "—"}</span>,
-  },
-  {
-    key: "resolved",
-    label: "Status",
-    render: (r) => <Badge tone={r.resolved ? "green" : "red"} dot>{r.resolved ? "Resolved" : "Open"}</Badge>,
-  },
-];
-
 export default function Conflicts() {
   const { data, loading, error, run } = useApi();
   const detectApi = useApi();
   const [selected, setSelected] = useState(null);
   const [detectMsg, setDetectMsg] = useState(null);
+
+  // URL Query Parameters (e.g. from Railway Map or Train Drawer)
+  const currentRoute = useRoute();
+  const queryParams = useMemo(() => {
+    const qIndex = currentRoute.indexOf("?");
+    return qIndex >= 0 ? new URLSearchParams(currentRoute.slice(qIndex + 1)) : new URLSearchParams();
+  }, [currentRoute]);
+
+  const targetTrainNumber = queryParams.get("trainNumber") || "";
+  const targetTrainName = queryParams.get("trainName") || "";
+  const targetTrainId = queryParams.get("trainId") || "";
+  const targetBlock = queryParams.get("block") || "";
+  const targetConflictId = queryParams.get("conflictId") || "";
+
+  const [activeTarget, setActiveTarget] = useState(() => {
+    if (targetTrainNumber || targetTrainId || targetBlock || targetConflictId) {
+      return {
+        trainNumber: targetTrainNumber,
+        trainName: targetTrainName,
+        trainId: targetTrainId,
+        block: targetBlock,
+        conflictId: targetConflictId,
+      };
+    }
+    return null;
+  });
+
+  const [filterMode, setFilterMode] = useState("targeted"); // "targeted" | "all"
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState("ALL");
+  const [severityFilter, setSeverityFilter] = useState("ALL");
+
+  useEffect(() => {
+    if (targetTrainNumber || targetTrainId || targetBlock || targetConflictId) {
+      setActiveTarget({
+        trainNumber: targetTrainNumber,
+        trainName: targetTrainName,
+        trainId: targetTrainId,
+        block: targetBlock,
+        conflictId: targetConflictId,
+      });
+      setFilterMode("targeted");
+    }
+  }, [targetTrainNumber, targetTrainId, targetBlock, targetConflictId, targetTrainName]);
 
   const load = useCallback(
     () =>
@@ -116,6 +139,99 @@ export default function Conflicts() {
   const conflicts = data?.conflicts || [];
   const planCount = data?.planCount || 0;
 
+  // Matching function to identify if a conflict involves the target train/block/id
+  const isConflictTargeted = useCallback((c) => {
+    if (!activeTarget) return false;
+    const { trainNumber, trainId, block, conflictId } = activeTarget;
+    if (conflictId && (String(c.conflict_id) === String(conflictId) || String(c.id) === String(conflictId))) {
+      return true;
+    }
+    if (trainNumber) {
+      const tNum = String(trainNumber).trim();
+      const directNum = c.train && String(c.train.train_number) === tNum;
+      const inTrainId = String(c.train_id) === tNum;
+      const inDesc = c.description && c.description.includes(tNum);
+      if (directNum || inTrainId || inDesc) return true;
+    }
+    if (trainId) {
+      const tId = String(trainId).trim();
+      if (String(c.train_id) === tId || String(c.train?.train_id) === tId) {
+        return true;
+      }
+    }
+    if (block) {
+      const bCode = String(block).trim().toUpperCase();
+      if (
+        String(c.block?.block_code || "").toUpperCase() === bCode ||
+        String(c.block_id || "").toUpperCase() === bCode ||
+        (c.description && c.description.toUpperCase().includes(bCode))
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }, [activeTarget]);
+
+  // Auto-open drawer if specific conflictId requested
+  useEffect(() => {
+    if (targetConflictId && conflicts.length > 0) {
+      const found = conflicts.find((c) => String(c.conflict_id) === String(targetConflictId));
+      if (found) {
+        setSelected(found);
+      }
+    }
+  }, [targetConflictId, conflicts]);
+
+  const targetedCount = useMemo(() => {
+    if (!activeTarget) return 0;
+    return conflicts.filter(isConflictTargeted).length;
+  }, [conflicts, activeTarget, isConflictTargeted]);
+
+  const displayedConflicts = useMemo(() => {
+    let result = conflicts;
+
+    // Filter by target if in "targeted" mode
+    if (activeTarget && filterMode === "targeted") {
+      result = result.filter(isConflictTargeted);
+    }
+
+    // Type filter
+    if (typeFilter !== "ALL") {
+      result = result.filter((c) => c.conflict_type === typeFilter);
+    }
+
+    // Severity filter
+    if (severityFilter !== "ALL") {
+      result = result.filter((c) => String(c.severity) === severityFilter);
+    }
+
+    // Search query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter((c) => {
+        const desc = (c.description || "").toLowerCase();
+        const type = (c.conflict_type || "").toLowerCase();
+        const tNum = String(c.train?.train_number || c.train_id || "").toLowerCase();
+        const tName = (c.train?.train_name || "").toLowerCase();
+        const bCode = (c.block?.block_code || "").toLowerCase();
+        return desc.includes(q) || type.includes(q) || tNum.includes(q) || tName.includes(q) || bCode.includes(q);
+      });
+    }
+
+    // In "all" mode with target active, sort targeted conflicts to the very top!
+    if (activeTarget && filterMode === "all") {
+      result = [...result].sort((a, b) => {
+        const aTarget = isConflictTargeted(a);
+        const bTarget = isConflictTargeted(b);
+        if (aTarget && !bTarget) return -1;
+        if (!aTarget && bTarget) return 1;
+        return (b.severity || 0) - (a.severity || 0);
+      });
+    }
+
+    return result;
+  }, [conflicts, activeTarget, filterMode, isConflictTargeted, typeFilter, severityFilter, searchQuery]);
+
   const stats = useMemo(() => {
     const open = conflicts.filter((c) => !c.resolved).length;
     const critical = conflicts.filter((c) => Number(c.severity) >= 4).length;
@@ -127,7 +243,61 @@ export default function Conflicts() {
     return { total: conflicts.length, open, critical, uniqueBlocks, uniqueTrains, trainMaint, trainTrain, maintMaint };
   }, [conflicts]);
 
+  const columns = useMemo(() => [
+    {
+      key: "conflict_type",
+      label: "Conflict",
+      render: (r) => (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <TypeCell type={r.conflict_type} />
+          {isConflictTargeted(r) && (
+            <span className="conflict-target-chip" title="Directly affects your selected train/corridor">
+              Target Focus
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "severity",
+      label: "Severity",
+      render: (r) => <Badge tone={SEVERITY_TONE[r.severity] || "gray"}>{r.severity != null ? `${r.severity} · ${SEVERITY_LABEL[r.severity]}` : "—"}</Badge>,
+    },
+    { key: "block", label: "Block", render: (r) => <BlockCell block={r.block} /> },
+    {
+      key: "train",
+      label: "Train",
+      render: (r) => (
+        <div>
+          <TrainCell train={r.train} />
+          {isConflictTargeted(r) && (
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#ef4444", marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ef4444" }} />
+              Focused Train Conflict
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "description",
+      label: "Summary",
+      render: (r) => <span className="cell-muted">{r.description || "—"}</span>,
+    },
+    {
+      key: "resolved",
+      label: "Status",
+      render: (r) => <Badge tone={r.resolved ? "green" : "red"} dot>{r.resolved ? "Resolved" : "Open"}</Badge>,
+    },
+  ], [isConflictTargeted]);
+
   const isUnavailable = error && (error.status === 501 || error.status === 404);
+
+  function clearTargetFilter() {
+    setActiveTarget(null);
+    setFilterMode("all");
+    navigate("/conflicts");
+  }
 
   return (
     <>
@@ -159,6 +329,57 @@ export default function Conflicts() {
         </div>
       )}
 
+      {/* Target Focus Banner when navigated for a specific train or block */}
+      {activeTarget && (
+        <div className="conflict-active-banner">
+          <div className="conflict-active-banner__left">
+            <span className="conflict-active-banner__pulse" />
+            <div>
+              <strong>
+                Target Focus: Train {activeTarget.trainNumber || activeTarget.trainId || "Selected"}
+                {activeTarget.trainName ? ` — ${activeTarget.trainName}` : ""}
+                {activeTarget.block ? ` · Block ${activeTarget.block}` : ""}
+              </strong>
+              <p>
+                {filterMode === "targeted"
+                  ? `Showing only ${targetedCount} conflict${targetedCount === 1 ? "" : "s"} identified for this train.`
+                  : `Showing all ${conflicts.length} conflicts (${targetedCount} target conflicts pinned to top & highlighted).`}
+              </p>
+            </div>
+          </div>
+          <div className="conflict-active-banner__actions">
+            {filterMode === "targeted" ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setFilterMode("all")}
+                title="Show all conflicts while keeping target conflicts highlighted"
+              >
+                View all ({conflicts.length}) with target highlighted
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setFilterMode("targeted")}
+                title="Filter table to only target train conflicts"
+              >
+                Show only Train {activeTarget.trainNumber || ""} conflicts ({targetedCount})
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={clearTargetFilter}
+              title="Clear target filter"
+              style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+            >
+              <X size={14} /> Clear filter
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="summary-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", marginBottom: 16 }}>
         <div className="summary-card summary-card--amber">
           <div className="summary-card__label">Total Conflicts</div>
@@ -184,12 +405,72 @@ export default function Conflicts() {
 
       <section className="card mt-16">
         <div className="card__head">
-          <div>
-            <h2>Detected Conflicts</h2>
-            <p>
-              Real-time detected operational conflicts across network blocks, scheduled maintenance, and train paths.
-            </p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", flexWrap: "wrap", gap: 10 }}>
+            <div>
+              <h2>Detected Conflicts</h2>
+              <p>
+                {activeTarget && filterMode === "targeted"
+                  ? `Filtered for Train ${activeTarget.trainNumber} · ${displayedConflicts.length} conflict(s)`
+                  : "Real-time detected operational conflicts across network blocks, scheduled maintenance, and train paths."}
+              </p>
+            </div>
+            {activeTarget && filterMode === "targeted" && (
+              <span className="badge badge--red" style={{ fontSize: 11, padding: "3px 9px" }}>
+                Filtered: {targetedCount} of {conflicts.length}
+              </span>
+            )}
           </div>
+        </div>
+
+        {/* Search & Filter Toolbar */}
+        <div className="conflict-filter-bar">
+          <div className="conflict-filter-search">
+            <Search size={15} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by train number, name, block code, or summary..."
+            />
+          </div>
+          <select
+            className="select"
+            style={{ width: "auto", minWidth: 160, height: 36, fontSize: 12 }}
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+          >
+            <option value="ALL">All Conflict Types</option>
+            <option value="TRAIN_TRAIN_MOVEMENT">Train ↔ Train</option>
+            <option value="TRAIN_MAINTENANCE">Train ↔ Maintenance</option>
+            <option value="MAINTENANCE_MAINTENANCE">Maintenance ↔ Maintenance</option>
+            <option value="BLOCK_UNAVAILABLE">Block Unavailable</option>
+            <option value="DEADLINE_VIOLATION">Deadline Violation</option>
+          </select>
+          <select
+            className="select"
+            style={{ width: "auto", minWidth: 140, height: 36, fontSize: 12 }}
+            value={severityFilter}
+            onChange={(e) => setSeverityFilter(e.target.value)}
+          >
+            <option value="ALL">All Severities</option>
+            <option value="5">Level 5 · Critical</option>
+            <option value="4">Level 4 · High</option>
+            <option value="3">Level 3 · Medium</option>
+            <option value="2">Level 2 · Low</option>
+          </select>
+          {(searchQuery || typeFilter !== "ALL" || severityFilter !== "ALL") && (
+            <Button
+              size="xs"
+              variant="ghost"
+              onClick={() => {
+                setSearchQuery("");
+                setTypeFilter("ALL");
+                setSeverityFilter("ALL");
+              }}
+            >
+              Reset filters
+            </Button>
+          )}
         </div>
 
         {loading && (
@@ -213,19 +494,30 @@ export default function Conflicts() {
           </div>
         )}
 
-        {!loading && !error && conflicts.length === 0 && (
+        {!loading && !error && displayedConflicts.length === 0 && (
           <div className="state state--empty">
-            No active conflicts detected. Click <strong>Re-detect</strong> to scan the network for new conflicts.
+            {activeTarget
+              ? `No conflicts matched the current filter for Train ${activeTarget.trainNumber}.`
+              : "No active conflicts detected."}
+            <div style={{ marginTop: 10 }}>
+              {activeTarget && (
+                <Button size="sm" variant="secondary" onClick={clearTargetFilter} style={{ marginRight: 8 }}>
+                  View All Network Conflicts
+                </Button>
+              )}
+              <Button size="sm" onClick={load}>Reload Conflicts</Button>
+            </div>
           </div>
         )}
 
-        {!loading && !error && conflicts.length > 0 && (
+        {!loading && !error && displayedConflicts.length > 0 && (
           <DataTable
-            columns={COLUMNS}
-            rows={conflicts}
+            columns={columns}
+            rows={displayedConflicts}
             ariaLabel="Detected conflicts"
             rowKey={(r, i) => String(r.conflict_id ?? i)}
             onRowClick={setSelected}
+            rowClassName={(r) => isConflictTargeted(r) ? "row-highlighted" : ""}
           />
         )}
       </section>

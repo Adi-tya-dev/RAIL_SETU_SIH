@@ -104,6 +104,7 @@ function NetworkStatusHud({
   onToggleLayer,
   isMinimized,
   onToggleMinimize,
+  selectedTrain,
 }) {
   if (isMinimized) {
     return (
@@ -143,9 +144,16 @@ function NetworkStatusHud({
                 {maintenance}M
               </span>{" "}·{" "}
               <b
-                onClick={(e) => { e.stopPropagation(); navigate("/conflicts"); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (selectedTrain) {
+                    navigate(`/conflicts?trainNumber=${selectedTrain.train_number}&trainName=${encodeURIComponent(selectedTrain.train_name || "")}&trainId=${selectedTrain.train_id}`);
+                  } else {
+                    navigate("/conflicts");
+                  }
+                }}
                 style={{ color: "#f87171", cursor: "pointer", textDecoration: "underline" }}
-                title="Go to Conflicts page"
+                title={selectedTrain ? `View conflicts for Train ${selectedTrain.train_number}` : "Go to Conflicts page"}
               >
                 {conflicts}C
               </b>
@@ -208,8 +216,14 @@ function NetworkStatusHud({
         <button
           type="button"
           className="railway-map-hud__metric railway-map-hud__metric--conflicts"
-          onClick={() => navigate("/conflicts")}
-          title="Click to view Conflicts & Alerts page"
+          onClick={() => {
+            if (selectedTrain) {
+              navigate(`/conflicts?trainNumber=${selectedTrain.train_number}&trainName=${encodeURIComponent(selectedTrain.train_name || "")}&trainId=${selectedTrain.train_id}`);
+            } else {
+              navigate("/conflicts");
+            }
+          }}
+          title={selectedTrain ? `Click to view ${conflicts} conflict(s) for Train ${selectedTrain.train_number} in Conflict Analysis` : "Click to view Conflicts & Alerts page"}
         >
           <b>{conflicts}</b>
           <span>Conflicts ↗</span>
@@ -871,8 +885,18 @@ function BoundaryLayers({ districts, states }) {
   return null;
 }
 
-function Metric({ label, value, tone }) {
-  return <div className={`railway-map-metric railway-map-metric--${tone}`}><strong>{value}</strong><span>{label}</span></div>;
+function Metric({ label, value, tone = "default", onClick, title }) {
+  return (
+    <div
+      className={`railway-map-metric railway-map-metric--${tone}${onClick ? " is-clickable" : ""}`}
+      onClick={onClick}
+      title={title}
+      style={onClick ? { cursor: "pointer" } : undefined}
+    >
+      <strong>{value}</strong>
+      <span>{label}</span>
+    </div>
+  );
 }
 
 function LayerToggle({ checked, color, label, onChange }) {
@@ -1583,9 +1607,33 @@ export default function RailwayMap() {
             <section className="railway-map-impact">
               <div className="railway-map-section-title"><Activity size={15} /> Network impact</div>
               <div className="railway-map-metrics">
-                <Metric label="Blocks" value={affectedBlocks.length} tone="blue" />
-                <Metric label="Maintenance" value={relevantMaintenance.length} tone="amber" />
-                <Metric label="Conflicts" value={trainConflicts.length} tone={trainConflicts.length ? "red" : "green"} />
+                <Metric
+                  label="Blocks"
+                  value={affectedBlocks.length}
+                  tone="blue"
+                  onClick={() => navigate("/blocks")}
+                  title="Click to view Blocks page"
+                />
+                <Metric
+                  label="Maintenance"
+                  value={relevantMaintenance.length}
+                  tone="amber"
+                  onClick={() => navigate("/maintenance")}
+                  title="Click to view Maintenance Tasks page"
+                />
+                <Metric
+                  label="Conflicts"
+                  value={trainConflicts.length}
+                  tone={trainConflicts.length ? "red" : "green"}
+                  onClick={() => {
+                    if (selectedTrain) {
+                      navigate(`/conflicts?trainNumber=${selectedTrain.train_number}&trainName=${encodeURIComponent(selectedTrain.train_name || "")}&trainId=${selectedTrain.train_id}`);
+                    } else {
+                      navigate("/conflicts");
+                    }
+                  }}
+                  title={selectedTrain ? `Click to view ${trainConflicts.length} conflict(s) for Train ${selectedTrain.train_number} in Conflict Analysis` : "Click to view Conflicts page"}
+                />
                 <Metric label="Delay min" value={routeMaxDelay !== null ? (routeMaxDelay > 15 ? `+${routeMaxDelay}` : routeMaxDelay > 5 ? `+${routeMaxDelay}` : routeMaxDelay > 0 ? `+${routeMaxDelay}` : "0") : "-"} tone={routeMaxDelay === null ? "violet" : routeMaxDelay > 15 ? "red" : routeMaxDelay > 5 ? "red" : routeMaxDelay > 0 ? "amber" : "green"} />
               </div>
             </section>
@@ -1594,7 +1642,18 @@ export default function RailwayMap() {
         )}
         {selectedTrain && trainConflicts.length > 0 && (
           <section className="railway-map-records" id="railway-map-conflicts-section">
-            <div className="railway-map-section-title"><AlertTriangle size={15} /> Conflicts</div>
+            <div className="railway-map-section-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 6 }}><AlertTriangle size={15} /> Conflicts ({trainConflicts.length})</span>
+              <button
+                type="button"
+                className="btn btn--ghost btn--xs"
+                style={{ fontSize: 11, padding: "2px 8px" }}
+                onClick={() => navigate(`/conflicts?trainNumber=${selectedTrain.train_number}&trainName=${encodeURIComponent(selectedTrain.train_name || "")}&trainId=${selectedTrain.train_id}`)}
+                title="View and filter all conflicts for this train in Conflicts page"
+              >
+                Analyze all →
+              </button>
+            </div>
             {trainConflicts.map((item, index) => (
               <button type="button" className="railway-map-record railway-map-record--button" key={item.conflict_id || index} onClick={() => focusConflict(item)}>
                 <span><b>{humanize(item.conflict_type)}</b><small>{item.block?.block_code || "Block unavailable"}</small></span>
@@ -1869,9 +1928,14 @@ export default function RailwayMap() {
                     <button
                       type="button"
                       style={{ marginTop: 4, fontSize: 11, color: "#60a5fa", background: "none", border: "none", cursor: "pointer", padding: 0 }}
-                      onClick={() => navigate("/conflicts")}
+                      onClick={() => {
+                        const tNum = selectedTrain?.train_number || item.train?.train_number || "";
+                        const tName = selectedTrain?.train_name || item.train?.train_name || "";
+                        const bCode = item.block?.block_code || "";
+                        navigate(`/conflicts?conflictId=${item.conflict_id || ""}&trainNumber=${tNum}&trainName=${encodeURIComponent(tName)}&block=${bCode}`);
+                      }}
                     >
-                      View all conflicts in detail →
+                      View in Conflicts analysis →
                     </button>
                   </Popup>
                 </Marker>
@@ -1990,6 +2054,7 @@ export default function RailwayMap() {
             onToggleLayer={toggleLayer}
             isMinimized={isNetworkHudMinimized}
             onToggleMinimize={setIsNetworkHudMinimized}
+            selectedTrain={selectedTrain}
           />
           {isLegendMinimized ? (
             <div
@@ -2082,7 +2147,12 @@ export default function RailwayMap() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => navigate("/conflicts")}
+                onClick={() => {
+                  const tNum = selectedTrain?.train_number || conflict.train?.train_number || "";
+                  const tName = selectedTrain?.train_name || conflict.train?.train_name || "";
+                  const bCode = conflict.block?.block_code || "";
+                  navigate(`/conflicts?conflictId=${conflict.conflict_id || ""}&trainNumber=${tNum}&trainName=${encodeURIComponent(tName)}&block=${bCode}`);
+                }}
                 style={{ borderColor: "rgba(239, 68, 68, 0.4)", color: "#ef4444" }}
               >
                 View in Conflicts Table ↗
