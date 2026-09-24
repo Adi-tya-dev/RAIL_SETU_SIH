@@ -67,6 +67,7 @@ export default function Conflicts() {
   const detectApi = useApi();
   const [selected, setSelected] = useState(null);
   const [detectMsg, setDetectMsg] = useState(null);
+  const [detecting, setDetecting] = useState(false);
 
   // URL Query Parameters (e.g. from Railway Map or Train Drawer)
   const currentRoute = useRoute();
@@ -122,15 +123,20 @@ export default function Conflicts() {
   const load = useCallback(
     () =>
       run(async () => {
-        const params = { limit: 1000 };
-        if (filterMode === "targeted") {
+        // In targeted mode, pass train/block filter so backend returns only matching records.
+        // In all-network mode fetch up to 1000 records for full stats.
+        const params = {};
+        if (filterMode === "targeted" && (targetTrainNumber || targetTrainId || targetBlock)) {
+          params.limit = 500;
           if (targetTrainNumber) params.trainNumber = targetTrainNumber;
           else if (targetTrainId) params.trainId = targetTrainId;
           if (targetBlock) params.block = targetBlock;
+        } else {
+          params.limit = 1000;
         }
         const result = await listConflicts(params);
         const conflicts = [...(result.data || [])].sort((a, b) => (b.severity || 0) - (a.severity || 0));
-        return { planCount: result.planCount, conflicts };
+        return { planCount: result.planCount, conflicts, pagination: result.pagination };
       }),
     [run, filterMode, targetTrainNumber, targetTrainId, targetBlock]
   );
@@ -140,15 +146,18 @@ export default function Conflicts() {
   }, [load]);
 
   const handleDetect = useCallback(async () => {
+    setDetecting(true);
     setDetectMsg(null);
-    await detectApi.run(async () => {
+    try {
       const res = await detectConflicts(true); // force=true to re-detect
       setDetectMsg(res?.message || `Detection complete. Created ${res?.created ?? "?"} conflicts.`);
-      return res;
-    });
-    // Reload after detection
-    await load();
-  }, [detectApi, load]);
+      await load();
+    } catch (err) {
+      setDetectMsg(`Detection failed: ${err?.message || "Unknown error"}`);
+    } finally {
+      setDetecting(false);
+    }
+  }, [load]);
 
   const conflicts = data?.conflicts || [];
   const planCount = data?.planCount || 0;
@@ -261,15 +270,17 @@ export default function Conflicts() {
   }, [displayedConflicts, page, pageSize]);
 
   const stats = useMemo(() => {
-    const open = conflicts.filter((c) => !c.resolved).length;
-    const critical = conflicts.filter((c) => Number(c.severity) >= 4).length;
-    const uniqueBlocks = new Set(conflicts.map((c) => c.block?.block_code || c.block_id).filter(Boolean)).size;
-    const uniqueTrains = new Set(conflicts.map((c) => c.train?.train_number || c.train_id).filter(Boolean)).size;
-    const trainMaint = conflicts.filter((c) => c.conflict_type === "TRAIN_MAINTENANCE").length;
-    const trainTrain = conflicts.filter((c) => c.conflict_type === "TRAIN_TRAIN_MOVEMENT").length;
-    const maintMaint = conflicts.filter((c) => c.conflict_type === "MAINTENANCE_MAINTENANCE").length;
-    return { total: conflicts.length, open, critical, uniqueBlocks, uniqueTrains, trainMaint, trainTrain, maintMaint };
-  }, [conflicts]);
+    // Use displayedConflicts so targeted mode shows correct counts for the focused train.
+    const src = activeTarget && filterMode === "targeted" ? displayedConflicts : conflicts;
+    const open = src.filter((c) => !c.resolved).length;
+    const critical = src.filter((c) => Number(c.severity) >= 4).length;
+    const uniqueBlocks = new Set(src.map((c) => c.block?.block_code || c.block_id).filter(Boolean)).size;
+    const uniqueTrains = new Set(src.map((c) => c.train?.train_number || c.train_id).filter(Boolean)).size;
+    const trainMaint = src.filter((c) => c.conflict_type === "TRAIN_MAINTENANCE").length;
+    const trainTrain = src.filter((c) => c.conflict_type === "TRAIN_TRAIN_MOVEMENT").length;
+    const maintMaint = src.filter((c) => c.conflict_type === "MAINTENANCE_MAINTENANCE").length;
+    return { total: src.length, open, critical, uniqueBlocks, uniqueTrains, trainMaint, trainTrain, maintMaint };
+  }, [conflicts, displayedConflicts, activeTarget, filterMode]);
 
   const columns = useMemo(() => [
     {
@@ -337,7 +348,7 @@ export default function Conflicts() {
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <Button
               variant="secondary"
-              loading={detectApi.loading}
+              loading={detecting}
               loadingText="Detecting…"
               onClick={handleDetect}
               title="Re-scan all train movements and maintenance tasks for conflicts"
