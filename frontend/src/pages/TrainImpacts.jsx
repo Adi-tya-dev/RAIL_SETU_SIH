@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Activity, AlertTriangle, Clock3, Train, ShieldCheck, Route, Calendar, Layers, MapPin, X } from "lucide-react";
 import { listTrainImpacts } from "../api/trainImpacts.api";
 import { useApi } from "../hooks/useApi";
@@ -122,6 +122,7 @@ export default function TrainImpacts() {
   const { data, loading, error, run } = useApi();
   const [selected, setSelected] = useState(null);
   const [trainFilter, setTrainFilter] = useState(() => queryParams.get("trainNumber") || queryParams.get("trainId") || "");
+  const autoOpenedRef = useRef("");
 
   const load = useCallback(() => run(() => listTrainImpacts({ limit: 100 })), [run]);
 
@@ -131,8 +132,16 @@ export default function TrainImpacts() {
 
   useEffect(() => {
     const qTrain = queryParams.get("trainNumber") || queryParams.get("trainId") || "";
-    if (qTrain) setTrainFilter(qTrain);
-  }, [queryParams]);
+    if (qTrain && qTrain !== trainFilter) {
+      setTrainFilter(qTrain);
+    }
+  }, [queryParams, trainFilter]);
+
+  const handleClearFilter = useCallback(() => {
+    setTrainFilter("");
+    autoOpenedRef.current = "";
+    navigate("/train-impacts");
+  }, []);
 
   const impacts = data?.data || [];
 
@@ -148,10 +157,11 @@ export default function TrainImpacts() {
   }, [impacts, trainFilter]);
 
   useEffect(() => {
-    if (trainFilter && visibleImpacts.length > 0 && !selected) {
+    if (trainFilter && visibleImpacts.length > 0 && autoOpenedRef.current !== trainFilter) {
       setSelected(visibleImpacts[0]);
+      autoOpenedRef.current = trainFilter;
     }
-  }, [trainFilter, visibleImpacts, selected]);
+  }, [trainFilter, visibleImpacts]);
 
   const summary = useMemo(() => {
     const trainIds = new Set(
@@ -186,7 +196,7 @@ export default function TrainImpacts() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setTrainFilter("")}
+                onClick={handleClearFilter}
                 style={{ fontSize: 12 }}
               >
                 <X size={13} style={{ marginRight: 4 }} />
@@ -244,7 +254,7 @@ export default function TrainImpacts() {
             }}
           >
             <span>Showing impacts for Train <strong>#{trainFilter}</strong> ({visibleImpacts.length} records)</span>
-            <Button variant="ghost" size="sm" onClick={() => setTrainFilter("")}>
+            <Button variant="ghost" size="sm" onClick={handleClearFilter}>
               Show All Trains
             </Button>
           </div>
