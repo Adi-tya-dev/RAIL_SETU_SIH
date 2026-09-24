@@ -33,6 +33,10 @@ export default function Pagination({
 
   const { page = 1, total = 0, totalPages = 0, limit = 0 } = pagination;
   const currentLimit = pageSize || limit || 10;
+  const computedTotalPages =
+    total > 0 && currentLimit > 0
+      ? Math.ceil(total / currentLimit)
+      : (totalPages > 0 ? totalPages : 0);
   const from = total === 0 ? 0 : (page - 1) * currentLimit + 1;
   const to = Math.min(page * currentLimit, total);
 
@@ -82,8 +86,8 @@ export default function Pagination({
           <span>Previous</span>
         </button>
 
-        {totalPages > 0 &&
-          pageWindow(page, totalPages).map((item, i) =>
+        {computedTotalPages > 0 &&
+          pageWindow(page, computedTotalPages).map((item, i) =>
             item === "…" ? (
               <span key={`e-${i}`} className="page-ellipsis">
                 …
@@ -105,7 +109,7 @@ export default function Pagination({
         <button
           type="button"
           className="page-btn page-btn--nav"
-          disabled={disabled || page >= totalPages}
+          disabled={disabled || (computedTotalPages > 0 ? page >= computedTotalPages : true)}
           onClick={() => onChange(page + 1)}
           aria-label="Next page"
         >
