@@ -616,42 +616,47 @@ function placeOnSection(sectionStations, section, block, taskIndex = 0, totalTas
 
 // Compute the exact sub-segment polyline of the track spanning just the blocked/conflicted section/block
 function blockTrackSegment(sectionStations, section, block, fallbackPoint, routePoints) {
-  const stations = (sectionStations || []).map((s) => coordinate(s)).filter(Boolean);
-  const basePoints = stations.length >= 2 ? corridorPath(stations) : (routePoints?.length >= 2 ? routePoints : null);
+  const trainPath = Array.isArray(routePoints) && routePoints.length >= 2 ? routePoints : null;
 
-  if (basePoints && basePoints.length >= 2) {
-    const start = Number(section?.start_chainage);
-    const end = Number(section?.end_chainage);
-    const blockStart = Number(block?.start_chainage);
-    const blockEnd = Number(block?.end_chainage);
+  if (trainPath && fallbackPoint && Array.isArray(fallbackPoint)) {
+    // Locate the point on this train's actual route closest to the conflict point
+    const nearest = nearestOnPath(fallbackPoint, trainPath);
+    if (nearest && Array.isArray(nearest)) {
+      // Find index of closest coordinate on train's route
+      let nearestIdx = -1;
+      let minDistance = Infinity;
+      for (let i = 0; i < trainPath.length; i++) {
+        const p = trainPath[i];
+        if (p && Number.isFinite(p[0]) && Number.isFinite(p[1])) {
+          const d = Math.hypot(p[0] - nearest[0], p[1] - nearest[1]);
+          if (d < minDistance) {
+            minDistance = d;
+            nearestIdx = i;
+          }
+        }
+      }
 
-    if (Number.isFinite(blockStart) && Number.isFinite(blockEnd) && Number.isFinite(start) && Number.isFinite(end) && end > start) {
-      const sFrac = Math.min(0.98, Math.max(0.02, (blockStart - start) / (end - start)));
-      const eFrac = Math.min(0.98, Math.max(0.02, (blockEnd - start) / (end - start)));
-      const sub = segmentAlongPath(basePoints, sFrac, eFrac);
-      if (sub && sub.length >= 2) return sub;
-    }
-  }
-
-  // Fallback: If exact chainage isn't available, build a short 6-8km track portion centered at fallbackPoint
-  if (fallbackPoint && Array.isArray(fallbackPoint)) {
-    if (basePoints && basePoints.length >= 2) {
-      const nearest = nearestOnPath(fallbackPoint, basePoints);
-      const nearestIdx = basePoints.findIndex((p) => p && p[0] === nearest[0] && p[1] === nearest[1]);
       if (nearestIdx >= 0) {
-        const span = Math.max(2, Math.floor(basePoints.length * 0.08));
+        // Take a small, clean segment strictly along this train's route (never jumping across states)
+        const span = Math.max(1, Math.min(3, Math.floor(trainPath.length * 0.02)));
         const sIdx = Math.max(0, nearestIdx - span);
-        const eIdx = Math.min(basePoints.length - 1, nearestIdx + span);
-        return basePoints.slice(sIdx, eIdx + 1);
+        const eIdx = Math.min(trainPath.length - 1, nearestIdx + span);
+        if (eIdx > sIdx) {
+          return trainPath.slice(sIdx, eIdx + 1);
+        }
       }
     }
-    // Lateral short segment
+  }
+
+  // Fallback: If not on route, render a clean small localized segment around the conflict point (max 3km)
+  if (fallbackPoint && Array.isArray(fallbackPoint) && Number.isFinite(fallbackPoint[0]) && Number.isFinite(fallbackPoint[1])) {
     return [
-      [fallbackPoint[0] - 0.035, fallbackPoint[1] - 0.035],
+      [fallbackPoint[0] - 0.025, fallbackPoint[1] - 0.025],
       fallbackPoint,
-      [fallbackPoint[0] + 0.035, fallbackPoint[1] + 0.035],
+      [fallbackPoint[0] + 0.025, fallbackPoint[1] + 0.025],
     ];
   }
+
   return null;
 }
 
@@ -1210,9 +1215,33 @@ export default function RailwayMap() {
     if (!selectedTrain) return [];
     const own = selectedTrain.train_block_movements || [];
     const others = networkTrains.flatMap((train) => (train.train_block_movements || []).filter((movement) => normalizeId(train.train_id) !== selectedTrainId).map((movement) => ({ ...movement, train })));
-    const trainConflicts = own.flatMap((movement) => others.filter((other) => normalizeId(other.block_id) === normalizeId(movement.block_id) && overlaps(movement.scheduled_entry, movement.scheduled_exit, other.scheduled_entry, other.scheduled_exit)).map((other) => ({ conflict_id: `movement-${movement.movement_id}-${other.movement_id}`, conflict_type: "TRAIN_TRAIN_MOVEMENT", severity: 3, description: `${selectedTrain.train_number} overlaps ${other.train.train_number} on ${movement.block?.block_code || "the same block"}.`, train: other.train, block: movement.block })));
+
+    // Group train-train overlaps by block so we generate at most 1 distinct conflict per block
+    const blockOverlapMap = new Map();
+    for (const movement of own) {
+      const bId = normalizeId(movement.block_id);
+      if (!bId || blockOverlapMap.has(bId)) continue;
+
+      const overlappingOther = others.find((other) =>
+        normalizeId(other.block_id) === bId &&
+        overlaps(movement.scheduled_entry, movement.scheduled_exit, other.scheduled_entry, other.scheduled_exit)
+      );
+
+      if (overlappingOther) {
+        blockOverlapMap.set(bId, {
+          conflict_id: `movement-${movement.movement_id}-${overlappingOther.movement_id}`,
+          conflict_type: "TRAIN_TRAIN_MOVEMENT",
+          severity: 3,
+          description: `${selectedTrain.train_number} overlaps ${overlappingOther.train.train_number} on ${movement.block?.block_code || "the same block"}.`,
+          train: overlappingOther.train,
+          block: movement.block,
+        });
+      }
+    }
+
+    const trainConflictsList = Array.from(blockOverlapMap.values());
     const maintenanceConflicts = relevantMaintenance.flatMap(({ task }) => own.filter((movement) => normalizeId(movement.block_id) === normalizeId(task.block_id) && task.preferred_start && overlaps(movement.scheduled_entry, movement.scheduled_exit, task.preferred_start, new Date(new Date(task.preferred_start).getTime() + Number(task.duration_minutes || 0) * 60000))).map((movement) => ({ conflict_id: `maintenance-${task.maintenance_task_id}-${movement.movement_id}`, conflict_type: "TRAIN_MAINTENANCE", severity: Number(task.criticality) >= 4 ? 4 : 3, description: `${selectedTrain.train_number} overlaps ${task.maintenance_type} on ${movement.block?.block_code || "the same block"}.`, train: selectedTrain, block: movement.block, maintenance_task: task })));
-    return [...trainConflicts, ...maintenanceConflicts];
+    return [...trainConflictsList, ...maintenanceConflicts];
   }, [networkTrains, relevantMaintenance, selectedTrain, selectedTrainId]);
   const trainConflicts = [...storedConflicts, ...derivedConflicts];
   const affectedBlocks = (selectedTrain?.train_block_movements || []).filter((movement) => movement.block);
@@ -1389,7 +1418,13 @@ export default function RailwayMap() {
 
   const conflictMarkers = useMemo(() => {
     if (!layers.conflicts) return [];
-    return trainConflicts.map((c) => {
+    const seenBlocks = new Set();
+    const markers = [];
+
+    for (const c of trainConflicts) {
+      const bKey = normalizeId(c.block?.block_id || c.block_id || c.block?.block_code || "");
+      if (bKey && seenBlocks.has(bKey)) continue;
+
       let point = null;
       let targetSection = c.block?.track?.section || c.maintenance_task?.section || null;
       let targetBlock = c.block || null;
@@ -1413,13 +1448,16 @@ export default function RailwayMap() {
         point = routePoints[midIdx];
       }
 
-      // Compute affected blocked portion of track in the section/block
-      const sectionId = normalizeId(targetSection?.section_id || targetBlock?.track?.section_id);
-      const sectionStations = sectionModel.sections.get(sectionId) || [];
-      const blockedTrack = blockTrackSegment(sectionStations, targetSection, targetBlock, point, routePath.length > 1 ? routePath : routePoints);
+      if (point && Array.isArray(point) && Number.isFinite(point[0]) && Number.isFinite(point[1])) {
+        if (bKey) seenBlocks.add(bKey);
+        const sectionId = normalizeId(targetSection?.section_id || targetBlock?.track?.section_id);
+        const sectionStations = sectionModel.sections.get(sectionId) || [];
+        const blockedTrack = blockTrackSegment(sectionStations, targetSection, targetBlock, point, routePath.length > 1 ? routePath : routePoints);
+        markers.push({ conflict: c, point, blockedTrack });
+      }
+    }
 
-      return { conflict: c, point, blockedTrack };
-    }).filter((item) => Boolean(item.point) && Array.isArray(item.point) && Number.isFinite(item.point[0]) && Number.isFinite(item.point[1]));
+    return markers;
   }, [layers.conflicts, trainConflicts, maintenanceLocations, routePoints, routePath, sectionModel]);
 
   return (
