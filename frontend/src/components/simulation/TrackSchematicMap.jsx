@@ -134,11 +134,18 @@ export default function TrackSchematicMap({ train, activeStrategy, emergencyEven
           <line x1="130" y1="50" x2="890" y2="50" stroke="#334155" strokeWidth="6" strokeLinecap="round" />
           <line x1="130" y1="50" x2="890" y2="50" stroke="#475569" strokeWidth="2" strokeDasharray="3 6" />
 
+          {/* PARALLEL TRACK BASELINE (Track 2) */}
+          <line x1="130" y1="140" x2="890" y2="140" stroke="#334155" strokeWidth="6" strokeLinecap="round" />
+          <line x1="130" y1="140" x2="890" y2="140" stroke="#475569" strokeWidth="2" strokeDasharray="3 6" />
+
           {/* Calculate dynamic sector geometry */}
           {(() => {
             const total = Math.max(stops.length, 1);
             const getX = (idx) => stops.length === 1 ? 510 : 155 + (idx / (total - 1)) * 690;
             
+            // Check if any intermediate stations actually sit on the lower parallel track
+            const hasStopsBelow = isSLW && stops.some((_, idx) => idx > 0 && idx < total - 1);
+
             // Find bypassed station indices
             const bypassedIndices = stops.map((s, idx) => bypassedStops.has(s) ? idx : -1).filter((idx) => idx !== -1);
             
@@ -196,52 +203,63 @@ export default function TrackSchematicMap({ train, activeStrategy, emergencyEven
                     
                     {/* Crossover 1: Main -> Parallel Track */}
                     <path
-                      d={`M ${divX} 50 C ${divX + 30} 50, ${divX + 30} 140, ${divX + 60} 140`}
+                      d={`M ${divX} 50 C ${divX + 25} 50, ${divX + 25} 140, ${divX + 50} 140`}
                       fill="none"
                       stroke="#38bdf8"
                       strokeWidth="4"
                       strokeDasharray="5 3"
-                      filter="url(#cyan-glow)"
                     />
                     <circle cx={divX} cy="50" r="4" fill="#38bdf8" />
                     <text x={divX} y="38" fill="#38bdf8" fontSize="8.5" textAnchor="middle" fontWeight="600">Turnout 1</text>
 
                     {/* SLW Section along parallel track */}
-                    <line x1={divX + 60} y1="140" x2={convX - 60} y2="140" stroke="#22c55e" strokeWidth="5" strokeLinecap="round" filter="url(#cyan-glow)" />
+                    <line x1={divX + 50} y1="140" x2={convX - 50} y2="140" stroke="#22c55e" strokeWidth="5" strokeLinecap="round" />
                     
-                    {/* Positioned cleanly in the open gap between tracks (y = 95) with background pill to avoid collisions */}
-                    <g transform={`translate(${(divX + convX) / 2}, 95)`}>
-                      <rect
-                        x="-185"
-                        y="-12"
-                        width="370"
-                        height="24"
-                        rx="12"
-                        fill="rgba(6, 20, 32, 0.94)"
-                        stroke="#22c55e"
-                        strokeWidth="1.2"
-                      />
+                    {/* Label Placement: If stations exist below, position in gap above parallel track (y = 95). If no stations below, write below parallel track (y = 165) */}
+                    {hasStopsBelow ? (
+                      <g transform={`translate(${(divX + convX) / 2}, 95)`}>
+                        <rect
+                          x="-185"
+                          y="-12"
+                          width="370"
+                          height="24"
+                          rx="12"
+                          fill="rgba(6, 20, 32, 0.94)"
+                          stroke="#22c55e"
+                          strokeWidth="1.2"
+                        />
+                        <text
+                          x="0"
+                          y="4.5"
+                          fill="#4ade80"
+                          fontSize="9.5"
+                          fontWeight="700"
+                          textAnchor="middle"
+                          letterSpacing="0.03em"
+                        >
+                          ◄── Single Line Working on Parallel Track (100% Stops Preserved) ──►
+                        </text>
+                      </g>
+                    ) : (
                       <text
-                        x="0"
-                        y="4.5"
+                        x={(divX + convX) / 2}
+                        y="165"
                         fill="#4ade80"
                         fontSize="9.5"
                         fontWeight="700"
                         textAnchor="middle"
-                        letterSpacing="0.03em"
                       >
                         ◄── Single Line Working on Parallel Track (100% Stops Preserved) ──►
                       </text>
-                    </g>
+                    )}
 
                     {/* Crossover 2: Parallel -> Main Track */}
                     <path
-                      d={`M ${convX - 60} 140 C ${convX - 30} 140, ${convX - 30} 50, ${convX} 50`}
+                      d={`M ${convX - 50} 140 C ${convX - 25} 140, ${convX - 25} 50, ${convX} 50`}
                       fill="none"
                       stroke="#38bdf8"
                       strokeWidth="4"
                       strokeDasharray="5 3"
-                      filter="url(#cyan-glow)"
                     />
                     <circle cx={convX} cy="50" r="4" fill="#38bdf8" />
                     <text x={convX} y="38" fill="#38bdf8" fontSize="8.5" textAnchor="middle" fontWeight="600">Turnout 2</text>
@@ -258,47 +276,59 @@ export default function TrackSchematicMap({ train, activeStrategy, emergencyEven
 
                     {/* Chord line divergence branch */}
                     <path
-                      d={`M ${divX} 50 C ${divX + 40} 50, ${divX + 30} 140, ${divX + 70} 140`}
+                      d={`M ${divX} 50 C ${divX + 35} 50, ${divX + 25} 140, ${divX + 50} 140`}
                       fill="none"
                       stroke="#f59e0b"
                       strokeWidth="4"
                       strokeDasharray="6 3"
-                      filter="url(#cyan-glow)"
                     />
                     <circle cx={divX} cy="50" r="5" fill="#f59e0b" />
                     <text x={divX} y="38" fill="#fbbf24" fontSize="8.5" textAnchor="middle" fontWeight="600">Chord Divergence</text>
 
                     {/* Chord line bypass track */}
-                    <line x1={divX + 70} y1="140" x2={convX - 70} y2="140" stroke="#f59e0b" strokeWidth="4" strokeLinecap="round" />
+                    <line x1={divX + 50} y1="140" x2={convX - 50} y2="140" stroke="#f59e0b" strokeWidth="4" strokeLinecap="round" />
                     
-                    {/* Positioned cleanly in the open gap between tracks (y = 95) with background pill */}
-                    <g transform={`translate(${(divX + convX) / 2}, 95)`}>
-                      <rect
-                        x="-170"
-                        y="-12"
-                        width="340"
-                        height="24"
-                        rx="12"
-                        fill="rgba(24, 18, 5, 0.94)"
-                        stroke="#f59e0b"
-                        strokeWidth="1.2"
-                      />
+                    {/* Label Placement: If stations exist below, position in gap above parallel track (y = 95). If no stations below, write below parallel track (y = 165) */}
+                    {hasStopsBelow ? (
+                      <g transform={`translate(${(divX + convX) / 2}, 95)`}>
+                        <rect
+                          x="-170"
+                          y="-12"
+                          width="340"
+                          height="24"
+                          rx="12"
+                          fill="rgba(24, 18, 5, 0.94)"
+                          stroke="#f59e0b"
+                          strokeWidth="1.2"
+                        />
+                        <text
+                          x="0"
+                          y="4.5"
+                          fill="#fbbf24"
+                          fontSize="9.5"
+                          fontWeight="700"
+                          textAnchor="middle"
+                          letterSpacing="0.03em"
+                        >
+                          ──► Outer Chord Bypass (Bypasses Blocked Sector) ──►
+                        </text>
+                      </g>
+                    ) : (
                       <text
-                        x="0"
-                        y="4.5"
+                        x={(divX + convX) / 2}
+                        y="165"
                         fill="#fbbf24"
                         fontSize="9.5"
                         fontWeight="700"
                         textAnchor="middle"
-                        letterSpacing="0.03em"
                       >
                         ──► Outer Chord Bypass (Bypasses Blocked Sector) ──►
                       </text>
-                    </g>
+                    )}
 
                     {/* Chord convergence back to main line */}
                     <path
-                      d={`M ${convX - 70} 140 C ${convX - 30} 140, ${convX - 40} 50, ${convX} 50`}
+                      d={`M ${convX - 50} 140 C ${convX - 25} 140, ${convX - 35} 50, ${convX} 50`}
                       fill="none"
                       stroke="#f59e0b"
                       strokeWidth="4"
