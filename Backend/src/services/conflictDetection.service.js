@@ -1,12 +1,12 @@
 /**
  * Conflict Detection Service
- * 
+ *
  * Scans all train block movements against maintenance task windows and
  * generates BlockPlan + BlockConflict records in the database.
  *
  * Conflict types detected:
  *  - TRAIN_MAINTENANCE: A train traverses a block during its maintenance window
- *  - MAINTENANCE_MAINTENANCE: Two maintenance tasks overlap on the same block
+ *  - MAINTENANCE_MAINTENANCE: Two DIFFERENT maintenance tasks overlap on the same block
  *  - BLOCK_UNAVAILABLE: A maintenance task requires a block that is UNAVAILABLE
  *  - TRAIN_TRAIN_MOVEMENT: Two trains occupy the same block at the same time
  */
@@ -52,15 +52,34 @@ async function detectAndPersist() {
 
   logger.info(`[conflictDetection] Loaded ${movements.length} movements, ${tasks.length} tasks in ${Date.now() - t0}ms`);
 
-  const detectedConflicts = [];
-
-  // Group movements by block
+  // ── Group movements by block ─────────────────────────────────────────────
   const movementsByBlock = new Map();
   for (const m of movements) {
     if (!m.block_id || !m.scheduled_entry || !m.scheduled_exit) continue;
     const bId = String(m.block_id);
     if (!movementsByBlock.has(bId)) movementsByBlock.set(bId, []);
     movementsByBlock.get(bId).push(m);
+  }
+
+  // ── Group tasks by block ─────────────────────────────────────────────────
+  const tasksByBlock = new Map();
+  for (const t of tasks) {
+    if (!t.block_id || !t.preferred_start) continue;
+    const bId = String(t.block_id);
+    if (!tasksByBlock.has(bId)) tasksByBlock.set(bId, []);
+    tasksByBlock.get(bId).push(t);
+  }
+
+  // Use a global deduplication set so same conflict isn't recorded twice
+  const globalConflictKeys = new Set();
+  const detectedConflicts = [];
+
+  function addConflict(conflict) {
+    // Dedup key: type + train_id + block_id + description
+    const key = `${conflict.type}||${conflict.train_id || "null"}||${conflict.block_id || "null"}||${(conflict.description || "").trim()}`;
+    if (globalConflictKeys.has(key)) return;
+    globalConflictKeys.add(key);
+    detectedConflicts.push(conflict);
   }
 
   // ── 1. TRAIN vs MAINTENANCE conflicts ────────────────────────────────────
@@ -71,51 +90,56 @@ async function detectAndPersist() {
     if (!blkMoves || blkMoves.length === 0) continue;
 
     const taskStart = new Date(task.preferred_start);
-    const taskEnd = new Date(taskStart.getTime() + (Number(task.duration_minutes) || 60) * 60_000);
+    const taskDuration = Math.max(Number(task.duration_minutes) || 60, 30); // min 30 min window
+    const taskEnd = new Date(taskStart.getTime() + taskDuration * 60_000);
 
     for (const m of blkMoves) {
-      if (overlaps(m.scheduled_entry, m.scheduled_exit, taskStart, taskEnd)) {
-        const severity = severityScore(task.criticality, m.train?.priority);
-        detectedConflicts.push({
-          type: "TRAIN_MAINTENANCE",
-          severity,
-          description: `Train ${m.train?.train_number} (${m.train?.train_name}) occupies block ${task.block?.block_code || bId} during ${task.maintenance_type} maintenance window.`,
-          train_id: m.train_id,
-          block: task.block,
-          block_id: task.block_id,
-          task,
-          movement: m,
-        });
-      }
+      if (!overlaps(m.scheduled_entry, m.scheduled_exit, taskStart, taskEnd)) continue;
+      const severity = severityScore(task.criticality, m.train?.priority);
+      addConflict({
+        type: "TRAIN_MAINTENANCE",
+        severity,
+        description: `Train ${m.train?.train_number} (${m.train?.train_name || ""}) occupies block ${task.block?.block_code || bId} during ${task.maintenance_type} maintenance window.`,
+        train_id: m.train_id,
+        block: task.block,
+        block_id: task.block_id,
+        task,
+      });
     }
   }
 
-  // ── 2. MAINTENANCE vs MAINTENANCE conflicts (grouped by block) ───────────
-  const tasksByBlock = new Map();
-  for (const t of tasks) {
-    if (!t.block_id || !t.preferred_start) continue;
-    const bId = String(t.block_id);
-    if (!tasksByBlock.has(bId)) tasksByBlock.set(bId, []);
-    tasksByBlock.get(bId).push(t);
-  }
-
+  // ── 2. MAINTENANCE vs MAINTENANCE (different tasks, real time overlap) ───
   for (const [bId, blkTasks] of tasksByBlock.entries()) {
     blkTasks.sort((x, y) => new Date(x.preferred_start).getTime() - new Date(y.preferred_start).getTime());
+
     for (let i = 0; i < blkTasks.length; i++) {
       const a = blkTasks[i];
+      const aId = String(a.maintenance_task_id);
       const aStart = new Date(a.preferred_start);
-      const aEnd = new Date(aStart.getTime() + (Number(a.duration_minutes) || 60) * 60_000);
-      for (let j = i + 1; j < Math.min(blkTasks.length, i + 3); j++) {
+      const aDuration = Math.max(Number(a.duration_minutes) || 60, 30);
+      const aEnd = new Date(aStart.getTime() + aDuration * 60_000);
+
+      for (let j = i + 1; j < blkTasks.length; j++) {
         const b = blkTasks[j];
+        const bId2 = String(b.maintenance_task_id);
+
+        // Skip if same task ID (degenerate duplicate in DB)
+        if (aId === bId2) continue;
+
         const bStart = new Date(b.preferred_start);
-        const bEnd = new Date(bStart.getTime() + (Number(b.duration_minutes) || 60) * 60_000);
+        // If B starts after A ends, we can break early (sorted by start)
+        if (bStart.getTime() >= aEnd.getTime()) break;
+
+        const bDuration = Math.max(Number(b.duration_minutes) || 60, 30);
+        const bEnd = new Date(bStart.getTime() + bDuration * 60_000);
+
         if (!overlaps(aStart, aEnd, bStart, bEnd)) continue;
 
         const severity = Math.max(severityScore(a.criticality, 3), severityScore(b.criticality, 3));
-        detectedConflicts.push({
+        addConflict({
           type: "MAINTENANCE_MAINTENANCE",
           severity,
-          description: `Two maintenance tasks (${a.maintenance_type} & ${b.maintenance_type}) overlap on block ${a.block?.block_code || bId}.`,
+          description: `Two maintenance tasks (${a.title || a.maintenance_type} & ${b.title || b.maintenance_type}) overlap on block ${a.block?.block_code || bId}.`,
           train_id: null,
           block: a.block,
           block_id: a.block_id,
@@ -126,35 +150,32 @@ async function detectAndPersist() {
     }
   }
 
-  // ── 3. TRAIN vs TRAIN movement conflicts (grouped by block) ───────────────
+  // ── 3. TRAIN vs TRAIN movement conflicts ─────────────────────────────────
   for (const [bId, blkMoves] of movementsByBlock.entries()) {
     blkMoves.sort((x, y) => new Date(x.scheduled_entry).getTime() - new Date(y.scheduled_entry).getTime());
-    const seenTrainPairs = new Set();
-    const trainCountPerBlock = new Map();
 
     for (let i = 0; i < blkMoves.length; i++) {
       const a = blkMoves[i];
+      const aExit = new Date(a.scheduled_exit).getTime();
       const aTrainId = String(a.train_id);
-      if ((trainCountPerBlock.get(aTrainId) || 0) >= 1) continue;
 
-      for (let j = i + 1; j < Math.min(blkMoves.length, i + 6); j++) {
+      for (let j = i + 1; j < blkMoves.length; j++) {
         const b = blkMoves[j];
+        // Since sorted by entry, if B's entry >= A's exit, no more overlaps for A
+        if (new Date(b.scheduled_entry).getTime() >= aExit) break;
+
         const bTrainId = String(b.train_id);
         if (aTrainId === bTrainId) continue;
         if (!overlaps(a.scheduled_entry, a.scheduled_exit, b.scheduled_entry, b.scheduled_exit)) continue;
 
-        const pairKey = [aTrainId, bTrainId].sort().join("-");
-        if (seenTrainPairs.has(pairKey)) continue;
-        seenTrainPairs.add(pairKey);
-        trainCountPerBlock.set(aTrainId, (trainCountPerBlock.get(aTrainId) || 0) + 1);
-
-        const severity = Math.max(
-          severityScore(3, a.train?.priority),
-          severityScore(3, b.train?.priority)
+        // Only record as train A's conflict (a.train_id is the "primary" train in this conflict)
+        const severity = Math.min(
+          Math.max(severityScore(3, a.train?.priority), severityScore(3, b.train?.priority)) + 1,
+          5
         );
-        detectedConflicts.push({
+        addConflict({
           type: "TRAIN_TRAIN_MOVEMENT",
-          severity: Math.min(severity + 1, 5),
+          severity,
           description: `Train ${a.train?.train_number} and Train ${b.train?.train_number} both occupy block ${a.block?.block_code || bId} simultaneously.`,
           train_id: a.train_id,
           block: a.block,
@@ -162,19 +183,18 @@ async function detectAndPersist() {
           movementA: a,
           movementB: b,
         });
-        break;
       }
     }
   }
 
-  // ── 4. BLOCK_UNAVAILABLE: maintenance on already-UNAVAILABLE blocks ───────
+  // ── 4. BLOCK_UNAVAILABLE ─────────────────────────────────────────────────
   for (const task of tasks) {
     if (!task.block_id || !task.block) continue;
     if (task.block.status === "UNAVAILABLE" || !task.block.availability) {
-      detectedConflicts.push({
+      addConflict({
         type: "BLOCK_UNAVAILABLE",
         severity: 4,
-        description: `Maintenance task "${task.maintenance_type}" is scheduled on block ${task.block.block_code} which is currently UNAVAILABLE.`,
+        description: `Maintenance task "${task.title || task.maintenance_type}" is scheduled on block ${task.block.block_code} which is currently UNAVAILABLE.`,
         train_id: null,
         block: task.block,
         block_id: task.block_id,
@@ -183,9 +203,10 @@ async function detectAndPersist() {
     }
   }
 
-  logger.info(`[conflictDetection] Detected ${detectedConflicts.length} conflicts in ${Date.now() - t0}ms`);
+  logger.info(`[conflictDetection] Detected ${detectedConflicts.length} unique conflicts in ${Date.now() - t0}ms`);
 
-  // ── Clear existing auto-detected plans/conflicts ─────────────────────────
+  // ── Clear ALL previously auto-detected plans and conflicts ────────────────
+  // This ensures a clean slate every time detection runs
   await prisma.blockConflict.deleteMany({ where: { plan: { status: "AUTO_DETECTED" } } });
   await prisma.blockPlan.deleteMany({ where: { status: "AUTO_DETECTED" } });
 
@@ -202,8 +223,7 @@ async function detectAndPersist() {
     blockGroups.get(key).push(conflict);
   }
 
-  const now = new Date("2026-09-18T06:00:00Z");
-  const weekLater = new Date(now.getTime() + 7 * 86400000);
+  const now = new Date();
   let totalCreated = 0;
 
   for (const [blockId, blockConflicts] of blockGroups.entries()) {
