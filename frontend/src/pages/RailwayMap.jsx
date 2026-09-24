@@ -983,8 +983,17 @@ export default function RailwayMap() {
   const trainsQuery = useApiQuery(useCallback(() => listTrains({ limit: 100 }), []), []);
   const networkQuery = useApiQuery(useCallback(async () => Promise.all((trainsQuery.data?.data || []).map((train) => getTrain(train.train_id).then((response) => response?.data || response))), [trainsQuery.data?.data]), [trainsQuery.data?.data?.map((train) => train.train_id).join(",") || ""]);
   const maintenanceQuery = useApiQuery(useCallback(() => listMaintenance({ limit: 100 }), []), []);
-  const conflictsQuery = useApiQuery(useCallback(() => listConflicts({ limit: 100 }), []), []);
+  const conflictsQuery = useApiQuery(useCallback(() => listConflicts({ limit: 500 }), []), []);
   const detailQuery = useApi();
+  const selectedTrain = detailQuery.data?.data ?? detailQuery.data;
+  const trainConflictsQuery = useApiQuery(
+    useCallback(() => {
+      const tNum = selectedTrain?.train_number;
+      if (!tNum) return Promise.resolve({ data: [] });
+      return listConflicts({ trainNumber: tNum, limit: 100 });
+    }, [selectedTrain?.train_number]),
+    [selectedTrain?.train_number]
+  );
   const [search, setSearch] = useState("");
   const [trainId, setTrainId] = useState("");
   const [viewportRequest, setViewportRequest] = useState(1);
@@ -1041,7 +1050,6 @@ export default function RailwayMap() {
   const networkTrains = networkQuery.data || [];
   const maintenance = maintenanceQuery.data?.data || [];
   const conflicts = conflictsQuery.data?.data || [];
-  const selectedTrain = detailQuery.data?.data ?? detailQuery.data;
   const selectedTrainId = normalizeId(selectedTrain?.train_id || trainId);
   const selectedRoute = selectedTrain;
   const showNetworkOverview = !selectedTrain && !selectedTrainId && !selectedRoute;
@@ -1234,7 +1242,9 @@ export default function RailwayMap() {
   }, [maintenanceLocations, movementBlockIds, routeSectionIds, selectedTrain, routePath, emergencyReroute]);
 
   const overviewMaintenance = useMemo(() => maintenanceLocations.filter((item) => item.point), [maintenanceLocations]);
+  const serverTrainConflicts = trainConflictsQuery.data?.data || [];
   const storedConflicts = useMemo(() => {
+    if (serverTrainConflicts.length > 0) return serverTrainConflicts;
     if (!selectedTrain) return [];
     const tNum = String(selectedTrain.train_number || "").trim();
     return (conflicts || []).filter((item) => {
@@ -1245,7 +1255,7 @@ export default function RailwayMap() {
       );
       return byId || byNum;
     });
-  }, [conflicts, selectedTrain, selectedTrainId]);
+  }, [serverTrainConflicts, conflicts, selectedTrain, selectedTrainId]);
 
   const derivedConflicts = useMemo(() => {
     if (!selectedTrain) return [];
