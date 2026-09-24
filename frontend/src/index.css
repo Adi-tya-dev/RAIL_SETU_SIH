@@ -4400,6 +4400,375 @@ body.theme-white .railway-map-statusbar b {
   color: #0f172a;
 }
 
+[data-theme="white"] .railway-map-eyebrow,
+body.theme-white .railway-map-eyebrow {
+  color: #0284c7;
+}
+
+[data-theme="white"] .railway-map-section-title,
+body.theme-white .railway-map-section-title {
+  color: #1e293b;
+  font-weight: 800;
+}
+
+[data-theme="white"] .railway-map-impact,
+body.theme-white .railway-map-impact,
+[data-theme="white"] .railway-map-route-summary,
+body.theme-white .railway-map-route-summary,
+[data-theme="white"] .railway-map-layers,
+body.theme-white .railway-map-layers,
+[data-theme="white"] .railway-map-records,
+body.theme-white .railway-map-records {
+  border-top-color: #e2e8f0;
+}
+
+/* Train Summary Card in White Mode */
+[data-theme="white"] .railway-map-train-card,
+body.theme-white .railway-map-train-card {
+  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+  border: 1.5px solid #cbd5e1;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="white"] .railway-map-train-card__top,
+body.theme-white .railway-map-train-card__top {
+  color: #0284c7;
+  font-weight: 800;
+}
+
+[data-theme="white"] .railway-map-train-card h2,
+body.theme-white .railway-map-train-card h2 {
+  color: #0f172a;
+}
+
+[data-theme="white"] .railway-map-train-card p,
+body.theme-white .railway-map-train-card p {
+  color: #334155;
+}
+
+[data-theme="white"] .railway-map-train-card__meta,
+body.theme-white .railway-map-train-card__meta {
+  border-top-color: #e2e8f0;
+  color: #475569;
+}
+
+[data-theme="white"] .railway-map-train-card__meta b,
+body.theme-white .railway-map-train-card__meta b {
+  color: #0f172a;
+}
+
+[data-theme="white"] .railway-priority-desc,
+body.theme-white .railway-priority-desc {
+  color: #64748b;
+}
+
+/* Network Impact Metrics in White Mode */
+[data-theme="white"] .railway-map-metric,
+body.theme-white .railway-map-metric {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+[data-theme="white"] .railway-map-metric:hover,
+body.theme-white .railway-map-metric:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+[data-theme="white"] .railway-map-metric strong,
+body.theme-white .railway-map-metric strong {
+  color: #0f172a;
+}
+
+[data-theme="white"] .railway-map-metric span,
+body.theme-white .railway-map-metric span {
+  color: #475569;
+  font-weight: 600;
+}
+
+[data-theme="white"] .railway-map-metric--blue strong,
+body.theme-white .railway-map-metric--blue strong {
+  color: #0284c7;
+}
+
+[data-theme="white"] .railway-map-metric--amber strong,
+body.theme-white .railway-map-metric--amber strong {
+  color: #d97706;
+}
+
+[data-theme="white"] .railway-map-metric--red strong,
+body.theme-white .railway-map-metric--red strong {
+  color: #dc2626;
+}
+
+[data-theme="white"] .railway-map-metric--green strong,
+body.theme-white .railway-map-metric--green strong {
+  color: #16a34a;
+}
+
+[data-theme="white"] .railway-map-metric--violet strong,
+body.theme-white .railway-map-metric--violet strong {
+  color: #7c3aed;
+}
+
+/* Route Timeline in White Mode */
+[data-theme="white"] .railway-map-route-count,
+body.theme-white .railway-map-route-count {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+  font-weight: 700;
+}
+
+[data-theme="white"] .railway-map-route-stop,
+body.theme-white .railway-map-route-stop {
+  color: #1e293b;
+}
+
+[data-theme="white"] .railway-map-route-stop:hover,
+body.theme-white .railway-map-route-stop:hover {
+  background: #f1f5f9;
+}
+
+[data-theme="white"] .railway-map-route-stop.is-active,
+body.theme-white .railway-map-route-stop.is-active {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
+}
+
+[data-theme="white"] .railway-map-route-stop.railstop-current,
+body.theme-white .railway-map-route-stop.railstop-current {
+  background: #f0fdfa;
+  border-color: #5eead4;
+}
+
+[data-theme="white"] .railway-map-route-stop__node,
+body.theme-white .railway-map-route-stop__node {
+  border-color: #94a3b8;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.2);
+}
+
+[data-theme="white"] .railway-map-route-stop:not(:last-child) .railway-map-route-stop__body::after,
+body.theme-white .railway-map-route-stop:not(:last-child) .railway-map-route-stop__body::after {
+  background: linear-gradient(#93c5fd, #cbd5e1);
+}
+
+[data-theme="white"] .railway-map-route-stop__code,
+body.theme-white .railway-map-route-stop__code {
+  color: #0f172a;
+}
+
+[data-theme="white"] .railway-map-route-stop.is-active .railway-map-route-stop__code,
+body.theme-white .railway-map-route-stop.is-active .railway-map-route-stop__code {
+  color: #1d4ed8;
+}
+
+[data-theme="white"] .railway-map-route-stop__code em,
+body.theme-white .railway-map-route-stop__code em {
+  color: #dc2626;
+}
+
+[data-theme="white"] .railway-map-route-stop__name,
+body.theme-white .railway-map-route-stop__name {
+  color: #334155;
+  font-weight: 500;
+}
+
+[data-theme="white"] .railway-map-route-stop__times,
+body.theme-white .railway-map-route-stop__times {
+  color: #64748b;
+}
+
+[data-theme="white"] .railway-map-route-stop__times b,
+body.theme-white .railway-map-route-stop__times b {
+  color: #0f172a;
+}
+
+[data-theme="white"] .railway-map-route-stop.railstop-online .railway-map-route-stop__node,
+body.theme-white .railway-map-route-stop.railstop-online .railway-map-route-stop__node,
+[data-theme="white"] .railway-map-route-stop.railstop-ontime .railway-map-route-stop__node,
+body.theme-white .railway-map-route-stop.railstop-ontime .railway-map-route-stop__node {
+  border-color: #16a34a;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
+}
+
+[data-theme="white"] .railway-map-route-stop.railstop-minor .railway-map-route-stop__node,
+body.theme-white .railway-map-route-stop.railstop-minor .railway-map-route-stop__node {
+  border-color: #d97706;
+  background: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25);
+}
+
+[data-theme="white"] .railway-map-route-stop.railstop-late .railway-map-route-stop__node,
+body.theme-white .railway-map-route-stop.railstop-late .railway-map-route-stop__node {
+  border-color: #dc2626;
+  background: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25);
+}
+
+[data-theme="white"] .railway-map-route-stop.railstop-passed,
+body.theme-white .railway-map-route-stop.railstop-passed {
+  opacity: 0.6;
+}
+
+[data-theme="white"] .railway-map-route-stop.railstop-passed .railway-map-route-stop__node,
+body.theme-white .railway-map-route-stop.railstop-passed .railway-map-route-stop__node {
+  border-color: #94a3b8;
+  background: #cbd5e1;
+  box-shadow: none;
+}
+
+[data-theme="white"] .railway-map-route-stop.railstop-current .railway-map-route-stop__node,
+body.theme-white .railway-map-route-stop.railstop-current .railway-map-route-stop__node {
+  border-color: #0284c7;
+  background: #0ea5e9;
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.3), 0 0 10px rgba(14, 165, 233, 0.6);
+}
+
+/* Sidebar Records / Conflicts in White Mode */
+[data-theme="white"] .railway-map-record,
+body.theme-white .railway-map-record {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #1e293b;
+}
+
+[data-theme="white"] .railway-map-record b,
+body.theme-white .railway-map-record b {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+[data-theme="white"] .railway-map-record small,
+body.theme-white .railway-map-record small {
+  color: #64748b;
+}
+
+[data-theme="white"] .railway-map-record--button:hover,
+body.theme-white .railway-map-record--button:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+[data-theme="white"] .railway-release-order,
+body.theme-white .railway-release-order {
+  border-top-color: #e2e8f0;
+  color: #475569;
+}
+
+[data-theme="white"] .railway-release-order b,
+body.theme-white .railway-release-order b {
+  color: #0f172a;
+}
+
+[data-theme="white"] .railway-map-drawer-release .railway-release-order,
+body.theme-white .railway-map-drawer-release .railway-release-order {
+  background: #fef2f2;
+}
+
+[data-theme="white"] .railway-tree__row,
+body.theme-white .railway-tree__row {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #334155;
+}
+
+[data-theme="white"] .railway-tree__dir,
+body.theme-white .railway-tree__dir {
+  color: #64748b;
+}
+
+[data-theme="white"] .railway-tree__col,
+body.theme-white .railway-tree__col {
+  color: #0f172a;
+}
+
+/* Layer Toggles in White Mode */
+[data-theme="white"] .railway-layer-toggle,
+body.theme-white .railway-layer-toggle {
+  color: #334155;
+  font-weight: 500;
+}
+
+[data-theme="white"] .railway-layer-toggle:hover,
+body.theme-white .railway-layer-toggle:hover {
+  color: #0f172a;
+}
+
+/* Alerts and Empty State in White Mode */
+[data-theme="white"] .railway-map-alert,
+body.theme-white .railway-map-alert {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+[data-theme="white"] .railway-map-alert strong,
+body.theme-white .railway-map-alert strong {
+  color: #b45309;
+}
+
+[data-theme="white"] .railway-map-alert--error,
+body.theme-white .railway-map-alert--error {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+[data-theme="white"] .railway-map-alert--error strong,
+body.theme-white .railway-map-alert--error strong {
+  color: #dc2626;
+}
+
+[data-theme="white"] .railway-map-empty,
+body.theme-white .railway-map-empty {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+[data-theme="white"] .railway-map-empty strong,
+body.theme-white .railway-map-empty strong {
+  color: #0f172a;
+}
+
+[data-theme="white"] .railway-map-empty p,
+body.theme-white .railway-map-empty p {
+  color: #64748b;
+}
+
+[data-theme="white"] .railway-map-muted,
+body.theme-white .railway-map-muted {
+  color: #64748b;
+}
+
+[data-theme="white"] .railway-map-inline-state,
+body.theme-white .railway-map-inline-state {
+  color: #475569;
+}
+
+/* Map Canvas Toolbar in White Mode */
+[data-theme="white"] .railway-map-toolbar,
+body.theme-white .railway-map-toolbar {
+  background: #ffffff;
+  border-bottom-color: #e2e8f0;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+}
+
+[data-theme="white"] .railway-map-toolbar strong,
+body.theme-white .railway-map-toolbar strong {
+  color: #0f172a;
+}
+
+[data-theme="white"] .railway-map-toolbar__kicker,
+body.theme-white .railway-map-toolbar__kicker {
+  color: #0284c7;
+}
+
 /* Floating HUD & Legend in White Mode */
 [data-theme="white"] .railway-map-hud,
 body.theme-white .railway-map-hud,
@@ -4449,7 +4818,33 @@ body.theme-white .railway-map-legend__btn {
 
 [data-theme="white"] .railway-map-legend strong,
 body.theme-white .railway-map-legend strong {
-  color: #0f172a;
+  color: #0f172a !important;
+}
+
+[data-theme="white"] .railway-map-legend span,
+body.theme-white .railway-map-legend span {
+  color: #334155 !important;
+  font-weight: 500;
+}
+
+[data-theme="white"] .railway-map-legend svg,
+body.theme-white .railway-map-legend svg {
+  color: #0284c7 !important;
+}
+
+[data-theme="white"] .railway-map-legend-line,
+body.theme-white .railway-map-legend-line {
+  background: #0284c7;
+}
+
+[data-theme="white"] .railway-map-legend-line--dim,
+body.theme-white .railway-map-legend-line--dim {
+  background: #64748b;
+}
+
+[data-theme="white"] .railway-map-map-shell::after,
+body.theme-white .railway-map-map-shell::after {
+  display: none;
 }
 
 /* Emergency Map Top HUD in White Mode */
