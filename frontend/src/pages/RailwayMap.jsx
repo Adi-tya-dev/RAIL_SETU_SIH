@@ -1269,13 +1269,42 @@ export default function RailwayMap() {
     }
   }, [queryParams, trains, networkTrains, selectedTrainId]);
 
+  const autoFocusedConflictKeyRef = useRef("");
+
+  const handleCloseConflict = useCallback(() => {
+    setConflict(null);
+    // Remove conflict query parameters from the hash URL so it doesn't immediately re-trigger or stick around
+    const params = new URLSearchParams(queryParams.toString());
+    let changed = false;
+    ["conflict", "conflicts", "conflictId"].forEach((key) => {
+      if (params.has(key)) {
+        params.delete(key);
+        changed = true;
+      }
+    });
+    if (changed) {
+      const remaining = params.toString();
+      navigate(`/map${remaining ? `?${remaining}` : ""}`);
+    }
+  }, [queryParams]);
+
   // When conflict is requested via URL, auto-focus conflict once ready
   useEffect(() => {
     const hasConflictReq = queryParams.get("conflict") === "true" || queryParams.get("conflicts") === "true" || Boolean(queryParams.get("conflictId"));
+    if (!hasConflictReq) {
+      autoFocusedConflictKeyRef.current = "";
+      return;
+    }
+
     const conflictId = queryParams.get("conflictId");
     const urlBlock = queryParams.get("block");
+    const currentKey = `${queryParams.get("trainId") || ""}_${queryParams.get("trainNumber") || ""}_${conflictId || ""}_${urlBlock || ""}`;
 
-    if (hasConflictReq && trainConflicts.length > 0 && !conflict) {
+    if (autoFocusedConflictKeyRef.current === currentKey) {
+      return;
+    }
+
+    if (trainConflicts.length > 0) {
       let target = null;
       if (conflictId) {
         target = trainConflicts.find((c) => String(c.conflict_id) === String(conflictId));
@@ -1290,10 +1319,11 @@ export default function RailwayMap() {
         target = trainConflicts[0];
       }
       if (target) {
+        autoFocusedConflictKeyRef.current = currentKey;
         focusConflict(target);
       }
     }
-  }, [queryParams, trainConflicts, conflict]);
+  }, [queryParams, trainConflicts]);
 
   const rerouteSlwPath = useMemo(() => {
     if (!emergencyReroute || routePoints.length < 2) return [];
@@ -2005,7 +2035,7 @@ export default function RailwayMap() {
       <MaintenanceDrawer task={maintenanceTask} onClose={() => setMaintenanceTask(null)} />
       <Drawer
         open={Boolean(conflict)}
-        onClose={() => setConflict(null)}
+        onClose={handleCloseConflict}
         title="Conflict details"
         subtitle={conflict ? (conflict.plan_id ? `Plan #${conflict.plan_id}` : "Operational Conflict") : ""}
         footer={
@@ -2019,7 +2049,7 @@ export default function RailwayMap() {
               >
                 View in Conflicts Table ↗
               </Button>
-              <Button variant="secondary" size="sm" onClick={() => setConflict(null)}>
+              <Button variant="secondary" size="sm" onClick={handleCloseConflict}>
                 Close
               </Button>
             </div>
