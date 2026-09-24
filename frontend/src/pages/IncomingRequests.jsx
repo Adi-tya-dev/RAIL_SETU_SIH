@@ -342,16 +342,7 @@ export default function IncomingRequests() {
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <strong className="cell-mono">{r.block?.block_code || r.block_code || "—"}</strong>
                 <span
-                  style={{
-                    fontSize: 10.5,
-                    fontFamily: "monospace",
-                    fontWeight: 700,
-                    padding: "1px 6px",
-                    borderRadius: 4,
-                    background: isPending ? "rgba(245,158,11,0.12)" : "rgba(34,197,94,0.15)",
-                    color: isPending ? "#fbbf24" : "#4ade80",
-                    border: `1px solid ${isPending ? "rgba(245,158,11,0.3)" : "rgba(34,197,94,0.3)"}`,
-                  }}
+                  className={`incoming-package-tag ${isPending ? "is-pending" : "is-assigned"}`}
                   title={isPending ? `Pending clubbing into ${pkg.package_id}` : `Assigned to Work Package ${pkg.package_id}`}
                 >
                   {pkg.package_id}
@@ -390,7 +381,7 @@ export default function IncomingRequests() {
           return (
             <div>
               <div style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                <span style={{ fontWeight: 600, fontSize: 12, color: isVeryRecent ? "#38bdf8" : "var(--text)" }}>
+                <span className={`incoming-recent-time ${isVeryRecent ? "is-recent" : ""}`}>
                   {rel}
                 </span>
                 {isVeryRecent && (
@@ -419,7 +410,7 @@ export default function IncomingRequests() {
         label: "Preferred Start",
         render: (r) => (
           <div>
-            <strong style={{ display: "block", color: "#e9d5ff", fontSize: 12 }}>
+            <strong className="incoming-preferred-start" style={{ display: "block", fontSize: 12 }}>
               {formatDateTime(r.preferred_start)}
             </strong>
             <span className="cell-muted" style={{ fontSize: 11 }}>

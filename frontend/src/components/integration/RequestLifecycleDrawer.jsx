@@ -396,7 +396,7 @@ export default function RequestLifecycleDrawer({ task, onClose, onTaskUpdated })
             <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase" }}>
               3. Preferred Operational Start
             </div>
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: "#e9d5ff" }}>
+            <div className="lifecycle-preferred-start" style={{ fontSize: 12.5, fontWeight: 700 }}>
               {formatDateTime(currentTask.preferred_start)}
             </div>
             <div style={{ fontSize: 11, color: "var(--text-3)" }}>
