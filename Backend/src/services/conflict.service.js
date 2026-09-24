@@ -14,6 +14,35 @@ async function findAll(query = {}) {
   const conflictType = optionalString(query.conflict_type);
   if (conflictType) where.conflict_type = conflictType;
 
+  const trainNumber = optionalString(query.trainNumber || query.train);
+  const trainId = query.trainId || query.train_id;
+  const blockCode = optionalString(query.block || query.block_code);
+
+  if (trainNumber || trainId) {
+    const orConditions = [];
+    if (trainId) {
+      try {
+        orConditions.push({ train_id: BigInt(trainId) });
+      } catch (e) {}
+    }
+    if (trainNumber) {
+      const tNum = String(trainNumber).trim();
+      orConditions.push({ train: { train_number: tNum } });
+      orConditions.push({ description: { contains: tNum } });
+    }
+    if (orConditions.length > 0) {
+      where.OR = orConditions;
+    }
+  }
+
+  if (blockCode) {
+    where.plan = {
+      block: {
+        block_code: String(blockCode).trim().toUpperCase(),
+      },
+    };
+  }
+
   const [total, conflicts] = await Promise.all([
     prisma.blockConflict.count({ where }),
     prisma.blockConflict.findMany({

@@ -114,11 +114,17 @@ export default function Conflicts() {
   const load = useCallback(
     () =>
       run(async () => {
-        const result = await listConflicts({ limit: 200 });
+        const params = { limit: 200 };
+        if (filterMode === "targeted") {
+          if (targetTrainNumber) params.trainNumber = targetTrainNumber;
+          else if (targetTrainId) params.trainId = targetTrainId;
+          if (targetBlock) params.block = targetBlock;
+        }
+        const result = await listConflicts(params);
         const conflicts = [...(result.data || [])].sort((a, b) => (b.severity || 0) - (a.severity || 0));
         return { planCount: result.planCount, conflicts };
       }),
-    [run]
+    [run, filterMode, targetTrainNumber, targetTrainId, targetBlock]
   );
 
   useEffect(() => {

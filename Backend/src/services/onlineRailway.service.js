@@ -176,8 +176,30 @@ async function backfillAllTrainData() {
     }
   }
 
-  let fallbackSection = await prisma.section.findFirst({ where: { section_code: "SEC-CTRDL" } });
-  if (!fallbackSection) fallbackSection = await prisma.section.findFirst();
+  const allSections = await prisma.section.findMany();
+  const sectionsByCode = new Map(allSections.map((s) => [s.section_code, s]));
+  const defaultFallbackSection = sectionsByCode.get("SEC-CTRDL") || allSections[0];
+
+  function getSectionForCoord(lat, lng) {
+    if (lat == null || lng == null) return defaultFallbackSection;
+    if (lat < 16.5 && lng < 77.5) return sectionsByCode.get("SEC-SWRLN") || defaultFallbackSection;
+    if (lat >= 12.0 && lat <= 14.2 && lng >= 77.0 && lng <= 80.5) return sectionsByCode.get("SEC-BNMS") || defaultFallbackSection;
+    if (lat >= 14.8 && lat < 18.2 && lng >= 75.0 && lng < 78.0) return sectionsByCode.get("SEC-GTLSR") || defaultFallbackSection;
+    if (lat >= 18.5 && lat <= 19.8 && lng >= 72.5 && lng <= 73.5) return sectionsByCode.get("SEC-MUMTN") || defaultFallbackSection;
+    if (lat >= 18.0 && lat <= 19.5 && lng > 73.5 && lng <= 74.8) return sectionsByCode.get("SEC-BCPN") || defaultFallbackSection;
+    if (lat > 19.5 && lat <= 24.5 && lng >= 69.0 && lng <= 73.5) return sectionsByCode.get("SEC-WRML") || defaultFallbackSection;
+    if (lat >= 24.5 && lat <= 29.5 && lng >= 70.0 && lng <= 76.0) return sectionsByCode.get("SEC-RJWNDL") || defaultFallbackSection;
+    if (lat >= 16.0 && lat <= 22.0 && lng >= 80.0 && lng <= 87.5) return sectionsByCode.get("SEC-ECLN") || defaultFallbackSection;
+    if (lat >= 24.0 && lat <= 28.5 && lng >= 88.0 && lng <= 96.0) return sectionsByCode.get("SEC-NEFR") || defaultFallbackSection;
+    if (lat >= 22.0 && lat <= 26.0 && lng >= 83.5 && lng <= 88.5) return sectionsByCode.get("SEC-GRDCH") || defaultFallbackSection;
+    if (lat >= 25.0 && lat <= 28.0 && lng >= 81.5 && lng <= 84.5) return sectionsByCode.get("SEC-UPER") || defaultFallbackSection;
+    if (lat >= 26.5 && lat <= 29.0 && lng >= 78.5 && lng <= 81.5) return sectionsByCode.get("SEC-MBLK") || defaultFallbackSection;
+    if (lat >= 28.5 && lat <= 30.5 && lng >= 76.5 && lng <= 77.8) return sectionsByCode.get("SEC-DLAM") || defaultFallbackSection;
+    if (lat > 30.5 && lng >= 74.0 && lng <= 77.5) return sectionsByCode.get("SEC-DLNORTH") || defaultFallbackSection;
+    if (lat >= 17.0 && lat <= 21.5 && lng >= 77.5 && lng <= 80.0) return sectionsByCode.get("SEC-HYDNGP") || defaultFallbackSection;
+    if (lat >= 20.0 && lat <= 22.5 && lng >= 78.5 && lng <= 84.0) return sectionsByCode.get("SEC-EWCN") || defaultFallbackSection;
+    return defaultFallbackSection;
+  }
 
   const allStations = await prisma.station.findMany();
   const stationByCode = new Map(allStations.map((s) => [s.station_code, s]));
@@ -191,11 +213,12 @@ async function backfillAllTrainData() {
     const name = (info && info.name) || fallbackName || cleanCode;
     const lat = info ? info.lat : (coords ? coords[1] : 20.0);
     const lng = info ? info.lng : (coords ? coords[0] : 78.0);
+    const matchedSection = getSectionForCoord(lat, lng);
 
     try {
       const st = await prisma.station.create({
         data: {
-          section_id: fallbackSection.section_id,
+          section_id: matchedSection.section_id,
           station_code: cleanCode,
           station_name: name,
           latitude: lat,

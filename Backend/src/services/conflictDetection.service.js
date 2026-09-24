@@ -118,30 +118,44 @@ async function detectAndPersist() {
   }
 
   // ── 3. TRAIN vs TRAIN movement conflicts (same block same time) ───────────
-  for (let i = 0; i < movements.length; i++) {
-    for (let j = i + 1; j < movements.length; j++) {
-      const a = movements[i];
-      const b = movements[j];
-      if (String(a.block_id) !== String(b.block_id)) continue;
-      if (!a.scheduled_entry || !a.scheduled_exit || !b.scheduled_entry || !b.scheduled_exit) continue;
-      if (String(a.train_id) === String(b.train_id)) continue;
+  const movementsByBlock = new Map();
+  for (const m of movements) {
+    if (!m.block_id || !m.scheduled_entry || !m.scheduled_exit) continue;
+    const bId = String(m.block_id);
+    if (!movementsByBlock.has(bId)) movementsByBlock.set(bId, []);
+    movementsByBlock.get(bId).push(m);
+  }
 
-      if (!overlaps(a.scheduled_entry, a.scheduled_exit, b.scheduled_entry, b.scheduled_exit)) continue;
+  for (const [bId, blkMoves] of movementsByBlock.entries()) {
+    blkMoves.sort((x, y) => new Date(x.scheduled_entry).getTime() - new Date(y.scheduled_entry).getTime());
+    const seenTrainPairs = new Set();
 
-      const severity = Math.max(
-        severityScore(3, a.train?.priority),
-        severityScore(3, b.train?.priority)
-      );
-      detectedConflicts.push({
-        type: "TRAIN_TRAIN_MOVEMENT",
-        severity: Math.min(severity + 1, 5), // train-train is inherently more dangerous
-        description: `Train ${a.train?.train_number} and Train ${b.train?.train_number} both occupy block ${a.block?.block_code} simultaneously.`,
-        train_id: a.train_id,
-        block: a.block,
-        block_id: a.block_id,
-        movementA: a,
-        movementB: b,
-      });
+    for (let i = 0; i < blkMoves.length; i++) {
+      const a = blkMoves[i];
+      for (let j = i + 1; j < Math.min(blkMoves.length, i + 3); j++) {
+        const b = blkMoves[j];
+        if (String(a.train_id) === String(b.train_id)) continue;
+        if (!overlaps(a.scheduled_entry, a.scheduled_exit, b.scheduled_entry, b.scheduled_exit)) continue;
+
+        const pairKey = [String(a.train_id), String(b.train_id)].sort().join("-") + `-${bId}`;
+        if (seenTrainPairs.has(pairKey)) continue;
+        seenTrainPairs.add(pairKey);
+
+        const severity = Math.max(
+          severityScore(3, a.train?.priority),
+          severityScore(3, b.train?.priority)
+        );
+        detectedConflicts.push({
+          type: "TRAIN_TRAIN_MOVEMENT",
+          severity: Math.min(severity + 1, 5),
+          description: `Train ${a.train?.train_number} and Train ${b.train?.train_number} both occupy block ${a.block?.block_code} simultaneously.`,
+          train_id: a.train_id,
+          block: a.block,
+          block_id: a.block_id,
+          movementA: a,
+          movementB: b,
+        });
+      }
     }
   }
 

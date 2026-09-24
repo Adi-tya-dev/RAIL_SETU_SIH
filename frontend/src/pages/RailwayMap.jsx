@@ -1234,7 +1234,19 @@ export default function RailwayMap() {
   }, [maintenanceLocations, movementBlockIds, routeSectionIds, selectedTrain, routePath, emergencyReroute]);
 
   const overviewMaintenance = useMemo(() => maintenanceLocations.filter((item) => item.point), [maintenanceLocations]);
-  const storedConflicts = useMemo(() => (conflicts || []).filter((item) => normalizeId(item.train_id) === selectedTrainId || normalizeId(item.train?.train_id) === selectedTrainId), [conflicts, selectedTrainId]);
+  const storedConflicts = useMemo(() => {
+    if (!selectedTrain) return [];
+    const tNum = String(selectedTrain.train_number || "").trim();
+    return (conflicts || []).filter((item) => {
+      const byId = normalizeId(item.train_id) === selectedTrainId || normalizeId(item.train?.train_id) === selectedTrainId;
+      const byNum = tNum && (
+        String(item.train?.train_number) === tNum ||
+        (item.description && item.description.includes(tNum))
+      );
+      return byId || byNum;
+    });
+  }, [conflicts, selectedTrain, selectedTrainId]);
+
   const derivedConflicts = useMemo(() => {
     if (!selectedTrain) return [];
     const own = selectedTrain.train_block_movements || [];
@@ -1267,7 +1279,8 @@ export default function RailwayMap() {
     const maintenanceConflicts = relevantMaintenance.flatMap(({ task }) => own.filter((movement) => normalizeId(movement.block_id) === normalizeId(task.block_id) && task.preferred_start && overlaps(movement.scheduled_entry, movement.scheduled_exit, task.preferred_start, new Date(new Date(task.preferred_start).getTime() + Number(task.duration_minutes || 0) * 60000))).map((movement) => ({ conflict_id: `maintenance-${task.maintenance_task_id}-${movement.movement_id}`, conflict_type: "TRAIN_MAINTENANCE", severity: Number(task.criticality) >= 4 ? 4 : 3, description: `${selectedTrain.train_number} overlaps ${task.maintenance_type} on ${movement.block?.block_code || "the same block"}.`, train: selectedTrain, block: movement.block, maintenance_task: task })));
     return [...trainConflictsList, ...maintenanceConflicts];
   }, [networkTrains, relevantMaintenance, selectedTrain, selectedTrainId]);
-  const trainConflicts = [...storedConflicts, ...derivedConflicts];
+
+  const trainConflicts = storedConflicts.length > 0 ? storedConflicts : derivedConflicts;
   const affectedBlocks = (selectedTrain?.train_block_movements || []).filter((movement) => movement.block);
   const routeUnavailableReason = selectedTrain && routeStations.length === 0 ? "No ordered train route records were returned." : selectedTrain && routePoints.length < 2 ? "Route stations exist, but fewer than two stations have coordinates." : null;
   const maintenanceMarkers = selectedTrain ? relevantMaintenance : overviewMaintenance;
