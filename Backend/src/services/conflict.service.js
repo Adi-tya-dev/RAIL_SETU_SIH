@@ -43,41 +43,65 @@ async function findAll(query = {}) {
     };
   }
 
-  const [total, conflicts] = await Promise.all([
-    prisma.blockConflict.count({ where }),
-    prisma.blockConflict.findMany({
+  const includeClause = {
+    train: {
+      include: {
+        origin_station: true,
+        destination_station: true,
+      },
+    },
+    plan: {
+      include: {
+        block: {
+          include: {
+            track: {
+              include: {
+                section: true,
+              },
+            },
+          },
+        },
+        plan_maintenance_tasks: {
+          include: {
+            maintenance_task: true,
+          },
+        },
+      },
+    },
+  };
+
+  const total = await prisma.blockConflict.count({ where });
+
+  let conflicts;
+  if (!conflictType && !trainNumber && !trainId && !blockCode) {
+    // If querying general conflicts, fetch representative non-movement conflicts first
+    // so they are not entirely crowded out by 2400+ train movement collisions.
+    const nonMovementLimit = Math.min(take, 200);
+    const [nonMovement, movement] = await Promise.all([
+      prisma.blockConflict.findMany({
+        where: { ...where, conflict_type: { not: "TRAIN_TRAIN_MOVEMENT" } },
+        orderBy: [{ severity: "desc" }, { created_at: "desc" }],
+        take: nonMovementLimit,
+        include: includeClause,
+      }),
+      prisma.blockConflict.findMany({
+        where: { ...where, conflict_type: "TRAIN_TRAIN_MOVEMENT" },
+        skip,
+        take: Math.max(take - nonMovementLimit, 50),
+        orderBy: [{ severity: "desc" }, { created_at: "desc" }],
+        include: includeClause,
+      }),
+    ]);
+    conflicts = [...nonMovement, ...movement].sort((a, b) => (b.severity || 0) - (a.severity || 0));
+  } else {
+    conflicts = await prisma.blockConflict.findMany({
       where,
       skip,
       take,
       orderBy: [{ severity: "desc" }, { created_at: "desc" }],
-      include: {
-        train: {
-          include: {
-            origin_station: true,
-            destination_station: true,
-          },
-        },
-        plan: {
-          include: {
-            block: {
-              include: {
-                track: {
-                  include: {
-                    section: true,
-                  },
-                },
-              },
-            },
-            plan_maintenance_tasks: {
-              include: {
-                maintenance_task: true,
-              },
-            },
-          },
-        },
-      },
-    }),
-  ]);
+      include: includeClause,
+    });
+  }
 
   const formatted = conflicts.map((c) => {
     const maintTask = c.plan?.plan_maintenance_tasks?.[0]?.maintenance_task || null;

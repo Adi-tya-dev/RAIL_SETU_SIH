@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Blocks, CalendarX2, Clock3, TrainFront, Wrench } from "lucide-react";
-import { listConflicts } from "../api/conflicts.api";
+import { AlertTriangle, Blocks, CalendarX2, Clock3, Filter, MapPin, RefreshCw, Search, TrainFront, Wrench, X, Zap } from "lucide-react";
+import { listConflicts, detectConflicts } from "../api/conflicts.api";
 import { useApi } from "../hooks/useApi";
 import { useRoute, navigate } from "../hooks/useRoute";
 import PageHeader from "../components/common/PageHeader";
@@ -134,11 +134,17 @@ export default function Conflicts() {
         } else {
           params.limit = 1000;
         }
+        if (typeFilter && typeFilter !== "ALL") {
+          params.conflict_type = typeFilter;
+        }
+        if (severityFilter && severityFilter !== "ALL") {
+          params.severity = severityFilter;
+        }
         const result = await listConflicts(params);
         const conflicts = [...(result.data || [])].sort((a, b) => (b.severity || 0) - (a.severity || 0));
         return { planCount: result.planCount, conflicts, pagination: result.pagination };
       }),
-    [run, filterMode, targetTrainNumber, targetTrainId, targetBlock]
+    [run, filterMode, targetTrainNumber, targetTrainId, targetBlock, typeFilter, severityFilter]
   );
 
   useEffect(() => {
