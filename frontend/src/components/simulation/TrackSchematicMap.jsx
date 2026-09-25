@@ -26,7 +26,6 @@ export default function TrackSchematicMap({ train, activeStrategy, emergencyEven
       strategy: activeStrategy.id,
       strategyName: activeStrategy.name,
       bypassed: (activeStrategy.stops_bypassed || []).join(","),
-      served: (activeStrategy.stops_served || []).join(","),
     });
     navigate(`/map?${params.toString()}`);
   }

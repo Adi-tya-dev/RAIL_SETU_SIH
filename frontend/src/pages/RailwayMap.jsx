@@ -1236,10 +1236,10 @@ export default function RailwayMap() {
   const overviewMaintenance = useMemo(() => maintenanceLocations.filter((item) => item.point), [maintenanceLocations]);
   const serverTrainConflicts = trainConflictsQuery.data?.data || [];
   const storedConflicts = useMemo(() => {
-    if (serverTrainConflicts.length > 0) return serverTrainConflicts;
     if (!selectedTrain) return [];
     const tNum = String(selectedTrain.train_number || "").trim();
-    return (conflicts || []).filter((item) => {
+    const source = serverTrainConflicts.length > 0 ? serverTrainConflicts : (conflicts || []);
+    return source.filter((item) => {
       const byId = normalizeId(item.train_id) === selectedTrainId || normalizeId(item.train?.train_id) === selectedTrainId;
       const byNum = tNum && (
         String(item.train?.train_number) === tNum ||
@@ -1399,13 +1399,6 @@ export default function RailwayMap() {
     return corridorPath(offset);
   }, [emergencyReroute, routePoints]);
 
-  const rerouteChordPath = useMemo(() => {
-    if (!emergencyReroute || routePoints.length < 2 || emergencyReroute.strategy !== "CHORD_BYPASS") return [];
-    const start = routePoints[0];
-    const end = routePoints[routePoints.length - 1];
-    return arcPath(start, end, 0.28);
-  }, [emergencyReroute, routePoints]);
-
   const blockedLocation = useMemo(() => {
     if (!emergencyReroute) return null;
     const taskOnBlock = maintenanceLocations.find((m) =>
@@ -1422,6 +1415,68 @@ export default function RailwayMap() {
     }
     return rawPoint || null;
   }, [emergencyReroute, maintenanceLocations, routePoints, routePath]);
+
+  const rerouteChordPath = useMemo(() => {
+    if (!emergencyReroute || routePoints.length < 2 || emergencyReroute.strategy !== "CHORD_BYPASS") return [];
+    
+    const validStations = routeStations.filter(r => {
+      const lat = r.station?.latitude;
+      const lng = r.station?.longitude;
+      return lat != null && lng != null && !isNaN(lat) && !isNaN(lng);
+    });
+
+    let firstBypassedIdx = -1;
+    let lastBypassedIdx = -1;
+    for (let i = 0; i < validStations.length; i++) {
+      if (emergencyReroute.bypassed.has(validStations[i].station?.station_code)) {
+        if (firstBypassedIdx === -1) firstBypassedIdx = i;
+        lastBypassedIdx = i;
+      }
+    }
+
+    let divergeIdx = -1;
+    let rejoinIdx = -1;
+
+    const offset = Math.max(3, Math.floor(routePoints.length / 10));
+
+    if (firstBypassedIdx !== -1) {
+      divergeIdx = Math.max(0, firstBypassedIdx - offset);
+      rejoinIdx = Math.min(validStations.length - 1, lastBypassedIdx + offset);
+    } else if (blockedLocation) {
+      // Find the closest route point to the blocked location
+      let minDst = Infinity;
+      let closestIdx = -1;
+      for (let i = 0; i < routePoints.length; i++) {
+        const p = routePoints[i];
+        const dst = Math.pow(p[0] - blockedLocation[0], 2) + Math.pow(p[1] - blockedLocation[1], 2);
+        if (dst < minDst) {
+          minDst = dst;
+          closestIdx = i;
+        }
+      }
+      if (closestIdx !== -1) {
+        divergeIdx = Math.max(0, closestIdx - offset);
+        rejoinIdx = Math.min(routePoints.length - 1, closestIdx + offset);
+      }
+    }
+
+    if (divergeIdx !== -1 && rejoinIdx !== -1 && divergeIdx !== rejoinIdx) {
+      const path = [];
+      for (let i = 0; i <= divergeIdx; i++) {
+        path.push(routePoints[i]);
+      }
+      const arc = arcPath(routePoints[divergeIdx], routePoints[rejoinIdx], 0.15);
+      path.push(...arc);
+      for (let i = rejoinIdx; i < routePoints.length; i++) {
+        path.push(routePoints[i]);
+      }
+      return path;
+    }
+
+    const start = routePoints[0];
+    const end = routePoints[routePoints.length - 1];
+    return arcPath(start, end, 0.28);
+  }, [emergencyReroute, routePoints, routeStations, blockedLocation]);
 
   function selectStation(route, focusMap = true) {
     setStation(route);
@@ -1838,7 +1893,7 @@ export default function RailwayMap() {
               const code = route.station?.station_code;
               let role = index === 0 ? "source" : index === arr.length - 1 ? "destination" : "intermediate";
               const isBypassed = emergencyReroute?.bypassed?.has(code);
-              const isServed = emergencyReroute?.served?.has(code);
+              const isServed = emergencyReroute ? (emergencyReroute.served?.size > 0 ? emergencyReroute.served.has(code) : !isBypassed) : false;
               if (isBypassed) role = "bypassed";
               else if (isServed) role = "served";
 
@@ -2048,17 +2103,6 @@ export default function RailwayMap() {
                 </div>
               </div>
             )
-          )}
-          {showNetworkOverview && (
-            <div className="railway-map-canvas-empty" role="status" aria-label="India Network Overview">
-              <div className="railway-map-canvas-empty__icon">
-                <TrainFront size={28} />
-              </div>
-              <strong>INDIA NETWORK OVERVIEW</strong>
-              <span>
-                {networkRoutes.length || 42} connected corridors · {overviewMaintenance.length || 100} mapped maintenance locations
-              </span>
-            </div>
           )}
           <NetworkStatusHud
             trains={hudTrains}

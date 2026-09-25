@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Blocks, CalendarX2, Clock3, TrainFront, Wrench } from "lucide-react";
-import { listConflicts } from "../api/conflicts.api";
+
+import { AlertTriangle, Blocks, CalendarX2, Clock3, TrainFront, Wrench, Zap, RefreshCw, MapPin, X, Search } from "lucide-react";
+import { listConflicts, detectConflicts } from "../api/conflicts.api";
+
 import { useApi } from "../hooks/useApi";
 import { useRoute, navigate } from "../hooks/useRoute";
 import PageHeader from "../components/common/PageHeader";
@@ -558,7 +560,7 @@ export default function Conflicts() {
               ariaLabel="Detected conflicts"
               rowKey={(r, i) => String(r.conflict_id ?? i)}
               onRowClick={setSelected}
-              rowClassName={(r) => (isConflictTargeted(r) ? "row-highlighted" : "")}
+              rowClassName={(r) => ( (selected && String(r.conflict_id) === String(selected.conflict_id)) || isConflictTargeted(r) ? "row-highlighted" : "" )}
             />
 
             <Pagination

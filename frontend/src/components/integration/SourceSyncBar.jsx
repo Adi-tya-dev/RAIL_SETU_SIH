@@ -48,19 +48,6 @@ export default function SourceSyncBar({ onSynced }) {
     <Card
       title="Source Data Integration"
       subtitle="Railway source systems connected through adapters and simulators"
-      actions={
-        <Button
-          variant="primary"
-          size="sm"
-          icon={RefreshCcw}
-          loading={syncing}
-          loadingText="Syncing…"
-          onClick={handleSync}
-          disabled={syncing}
-        >
-          {syncing ? "Syncing…" : "Run Sync"}
-        </Button>
-      }
     >
       <div className="pill-list" style={{ alignItems: "center" }}>
         {SOURCE_NAMES.map((code) => (
