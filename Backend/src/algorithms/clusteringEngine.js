@@ -351,8 +351,9 @@ function generateWorkPackages(tasks, maxDistanceKm = DEFAULT_MAX_DISTANCE_KM) {
 
     const hasEmergency = cluster.some((t) =>
       String(t.urgency) === "4" ||
-      String(t.category || "").toUpperCase() === "DEFECT" ||
-      String(t.maintenance_type || "").includes("EMERGENCY")
+      String(t.category || "").toUpperCase() === "EMERGENCY" ||
+      String(t.maintenance_type || "").toUpperCase().includes("EMERGENCY") ||
+      String(t.description || "").toUpperCase().includes("EMERGENCY")
     );
 
     const priorityScore = clusterPriorityScore(cluster);

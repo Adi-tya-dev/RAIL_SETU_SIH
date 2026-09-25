@@ -162,7 +162,7 @@ async function fetchMaintenanceTasks() {
           preferred_start: t.preferred_start,
           deadline: t.deadline,
           status: t.status,
-          category: t.maintenance_type ? "DEFECT" : "ROUTINE",
+          category: t.category || (String(t.urgency) === "4" ? "DEFECT" : "ROUTINE"),
         };
       });
     }
@@ -324,7 +324,8 @@ async function runBlockPlanningPipeline({ maxDistanceKm = 2.0 } = {}) {
     data_summary: {
       raw_tasks_fetched: rawTasks.length,
       coa_windows_available: coaWindows.length,
-      work_packages_generated: workPackages.length,
+      work_packages_generated: schedule.length,
+      initial_clusters_generated: workPackages.length,
     },
     ml_scoring_summary: {
       model: "Weighted MCDM (Multi-Criteria Decision Model)",

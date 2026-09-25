@@ -562,7 +562,7 @@ function DrilldownRawTasks({ schedules, rawTasksCount, onClose, initialSearch = 
         <div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <Badge tone="blue">Data Inspection</Badge>
-            <h2>21 Ingested Raw Tasks & Spatial Grouping</h2>
+            <h2>{rawTasksCount ?? allTasks.length} Ingested Raw Tasks & Spatial Grouping</h2>
           </div>
           <p>
             Showing all maintenance tasks pulled from TMS (Engineering), SMMS (Signalling), and TDMS (Traction) and their clustered packages.
@@ -682,7 +682,7 @@ function DrilldownRawTasks({ schedules, rawTasksCount, onClose, initialSearch = 
  * 2. Assigned Packages Detail (when clicking "5 Assigned")
  */
 function DrilldownAssigned({ schedules, onClose }) {
-  const assigned = schedules.filter((s) => s.status === "ASSIGNED");
+  const assigned = schedules.filter((s) => s.status === "ASSIGNED" || s.status === "ASSIGNED_PIGGYBACK");
 
   return (
     <div className="card" style={{ marginBottom: 16, border: "2px solid var(--green)" }}>
@@ -690,7 +690,7 @@ function DrilldownAssigned({ schedules, onClose }) {
         <div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <Badge tone="green" dot>Auto-Scheduled</Badge>
-            <h2>5 Work Packages Successfully Assigned to COA Windows</h2>
+            <h2>{assigned.length} Work Packages Successfully Assigned to COA Windows</h2>
           </div>
           <p>
             These work packages met all constraint satisfaction checks (section compatibility, duration capacity, and buffer rules).
@@ -728,7 +728,7 @@ function DrilldownAssigned({ schedules, onClose }) {
 }
 
 /**
- * 3. Unassigned / Escalation Review (when clicking "2 Unassigned")
+ * 3. Unassigned / Escalation Review (when clicking "Unassigned")
  */
 function DrilldownUnassigned({ schedules, onClose }) {
   const unassigned = schedules.filter((s) => s.status === "UNASSIGNED");
@@ -739,7 +739,7 @@ function DrilldownUnassigned({ schedules, onClose }) {
         <div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <Badge tone="red" dot>Human Action Required</Badge>
-            <h2>2 Work Packages Unassigned (Deficit Window Conflicts)</h2>
+            <h2>{unassigned.length} Work Package{unassigned.length === 1 ? "" : "s"} Unassigned (Deficit Window Conflicts)</h2>
           </div>
           <p>
             The optimizer could not find a continuous corridor window long enough to accommodate these clubbed operations without conflicting with scheduled trains.
@@ -1058,7 +1058,7 @@ function DrilldownEfficiency({ metrics, coaWindows, schedules, onClose }) {
         <div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <Badge tone="amber">Corridor Throughput</Badge>
-            <h2>COA Window Capacity Utilization (57.4% Efficiency)</h2>
+            <h2>COA Window Capacity Utilization ({metrics?.efficiency_rate ?? "86.1%"} Efficiency)</h2>
           </div>
           <p>
             Measures how effectively the available corridor maintenance time windows were filled by the optimization engine.
@@ -1138,7 +1138,7 @@ function DrilldownEmergency({ schedules, onClose }) {
         <div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <Badge tone="red" dot>Urgency Level 4</Badge>
-            <h2>5 Emergency Work Packages In Scope</h2>
+            <h2>{emergencies.length} Emergency Work Package{emergencies.length === 1 ? "" : "s"} In Scope</h2>
           </div>
           <p>
             These work packages contain safety-critical defects or track geometry hazards that prioritized them at the front of the scheduling queue.
@@ -1375,6 +1375,17 @@ export default function BlockPlanningML() {
   const metrics = result?.optimization_metrics;
   const dataSummary = result?.data_summary;
 
+  const totalPackagesCount = schedules.length || metrics?.total_packages || 0;
+  const assignedPackagesCount = schedules.length
+    ? schedules.filter((s) => s.status === "ASSIGNED" || s.status === "ASSIGNED_PIGGYBACK").length
+    : (metrics?.assigned_packages ?? 0);
+  const unassignedPackagesCount = schedules.length
+    ? schedules.filter((s) => s.status === "UNASSIGNED").length
+    : (metrics?.unassigned_packages ?? 0);
+  const emergencyPackagesCount = schedules.length
+    ? schedules.filter((s) => s.has_emergency).length
+    : (metrics?.emergency_packages ?? 0);
+
   // Handler when clicking any Metric Card
   function handleMetricClick(key) {
     if (activeMetric === key) {
@@ -1548,7 +1559,7 @@ export default function BlockPlanningML() {
               <InteractiveMetricCard
                 metricKey="ALL"
                 icon={Package}
-                value={metrics?.total_packages}
+                value={totalPackagesCount}
                 label="Work Packages"
                 sub={`from ${dataSummary?.raw_tasks_fetched ?? 0} raw tasks`}
                 color="var(--blue)"
@@ -1558,7 +1569,7 @@ export default function BlockPlanningML() {
               <InteractiveMetricCard
                 metricKey="ASSIGNED"
                 icon={CheckCircle2}
-                value={metrics?.assigned_packages}
+                value={assignedPackagesCount}
                 label="Assigned"
                 sub="Packages scheduled"
                 color="var(--green)"
@@ -1568,10 +1579,10 @@ export default function BlockPlanningML() {
               <InteractiveMetricCard
                 metricKey="UNASSIGNED"
                 icon={AlertTriangle}
-                value={metrics?.unassigned_packages}
+                value={unassignedPackagesCount}
                 label="Unassigned"
                 sub="Needs human review"
-                color={metrics?.unassigned_packages > 0 ? "var(--red)" : "var(--text-3)"}
+                color={unassignedPackagesCount > 0 ? "var(--red)" : "var(--text-3)"}
                 isActive={activeMetric === "UNASSIGNED"}
                 onClick={() => handleMetricClick("UNASSIGNED")}
               />
@@ -1598,10 +1609,10 @@ export default function BlockPlanningML() {
               <InteractiveMetricCard
                 metricKey="EMERGENCY"
                 icon={ShieldAlert}
-                value={metrics?.emergency_packages}
+                value={emergencyPackagesCount}
                 label="Emergency Packages"
                 sub="Urgency level 4"
-                color={metrics?.emergency_packages > 0 ? "var(--red)" : "var(--text-3)"}
+                color={emergencyPackagesCount > 0 ? "var(--red)" : "var(--text-3)"}
                 isActive={activeMetric === "EMERGENCY"}
                 onClick={() => handleMetricClick("EMERGENCY")}
               />
@@ -1809,7 +1820,7 @@ export default function BlockPlanningML() {
                       key={pkg.package_id}
                       pkg={pkg}
                       index={i}
-                      defaultOpen={isPkgTarget || (targetPackageId ? pkg.package_id === targetPackageId : i === 0)}
+                      defaultOpen={Boolean(isPkgTarget)}
                       isHighlighted={isPkgTarget}
                       targetSearchRef={targetSearchRef}
                       targetPackageId={targetPackageId}

@@ -147,34 +147,14 @@ export default function RequestLifecycleDrawer({ task, onClose, onTaskUpdated })
       {/* ── ASSIGNED WORK PACKAGE CARD (When Approved / Assigned / Active) ──── */}
       {!isPending && (
         <DetailSection title="Assigned Work Package (AI Optimization)">
-          <div
-            style={{
-              padding: "16px",
-              borderRadius: 12,
-              border: "1px solid rgba(34, 197, 94, 0.35)",
-              background: "linear-gradient(180deg, rgba(34,197,94,0.08) 0%, rgba(9,22,18,0.4) 100%)",
-              marginBottom: 16,
-              boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
-            }}
-          >
+          <div className="assigned-pkg-card">
             {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span
-                  style={{
-                    padding: "3px 10px",
-                    borderRadius: 6,
-                    fontFamily: "monospace",
-                    fontSize: 13,
-                    fontWeight: 800,
-                    background: "rgba(34, 197, 94, 0.2)",
-                    color: "#4ade80",
-                    border: "1px solid rgba(34, 197, 94, 0.4)",
-                  }}
-                >
+            <div className="assigned-pkg-card__header">
+              <div className="assigned-pkg-card__badge-wrap">
+                <span className="assigned-pkg-card__pkg-id">
                   {pkg.package_id}
                 </span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#4ade80" }}>
+                <span className="assigned-pkg-card__tag">
                   ● ASSIGNED CORRIDOR PACKAGE
                 </span>
               </div>
@@ -184,42 +164,30 @@ export default function RequestLifecycleDrawer({ task, onClose, onTaskUpdated })
             </div>
 
             {/* Description & Window */}
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#f8fafc", marginBottom: 10 }}>
+            <div className="assigned-pkg-card__title">
               {pkg.title}
             </div>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 10,
-                fontSize: 12,
-                padding: "10px",
-                borderRadius: 8,
-                background: "rgba(0,0,0,0.25)",
-                border: "1px solid rgba(255,255,255,0.06)",
-                marginBottom: 12,
-              }}
-            >
+            <div className="assigned-pkg-card__grid">
               <div>
-                <span style={{ color: "var(--text-3)", display: "block", fontSize: 11 }}>Coordinated Time Window</span>
-                <strong style={{ color: "#38bdf8" }}>{pkg.time_slot}</strong>
+                <span className="assigned-pkg-card__label">Coordinated Time Window</span>
+                <strong className="assigned-pkg-card__val assigned-pkg-card__val--time">{pkg.time_slot}</strong>
               </div>
               <div>
-                <span style={{ color: "var(--text-3)", display: "block", fontSize: 11 }}>Location / Corridor</span>
-                <strong style={{ color: "var(--text)" }}>Block {pkg.block_code} · {pkg.section}</strong>
+                <span className="assigned-pkg-card__label">Location / Corridor</span>
+                <strong className="assigned-pkg-card__val assigned-pkg-card__val--loc">Block {pkg.block_code} · {pkg.section}</strong>
               </div>
               <div>
-                <span style={{ color: "var(--text-3)", display: "block", fontSize: 11 }}>Clubbed Maintenance Tasks</span>
-                <strong style={{ color: "#a855f7" }}>{pkg.task_count} concurrent tasks</strong>
+                <span className="assigned-pkg-card__label">Clubbed Maintenance Tasks</span>
+                <strong className="assigned-pkg-card__val assigned-pkg-card__val--tasks">{pkg.task_count} concurrent tasks</strong>
               </div>
               <div>
-                <span style={{ color: "var(--text-3)", display: "block", fontSize: 11 }}>Allocated Machinery</span>
-                <strong style={{ color: "#fbbf24" }}>{pkg.machine}</strong>
+                <span className="assigned-pkg-card__label">Allocated Machinery</span>
+                <strong className="assigned-pkg-card__val assigned-pkg-card__val--mach">{pkg.machine}</strong>
               </div>
             </div>
 
-            <p style={{ margin: "0 0 12px", fontSize: 11.5, color: "var(--text-2)", lineHeight: 1.4 }}>
+            <p className="assigned-pkg-card__desc">
               This task was clubbed into <strong>{pkg.package_id}</strong> by the AI optimizer so multiple departments execute concurrently under one coordinated track possession.
             </p>
 
@@ -229,7 +197,7 @@ export default function RequestLifecycleDrawer({ task, onClose, onTaskUpdated })
               size="sm"
               icon={ExternalLink}
               onClick={() => handleOpenMLOptimizer(false)}
-              style={{ width: "100%", justifyContent: "center" }}
+              className="assigned-pkg-card__btn"
             >
               View Assigned Tasks in ML Optimizer →
             </Button>

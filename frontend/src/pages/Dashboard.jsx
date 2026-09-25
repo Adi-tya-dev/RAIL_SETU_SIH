@@ -231,16 +231,20 @@ export default function Dashboard() {
                 {operations.map((op, idx) => (
                   <tr key={idx}>
                     <td className="ops-time-cell">
-                      <span className="ops-time-dot" />
-                      <span>{op.time}</span>
+                      <div className="ops-time-wrap">
+                        <span className="ops-time-dot" />
+                        <span>{op.time}</span>
+                      </div>
                     </td>
                     <td className="ops-operation-cell">
-                      <span className="ops-train-name">{op.operation}</span>
-                      {op.type && (
-                        <span className="ops-type-badge">
-                          {op.type}
-                        </span>
-                      )}
+                      <div className="ops-operation-wrap">
+                        <span className="ops-train-name">{op.operation}</span>
+                        {op.type && (
+                          <span className="ops-type-badge">
+                            {op.type}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="ops-block-cell">
                       <span className="ops-block-badge">{op.block}</span>
