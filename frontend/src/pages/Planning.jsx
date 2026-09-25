@@ -346,7 +346,11 @@ export default function Planning() {
         )}
       </div>
 
-      <ScheduleDetail planId={selectedPlanId} onClose={() => setSelectedPlanId(null)} />
+      <ScheduleDetail
+        planId={selectedPlanId}
+        planData={result}
+        onClose={() => setSelectedPlanId(null)}
+      />
     </>
   );
 }
