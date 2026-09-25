@@ -5074,10 +5074,25 @@ body.theme-white .railway-map-hud__metric span {
 [data-theme="white"] .railway-map-hud__btn,
 body.theme-white .railway-map-hud__btn,
 [data-theme="white"] .railway-map-legend__btn,
-body.theme-white .railway-map-legend__btn {
+body.theme-white .railway-map-legend__btn,
+[data-theme="white"] .source-sync-toggle-btn,
+body.theme-white .source-sync-toggle-btn {
   background: #f1f5f9;
   border-color: #cbd5e1;
   color: #475569;
+}
+
+.source-sync-toggle-btn:hover {
+  background: rgba(56, 189, 248, 0.16);
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+[data-theme="white"] .source-sync-toggle-btn:hover,
+body.theme-white .source-sync-toggle-btn:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+  color: #0f172a;
 }
 
 [data-theme="white"] .railway-map-legend strong,
