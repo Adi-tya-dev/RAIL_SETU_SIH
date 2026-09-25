@@ -6,6 +6,8 @@ import { useToast } from "../../contexts/ToastContext";
 import { SOURCE_NAMES, SOURCE_LABEL, SOURCE_TONE, statusTone } from "../../utils/constants";
 import { formatDateTime } from "../../utils/formatters";
 import Badge from "../common/Badge";
+import Card from "../common/Card";
+import Button from "../common/Button";
 
 export default function SourceSyncBar({ onSynced, defaultMinimized = false }) {
   const toast = useToast();
@@ -271,7 +273,6 @@ export default function SourceSyncBar({ onSynced, defaultMinimized = false }) {
             </button>
           )}
         </div>
-      </div>
-    </div>
+    </Card>
   );
 }
