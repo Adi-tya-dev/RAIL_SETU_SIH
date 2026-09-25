@@ -3229,8 +3229,13 @@ path.leaflet-interactive:focus-visible {
 
 .list-toolbar { display: flex; justify-content: flex-end; align-items: center; gap: 8px; padding: 10px var(--s4) 0; }
 
-.plan-form__note { padding: 0 var(--s6) var(--s4); font-size: 11px; color: var(--text-4); }
-.plan-form__actions { padding-top: 28px; }
+.plan-form__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+  padding-top: 0;
+}
 
 .type-cell { display: inline-flex; align-items: center; gap: 7px; }
 .type-cell svg { color: var(--text-4); flex-shrink: 0; }

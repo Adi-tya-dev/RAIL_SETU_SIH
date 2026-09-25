@@ -184,8 +184,25 @@ export default function Planning() {
                 required
               />
             </div>
-            <div className="field plan-form__actions" style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
-              <Button type="submit" variant="primary" size="xl" loading={generating} loadingText="Generating...">
+            <div
+              className="field plan-form__actions"
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+                flexWrap: "nowrap",
+                paddingTop: 0,
+              }}
+            >
+              <Button
+                type="submit"
+                variant="primary"
+                size="xl"
+                loading={generating}
+                loadingText="Generating..."
+                style={{ whiteSpace: "nowrap" }}
+              >
                 <Zap size={16} />
                 GENERATE OPTIMIZED PLAN
               </Button>
@@ -196,6 +213,7 @@ export default function Planning() {
                   size="xl"
                   onClick={handleReset}
                   title="Clear cached plan and start fresh"
+                  style={{ whiteSpace: "nowrap" }}
                 >
                   <RotateCcw size={16} />
                   Reset / Clear Plan
