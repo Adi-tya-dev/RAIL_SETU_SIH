@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useState } from "react";
-import { listMaintenance } from "../api/maintenance.api";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Calendar } from "lucide-react";
+import { listMaintenance, getMaintenance } from "../api/maintenance.api";
 import { useApiQuery } from "../hooks/useApi";
 import { useReferenceData } from "../hooks/useReferenceData";
 import {
@@ -18,6 +19,7 @@ import Pagination from "../components/common/Pagination";
 import StateBlock from "../components/common/StateBlock";
 
 const EMPTY_FILTERS = {
+  day: "",
   department: "",
   status: "",
   priority: "",
@@ -25,6 +27,33 @@ const EMPTY_FILTERS = {
   blockId: "",
   sectionId: "",
 };
+
+function matchTaskDay(task, dayFilter) {
+  if (!dayFilter || dayFilter === "all") return true;
+  const dLower = String(dayFilter).toLowerCase();
+  const taskStart = task.preferred_start || task.requested_at || task.created_at;
+  const taskDateStr = taskStart ? new Date(taskStart).toISOString().slice(0, 10) : "";
+
+  if (dLower === "today") {
+    const realToday = new Date().toISOString().slice(0, 10);
+    return taskDateStr === "2026-09-15" || taskDateStr === realToday;
+  }
+  if (dLower === "tomorrow") {
+    const realTomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    return taskDateStr === "2026-09-16" || taskDateStr === "2026-09-19" || taskDateStr === realTomorrow;
+  }
+  if (dLower === "week") {
+    return taskDateStr >= "2026-09-15" && taskDateStr <= "2026-09-22";
+  }
+  if (dLower === "overdue") {
+    if (task.status === "COMPLETED") return false;
+    return task.deadline && new Date(task.deadline) < new Date("2026-09-16T00:00:00Z");
+  }
+  if (dLower.includes("-")) {
+    return taskDateStr === dLower;
+  }
+  return true;
+}
 
 export default function Maintenance() {
   const { blocks, sections } = useReferenceData();
@@ -34,10 +63,43 @@ export default function Maintenance() {
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [selected, setSelected] = useState(null);
 
+  // Auto-open task if ?taskId=... or ?id=... is present in URL, and handle ?day=... or ?date=...
+  useEffect(() => {
+    function parseParams() {
+      const raw = window.location.hash.includes("?")
+        ? window.location.hash.split("?")[1]
+        : window.location.search.replace(/^\?/, "");
+      const qParams = new URLSearchParams(raw);
+      const taskId = qParams.get("taskId") || qParams.get("id");
+      if (taskId) {
+        getMaintenance(taskId).then((res) => {
+          if (res?.data) setSelected(res.data);
+        }).catch(() => {});
+      }
+      const dayParam = qParams.get("day") || qParams.get("date");
+      if (dayParam) {
+        setFilters((f) => ({ ...f, day: dayParam.toLowerCase() }));
+      }
+      const deptParam = qParams.get("department") || qParams.get("dept");
+      if (deptParam) {
+        setFilters((f) => ({ ...f, department: deptParam.toUpperCase() }));
+      }
+      const statusParam = qParams.get("status");
+      if (statusParam) {
+        setFilters((f) => ({ ...f, status: statusParam.toUpperCase() }));
+      }
+    }
+
+    parseParams();
+    window.addEventListener("hashchange", parseParams);
+    return () => window.removeEventListener("hashchange", parseParams);
+  }, []);
+
   const params = useMemo(
     () => ({
       page,
       limit: pageSize,
+      day: filters.day || undefined,
       department: filters.department || undefined,
       status: filters.status || undefined,
       priority: filters.priority || undefined,
@@ -57,6 +119,7 @@ export default function Maintenance() {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
       if (filters.criticality && String(r.criticality) !== filters.criticality) return false;
+      if (!matchTaskDay(r, filters.day)) return false;
       if (!q) return true;
       const haystack = [
         r.maintenance_task_id,
@@ -70,7 +133,7 @@ export default function Maintenance() {
         .toLowerCase();
       return haystack.includes(q);
     });
-  }, [rows, search, filters.criticality]);
+  }, [rows, search, filters.criticality, filters.day]);
 
   function setFilter(key, value) {
     setFilters((f) => ({ ...f, [key]: value }));
@@ -99,10 +162,57 @@ export default function Maintenance() {
       />
 
       <section className="card">
+        {/* Quick Day Selector Pills */}
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            padding: "14px 16px 10px",
+            borderBottom: "1px solid var(--border)",
+            flexWrap: "wrap",
+            alignItems: "center",
+          }}
+        >
+          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-3)", display: "flex", alignItems: "center", gap: 5 }}>
+            <Calendar size={13} color="var(--accent)" /> Day:
+          </span>
+          {[
+            { id: "", label: "All Days" },
+            { id: "today", label: "Today (15 Sep)", highlight: true },
+            { id: "tomorrow", label: "Tomorrow / Next Shifts" },
+            { id: "week", label: "Next 7 Days" },
+            { id: "overdue", label: "Past / Overdue" },
+          ].map((pill) => {
+            const isActive = filters.day === pill.id;
+            return (
+              <button
+                key={pill.id}
+                type="button"
+                className={`btn btn--xs ${isActive ? "btn--primary" : "btn--secondary"}`}
+                style={{
+                  borderRadius: 16,
+                  padding: "3px 12px",
+                  fontSize: 11,
+                  fontWeight: isActive ? 700 : 500,
+                  border: isActive ? undefined : (pill.highlight ? "1px solid var(--amber)" : undefined),
+                  color: !isActive && pill.highlight ? "var(--amber)" : undefined,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+                onClick={() => setFilter("day", pill.id)}
+              >
+                {pill.highlight && <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--amber)", display: "inline-block" }} />}
+                {pill.label}
+              </button>
+            );
+          })}
+        </div>
+
         <Filters
           tip={
             filters.criticality
-              ? "Note: the backend supports department, status, priority, block and section filters. Criticality is applied to the loaded page."
+              ? "Note: the backend supports day, department, status, priority, block and section filters. Criticality is applied to the loaded page."
               : "Search and criticality are applied to the currently loaded page; other filters update the API request."
           }
         >
@@ -115,6 +225,26 @@ export default function Maintenance() {
               onChange={(e) => setSearch(e.target.value)}
               aria-label="Search maintenance tasks"
             />
+          </FilterField>
+
+          <FilterField label="Day">
+            <select
+              className="select"
+              value={filters.day}
+              onChange={(e) => setFilter("day", e.target.value)}
+              aria-label="Filter by day"
+            >
+              <option value="">All</option>
+              <option value="today">Today</option>
+              <option value="tomorrow">Tomorrow</option>
+              <option value="week">Next 7 Days</option>
+              <option value="overdue">Past / Overdue</option>
+              <option value="2026-09-15">15 Sep 2026 (Today)</option>
+              <option value="2026-09-19">19 Sep 2026</option>
+              <option value="2026-09-20">20 Sep 2026</option>
+              <option value="2026-09-21">21 Sep 2026</option>
+              <option value="2026-09-22">22 Sep 2026</option>
+            </select>
           </FilterField>
 
           <FilterField label="Department">

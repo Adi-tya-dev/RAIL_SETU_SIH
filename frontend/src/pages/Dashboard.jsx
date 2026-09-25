@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import {
   Radio, Clock, Navigation, Wrench, Map, Train,
   Grid3x3, CalendarCog, ClipboardList, RefreshCw,
-  Info, X, ArrowRight, ShieldCheck, CheckCircle2
+  Info, X, ArrowRight, ArrowUpRight, ShieldCheck, CheckCircle2
 } from "lucide-react";
 import { getSummary } from "../api/dashboard.api";
 import { listTrains } from "../api/trains.api";
@@ -11,6 +11,8 @@ import { useApiQuery } from "../hooks/useApi";
 import { navigate } from "../hooks/useRoute";
 import PageHeader from "../components/common/PageHeader";
 import Button from "../components/common/Button";
+import MaintenanceDrawer from "../components/maintenance/MaintenanceDrawer";
+import { formatTime, humanize } from "../utils/formatters";
 
 // Default operational timeline records matching official railway operations
 const DEFAULT_OPERATIONS = [
@@ -23,14 +25,32 @@ const DEFAULT_OPERATIONS = [
   { time: "11:19 - 11:35", operation: "12301 Howrah Rajdhani Express", type: "RAJDHANI", block: "Block B002", status: "SCHEDULED" },
 ];
 
-// Scheduled maintenance activities
+function formatTaskTimeRange(task, fallback) {
+  if (task?.preferred_start) {
+    const s = formatTime(task.preferred_start);
+    if (task.deadline) {
+      const e = formatTime(task.deadline);
+      return `${s} - ${e}`;
+    }
+    if (task.duration_minutes) {
+      const startMs = new Date(task.preferred_start).getTime();
+      const endMs = new Date(startMs + Number(task.duration_minutes) * 60000);
+      const e = formatTime(endMs);
+      return `${s} - ${e}`;
+    }
+    return s;
+  }
+  return fallback || "08:00 - 10:00";
+}
+
+// Scheduled maintenance activities with database linking defaults
 const DEFAULT_MAINTENANCE = [
-  { timeRange: "06:00 - 09:00", block: "Block B004", task: "Routine Track Inspection", department: "Engineering" },
-  { timeRange: "06:30 - 08:30", block: "Block B004", task: "OHE Annual Inspection", department: "Traction" },
-  { timeRange: "10:00 - 12:00", block: "Block B001", task: "Track Realignment", department: "Engineering" },
-  { timeRange: "10:00 - 11:00", block: "Block B001", task: "Signal Calibration", department: "Signal" },
-  { timeRange: "13:00 - 15:30", block: "Block B003", task: "Deep Ballast Screening (BCM)", department: "Engineering" },
-  { timeRange: "16:00 - 17:30", block: "Block B006", task: "Point Machine Lubrication", department: "Signal" },
+  { maintenance_task_id: "1", timeRange: "06:00 - 09:00", block: "Block B001", task: "Track Realignment", department: "Engineering", status: "PENDING" },
+  { maintenance_task_id: "2", timeRange: "06:30 - 08:30", block: "Block B001", task: "OHE Wire Replacement", department: "Traction", status: "PENDING" },
+  { maintenance_task_id: "3", timeRange: "10:00 - 12:00", block: "Block B001", task: "Signal Calibration", department: "Signal", status: "PENDING" },
+  { maintenance_task_id: "4", timeRange: "10:00 - 11:00", block: "Block B004", task: "Routine Track Inspection", department: "Engineering", status: "APPROVED" },
+  { maintenance_task_id: "5", timeRange: "13:00 - 15:30", block: "Block B004", task: "OHE Annual Inspection", department: "Traction", status: "APPROVED" },
+  { maintenance_task_id: "6", timeRange: "16:00 - 17:30", block: "Block B007", task: "OHE Tensioning Correction", department: "Traction", status: "IN_PROGRESS" },
 ];
 
 // Compact Quick Navigation options (Icons + Names only, no descriptions)
@@ -81,16 +101,38 @@ export default function Dashboard() {
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [operations, setOperations] = useState(DEFAULT_OPERATIONS);
   const [maintenance, setMaintenance] = useState(DEFAULT_MAINTENANCE);
+  const [selectedMaintTask, setSelectedMaintTask] = useState(null);
 
   const fetchSummary = useCallback(() => getSummary(), []);
   const { loading, reload } = useApiQuery(fetchSummary, []);
+
+  const loadMaintenanceList = useCallback(() => {
+    return listMaintenance({ limit: 12 }).then((res) => {
+      if (res?.data && Array.isArray(res.data) && res.data.length > 0) {
+        const mappedMaint = res.data.slice(0, 10).map((m, idx) => {
+          const fallback = DEFAULT_MAINTENANCE[idx] || DEFAULT_MAINTENANCE[0];
+          const dept = m.department === "TRACTION" ? "Traction" : m.department === "SIGNAL" ? "Signal" : "Engineering";
+          return {
+            ...m,
+            maintenance_task_id: m.maintenance_task_id || fallback.maintenance_task_id || String(idx + 1),
+            timeRange: formatTaskTimeRange(m, fallback.timeRange),
+            block: m.block?.block_code ? `Block ${m.block.block_code}` : (m.block_code ? `Block ${m.block_code}` : fallback.block),
+            task: humanize(m.maintenance_type) || m.description || fallback.task,
+            department: dept,
+            status: String(m.status || fallback.status || "PENDING").toUpperCase(),
+          };
+        });
+        setMaintenance(mappedMaint);
+      }
+    }).catch(() => {});
+  }, []);
 
   // Fetch real trains & maintenance tasks if available to enrich the dashboard
   useEffect(() => {
     let mounted = true;
     Promise.all([
       listTrains({ limit: 10 }).catch(() => null),
-      listMaintenance({ limit: 10 }).catch(() => null),
+      listMaintenance({ limit: 12 }).catch(() => null),
     ]).then(([trainsRes, maintRes]) => {
       if (!mounted) return;
 
@@ -98,6 +140,7 @@ export default function Dashboard() {
         const mappedOps = trainsRes.data.slice(0, 7).map((t, idx) => {
           const fallback = DEFAULT_OPERATIONS[idx] || DEFAULT_OPERATIONS[0];
           return {
+            ...t,
             time: fallback.time,
             operation: `${t.train_number || ""} ${t.train_name || "Express"}`.trim(),
             type: t.train_type || fallback.type,
@@ -109,14 +152,17 @@ export default function Dashboard() {
       }
 
       if (maintRes?.data && Array.isArray(maintRes.data) && maintRes.data.length > 0) {
-        const mappedMaint = maintRes.data.slice(0, 6).map((m, idx) => {
+        const mappedMaint = maintRes.data.slice(0, 10).map((m, idx) => {
           const fallback = DEFAULT_MAINTENANCE[idx] || DEFAULT_MAINTENANCE[0];
           const dept = m.department === "TRACTION" ? "Traction" : m.department === "SIGNAL" ? "Signal" : "Engineering";
           return {
-            timeRange: fallback.timeRange,
-            block: m.block?.block_code ? `Block ${m.block.block_code}` : fallback.block,
-            task: m.maintenance_type || m.description || fallback.task,
+            ...m,
+            maintenance_task_id: m.maintenance_task_id || fallback.maintenance_task_id || String(idx + 1),
+            timeRange: formatTaskTimeRange(m, fallback.timeRange),
+            block: m.block?.block_code ? `Block ${m.block.block_code}` : (m.block_code ? `Block ${m.block_code}` : fallback.block),
+            task: humanize(m.maintenance_type) || m.description || fallback.task,
             department: dept,
+            status: String(m.status || fallback.status || "PENDING").toUpperCase(),
           };
         });
         setMaintenance(mappedMaint);
@@ -185,16 +231,20 @@ export default function Dashboard() {
                 {operations.map((op, idx) => (
                   <tr key={idx}>
                     <td className="ops-time-cell">
-                      <span className="ops-time-dot" />
-                      <span>{op.time}</span>
+                      <div className="ops-time-wrap">
+                        <span className="ops-time-dot" />
+                        <span>{op.time}</span>
+                      </div>
                     </td>
                     <td className="ops-operation-cell">
-                      <span className="ops-train-name">{op.operation}</span>
-                      {op.type && (
-                        <span className="ops-type-badge">
-                          {op.type}
-                        </span>
-                      )}
+                      <div className="ops-operation-wrap">
+                        <span className="ops-train-name">{op.operation}</span>
+                        {op.type && (
+                          <span className="ops-type-badge">
+                            {op.type}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="ops-block-cell">
                       <span className="ops-block-badge">{op.block}</span>
@@ -214,25 +264,70 @@ export default function Dashboard() {
 
       {/* SECTION 2: TODAY'S MAINTENANCE */}
       <section className="dashboard-section mt-24">
-        <div className="section-head-simple">
+        <div className="section-head-simple" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
           <div className="section-head-simple__title">
             <Clock size={16} className="text-amber" />
             <h2>Today's Maintenance</h2>
+            <span className="badge badge--neutral" style={{ fontSize: 11, marginLeft: 6 }}>
+              {maintenance.length} Active Tasks
+            </span>
           </div>
+          <Button
+            variant="outline"
+            size="xs"
+            onClick={() => navigate("/maintenance?day=today")}
+            style={{ fontSize: 11, display: "inline-flex", alignItems: "center", gap: 5 }}
+            title="Open full Maintenance page filtered to today's active tasks"
+          >
+            View All in Database <ArrowRight size={13} />
+          </Button>
         </div>
 
         <div className="maint-timeline-strip">
           {maintenance.map((m, idx) => (
-            <div key={idx} className="maint-card">
+            <div
+              key={m.maintenance_task_id || idx}
+              className="maint-card"
+              onClick={() => setSelectedMaintTask(m)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setSelectedMaintTask(m);
+                }
+              }}
+              title={`Click to open Task #${m.maintenance_task_id || idx + 1} (${m.task}) details from database`}
+            >
               <div className="maint-card__header">
                 <span className="maint-time-pill">
                   <Clock size={12} />
                   <span>{m.timeRange}</span>
                 </span>
-                <span className="maint-block-pill">{m.block}</span>
+                <span
+                  className="maint-block-pill"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const code = m.block?.replace(/^Block\s*/i, "") || "B001";
+                    navigate(`/blocks?search=${code}`);
+                  }}
+                  title="Click to view block infrastructure"
+                >
+                  {m.block}
+                </span>
               </div>
               <div className="maint-card__title" title={m.task}>{m.task}</div>
-              <div className="maint-card__dept">{m.department}</div>
+              <div className="maint-card__dept-row">
+                <span className="maint-card__dept">{m.department}</span>
+                <div className="maint-card__meta-right">
+                  {m.status && (
+                    <span className={`maint-status-chip maint-status-chip--${m.status.toLowerCase()}`}>
+                      {m.status}
+                    </span>
+                  )}
+                  <ArrowUpRight size={13} className="maint-card__arrow" />
+                </div>
+              </div>
             </div>
           ))}
         </div>
@@ -310,6 +405,16 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* MAINTENANCE TASK DETAILS DRAWER */}
+      <MaintenanceDrawer
+        task={selectedMaintTask}
+        onClose={() => setSelectedMaintTask(null)}
+        onTaskUpdated={() => {
+          reload();
+          loadMaintenanceList();
+        }}
+      />
     </div>
   );
 }

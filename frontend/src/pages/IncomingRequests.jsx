@@ -143,13 +143,7 @@ function InjectPanel({ onInjected }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        style={{
-          display: "inline-flex", alignItems: "center", gap: 6,
-          padding: "6px 14px", borderRadius: 8,
-          border: "1px dashed rgba(56,189,248,0.35)",
-          background: "rgba(56,189,248,0.04)", color: "#38bdf8",
-          fontSize: 12, fontWeight: 600, cursor: "pointer",
-        }}
+        className="simulator-inject-trigger"
         title="Inject a custom request to test live real-time ingestion, preferred start, and deadline tracking"
       >
         <Radio size={14} /> + Inject Simulator Request (Test Pub/Sub)
@@ -158,40 +152,40 @@ function InjectPanel({ onInjected }) {
   }
 
   return (
-    <div style={{
-      padding: "16px 18px", borderRadius: 12,
-      border: "1px solid rgba(56,189,248,0.25)",
-      background: "linear-gradient(180deg, rgba(14,28,48,0.85) 0%, rgba(9,17,30,0.92) 100%)",
-      boxShadow: "0 12px 28px rgba(0,0,0,0.35)", fontSize: 13,
-    }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-        <Radio size={16} color="#38bdf8" />
-        <strong style={{ color: "#f1f5f9" }}>Simulate New Portal Request (TMS · SMMS · TDMS)</strong>
-        <span style={{ fontSize: 11, color: "#38bdf8", background: "rgba(56,189,248,0.12)", padding: "1px 8px", borderRadius: 999 }}>
+    <div className="simulator-inject-card">
+      <div className="simulator-inject-header">
+        <Radio size={16} color="#0284c7" />
+        <strong className="simulator-inject-title">Simulate New Portal Request (TMS · SMMS · TDMS)</strong>
+        <span className="simulator-inject-badge">
           Polls every 5s
         </span>
-        <button type="button" onClick={() => setOpen(false)} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="simulator-inject-close"
+          aria-label="Close"
+        >
           <X size={15} />
         </button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, alignItems: "flex-end" }}>
-        <label style={{ display: "grid", gap: 3, fontSize: 11, color: "var(--text-secondary)" }}>
-          Source System
+      <div className="simulator-inject-grid">
+        <div className="simulator-inject-field">
+          <label className="simulator-inject-label">Source System</label>
           <select className="select" value={source} onChange={(e) => setSource(e.target.value)}>
             <option value="TMS">TMS · Track / Engineering</option>
             <option value="SMMS">SMMS · Signal & Telecom</option>
             <option value="TDMS">TDMS · Traction / Electrical</option>
           </select>
-        </label>
+        </div>
 
-        <label style={{ display: "grid", gap: 3, fontSize: 11, color: "var(--text-secondary)" }}>
-          Target Block
+        <div className="simulator-inject-field">
+          <label className="simulator-inject-label">Target Block</label>
           <input className="input" value={block} onChange={(e) => setBlock(e.target.value)} placeholder="e.g. B001, B012" />
-        </label>
+        </div>
 
-        <label style={{ display: "grid", gap: 3, fontSize: 11, color: "var(--text-secondary)" }}>
-          Maintenance Type
+        <div className="simulator-inject-field">
+          <label className="simulator-inject-label">Maintenance Type</label>
           <select className="select" value={maintType} onChange={(e) => setMaintType(e.target.value)}>
             <option value="TRACK_REALIGNMENT">Track Realignment</option>
             <option value="RAIL_CRACK">Rail Crack Rectification</option>
@@ -200,54 +194,59 @@ function InjectPanel({ onInjected }) {
             <option value="OHE_DROPPER">OHE Dropper Wire Repair</option>
             <option value="TRANSFORMER">Transformer Oil Service</option>
           </select>
-        </label>
+        </div>
 
-        <label style={{ display: "grid", gap: 3, fontSize: 11, color: "var(--text-secondary)" }}>
-          Preferred Start (Mandatory)
+        <div className="simulator-inject-field">
+          <label className="simulator-inject-label">Preferred Start (Mandatory)</label>
           <input
             type="datetime-local"
             className="input"
             value={prefStart}
             onChange={(e) => setPrefStart(e.target.value)}
           />
-        </label>
+        </div>
 
-        <label style={{ display: "grid", gap: 3, fontSize: 11, color: "var(--text-secondary)" }}>
-          Completion Deadline
+        <div className="simulator-inject-field">
+          <label className="simulator-inject-label">Completion Deadline</label>
           <input
             type="datetime-local"
             className="input"
             value={deadline}
             onChange={(e) => setDeadline(e.target.value)}
           />
-        </label>
+        </div>
 
-        <label style={{ display: "grid", gap: 3, fontSize: 11, color: "var(--text-secondary)" }}>
-          Lifecycle Status
+        <div className="simulator-inject-field">
+          <label className="simulator-inject-label">Lifecycle Status</label>
           <select className="select" value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="PENDING">PENDING (Awaiting Plan)</option>
             <option value="APPROVED">APPROVED (Ready to Schedule)</option>
             <option value="IN_PROGRESS">IN_PROGRESS (Invoked)</option>
             <option value="COMPLETED">COMPLETED (Finished)</option>
           </select>
-        </label>
+        </div>
+      </div>
 
-        <div style={{ display: "flex", gap: 8 }}>
-          <Button variant="primary" size="sm" onClick={handleInject} disabled={busy} style={{ minWidth: 100 }}>
+      <div className="simulator-inject-footer">
+        <p className="simulator-inject-note">
+          💡 Real-time publisher/subscriber active: When submitted, the watcher ingests this request within 5 seconds.
+          If it targets an active corridor block ({block || "B001"}), the 3-stage optimization engine automatically replans the schedule.
+        </p>
+
+        <div className="simulator-inject-actions">
+          {result && (
+            <span
+              className="simulator-inject-result"
+              style={{ color: result.ok ? "#16a34a" : "#ef4444" }}
+            >
+              {result.message}
+            </span>
+          )}
+          <Button variant="primary" size="sm" onClick={handleInject} disabled={busy} style={{ minWidth: 120 }}>
             {busy ? "Injecting…" : "Publish Request"}
           </Button>
         </div>
       </div>
-
-      {result && (
-        <p style={{ marginTop: 10, color: result.ok ? "#4ade80" : "#f87171", fontSize: 12, fontWeight: 600 }}>
-          {result.message}
-        </p>
-      )}
-      <p style={{ marginTop: 8, color: "var(--text-3)", fontSize: 11 }}>
-        💡 Real-time publisher/subscriber active: When submitted, the watcher ingests this request within 5 seconds.
-        If it targets an active corridor block ({block || "B001"}), the 3-stage optimization engine automatically replans the schedule.
-      </p>
     </div>
   );
 }
@@ -342,16 +341,7 @@ export default function IncomingRequests() {
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <strong className="cell-mono">{r.block?.block_code || r.block_code || "—"}</strong>
                 <span
-                  style={{
-                    fontSize: 10.5,
-                    fontFamily: "monospace",
-                    fontWeight: 700,
-                    padding: "1px 6px",
-                    borderRadius: 4,
-                    background: isPending ? "rgba(245,158,11,0.12)" : "rgba(34,197,94,0.15)",
-                    color: isPending ? "#fbbf24" : "#4ade80",
-                    border: `1px solid ${isPending ? "rgba(245,158,11,0.3)" : "rgba(34,197,94,0.3)"}`,
-                  }}
+                  className={`incoming-package-tag ${isPending ? "is-pending" : "is-assigned"}`}
                   title={isPending ? `Pending clubbing into ${pkg.package_id}` : `Assigned to Work Package ${pkg.package_id}`}
                 >
                   {pkg.package_id}
@@ -390,7 +380,7 @@ export default function IncomingRequests() {
           return (
             <div>
               <div style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                <span style={{ fontWeight: 600, fontSize: 12, color: isVeryRecent ? "#38bdf8" : "var(--text)" }}>
+                <span className={`incoming-recent-time ${isVeryRecent ? "is-recent" : ""}`}>
                   {rel}
                 </span>
                 {isVeryRecent && (
@@ -419,7 +409,7 @@ export default function IncomingRequests() {
         label: "Preferred Start",
         render: (r) => (
           <div>
-            <strong style={{ display: "block", color: "#e9d5ff", fontSize: 12 }}>
+            <strong className="incoming-preferred-start" style={{ display: "block", fontSize: 12 }}>
               {formatDateTime(r.preferred_start)}
             </strong>
             <span className="cell-muted" style={{ fontSize: 11 }}>

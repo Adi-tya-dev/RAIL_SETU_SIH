@@ -7,9 +7,26 @@ import { todayPlusDays, fromLocalInputValue } from "../utils/formatters";
 import PageHeader from "../components/common/PageHeader";
 import Button from "../components/common/Button";
 import StateBlock from "../components/common/StateBlock";
-import { CalendarCog, Zap, ArrowRight, AlertCircle, CheckCircle2, Clock, Train, Wrench, Loader2 } from "lucide-react";
+import { CalendarCog, Zap, ArrowRight, AlertCircle, CheckCircle2, Clock, Train, Wrench, Loader2, RotateCcw } from "lucide-react";
 import PlanResult from "../components/planning/PlanResult";
 import ScheduleDetail from "../components/schedules/ScheduleDetail";
+
+const CACHE_KEY = "railsetu_custom_window_plan";
+
+function loadCachedPlan() {
+  try {
+    const raw = sessionStorage.getItem(CACHE_KEY) || localStorage.getItem(CACHE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && (parsed.result || parsed.plan)) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.warn("Could not parse cached plan:", e);
+  }
+  return null;
+}
 
 const GENERATE_STEPS = [
   "Analyzing maintenance tasks...",
@@ -34,13 +51,15 @@ export default function Planning() {
   const toast = useToast();
   const { markSchedulingEngine } = useSystemStatus();
 
-  const [startDate, setStartDate] = useState(todayPlusDays(1));
-  const [endDate, setEndDate] = useState(todayPlusDays(7));
+  const [cachedPlan] = useState(() => loadCachedPlan());
+
+  const [startDate, setStartDate] = useState(() => cachedPlan?.startDate || todayPlusDays(1));
+  const [endDate, setEndDate] = useState(() => cachedPlan?.endDate || todayPlusDays(7));
   const [generating, setGenerating] = useState(false);
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState(() => cachedPlan?.result || cachedPlan?.plan || null);
   const [error, setError] = useState(null);
   const [selectedPlanId, setSelectedPlanId] = useState(null);
-  const [engineState, setEngineState] = useState("idle");
+  const [engineState, setEngineState] = useState(() => (cachedPlan?.result || cachedPlan?.plan ? "success" : "idle"));
   const [stepIndex, setStepIndex] = useState(0);
 
   useEffect(() => {
@@ -90,6 +109,18 @@ export default function Planning() {
         setResult(plan);
         setEngineState("success");
         markSchedulingEngine(true);
+        try {
+          const payload = JSON.stringify({
+            result: plan,
+            startDate,
+            endDate,
+            generatedAt: new Date().toISOString(),
+          });
+          sessionStorage.setItem(CACHE_KEY, payload);
+          localStorage.setItem(CACHE_KEY, payload);
+        } catch (e) {
+          console.warn("Could not cache plan:", e);
+        }
         toast.success("Optimized plan generated successfully.");
       }
     } catch (err) {
@@ -104,6 +135,17 @@ export default function Planning() {
     } finally {
       setGenerating(false);
     }
+  }
+
+  function handleReset() {
+    setResult(null);
+    setEngineState("idle");
+    setError(null);
+    try {
+      sessionStorage.removeItem(CACHE_KEY);
+      localStorage.removeItem(CACHE_KEY);
+    } catch (e) {}
+    toast.info("Cleared cached plan. You can now configure a fresh planning window.");
   }
 
   return (
@@ -142,11 +184,41 @@ export default function Planning() {
                 required
               />
             </div>
-            <div className="field plan-form__actions">
-              <Button type="submit" variant="primary" size="xl" loading={generating} loadingText="Generating...">
+            <div
+              className="field plan-form__actions"
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+                flexWrap: "nowrap",
+                paddingTop: 0,
+              }}
+            >
+              <Button
+                type="submit"
+                variant="primary"
+                size="xl"
+                loading={generating}
+                loadingText="Generating..."
+                style={{ whiteSpace: "nowrap" }}
+              >
                 <Zap size={16} />
                 GENERATE OPTIMIZED PLAN
               </Button>
+              {result && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="xl"
+                  onClick={handleReset}
+                  title="Clear cached plan and start fresh"
+                  style={{ whiteSpace: "nowrap" }}
+                >
+                  <RotateCcw size={16} />
+                  Reset / Clear Plan
+                </Button>
+              )}
             </div>
           </div>
           <p className="text-xs text-faint plan-form__note">
@@ -218,7 +290,36 @@ export default function Planning() {
         )}
 
         {engineState === "success" && result && (
-          <PlanResult plan={result} onSelectPlan={setSelectedPlanId} />
+          <>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 12,
+                marginBottom: 16,
+                background: "var(--surface-2)",
+                padding: "12px 18px",
+                borderRadius: "10px",
+                border: "1px solid var(--border)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <CheckCircle2 size={18} style={{ color: "var(--green)", flexShrink: 0 }} />
+                <div>
+                  <span style={{ fontWeight: 600, color: "var(--text)" }}>Active Plan Preserved</span>
+                  <span className="text-xs text-faint" style={{ marginLeft: 8 }}>
+                    Window: {startDate} to {endDate}
+                  </span>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" onClick={handleReset} icon={RotateCcw}>
+                Clear & Start Fresh
+              </Button>
+            </div>
+            <PlanResult plan={result} onSelectPlan={setSelectedPlanId} />
+          </>
         )}
 
         {engineState === "idle" && (

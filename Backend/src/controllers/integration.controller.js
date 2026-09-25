@@ -21,7 +21,16 @@ async function runSync(req, res) {
 
 async function listSyncs(req, res) {
   const result = await integrationService.listSyncRuns(req.query);
-  res.json({ success: true, data: result.items, pagination: { page: result.page, limit: result.limit, total: result.total } });
+  res.json({
+    success: true,
+    data: result.items,
+    pagination: {
+      page: result.page,
+      limit: result.limit,
+      total: result.total,
+      totalPages: Math.ceil(result.total / (result.limit || 1)),
+    },
+  });
 }
 
 async function latestSync(req, res) {
@@ -36,12 +45,31 @@ async function listRequests(req, res) {
   }
   const result = await integrationService.listIncomingRequests(req.query);
   const { summary, items, total, page, limit } = result;
-  res.json({ success: true, data: { summary, requests: items }, pagination: { page, limit, total } });
+  res.json({
+    success: true,
+    data: { summary, requests: items },
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / (limit || 1)),
+    },
+  });
 }
 
 async function listErrors(req, res) {
   const result = await integrationService.listSyncErrors(req.query);
-  res.json({ success: true, data: result.items, pagination: { page: result.page, limit: result.limit, total: result.total }, run: result.run });
+  res.json({
+    success: true,
+    data: result.items,
+    pagination: {
+      page: result.page,
+      limit: result.limit,
+      total: result.total,
+      totalPages: Math.ceil(result.total / (result.limit || 1)),
+    },
+    run: result.run,
+  });
 }
 
 async function coa(req, res) {

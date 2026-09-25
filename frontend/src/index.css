@@ -1404,7 +1404,7 @@ input, select, textarea { font-family: var(--font); }
   gap: 10px;
 }
 
-/* Assigned Work Package Card */
+/* Assigned Work Package Card (Theme-aware) */
 .assigned-pkg-card {
   padding: 16px;
   border-radius: 12px;
@@ -1413,6 +1413,87 @@ input, select, textarea { font-family: var(--font); }
   margin-bottom: 16px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
   transition: all 0.2s ease;
+}
+
+.assigned-pkg-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.assigned-pkg-card__badge-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.assigned-pkg-card__pkg-id {
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-family: var(--mono, monospace);
+  font-size: 13px;
+  font-weight: 800;
+  background: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.4);
+}
+
+.assigned-pkg-card__tag {
+  font-size: 12px;
+  font-weight: 700;
+  color: #4ade80;
+  letter-spacing: 0.02em;
+}
+
+.assigned-pkg-card__title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #f8fafc;
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.assigned-pkg-card__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  font-size: 12px;
+  padding: 11px 13px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  margin-bottom: 12px;
+}
+
+.assigned-pkg-card__label {
+  color: var(--text-3);
+  display: block;
+  font-size: 11px;
+  margin-bottom: 2px;
+}
+
+.assigned-pkg-card__val {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.assigned-pkg-card__val--time { color: #38bdf8; }
+.assigned-pkg-card__val--loc  { color: var(--text); }
+.assigned-pkg-card__val--tasks{ color: #c084fc; }
+.assigned-pkg-card__val--mach { color: #fbbf24; }
+
+.assigned-pkg-card__desc {
+  margin: 0 0 12px;
+  font-size: 11.5px;
+  color: var(--text-2);
+  line-height: 1.45;
+}
+
+.assigned-pkg-card__btn {
+  width: 100%;
+  justify-content: center;
 }
 
 /* ============================================================
@@ -2664,7 +2745,7 @@ path.leaflet-interactive:focus-visible {
 .railway-map-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 72px; padding: 14px 22px; border-bottom: 1px solid rgba(148,163,184,0.18); background: rgba(7,17,30,0.96); color: var(--text); }
 .railway-map-toolbar strong { display: block; margin-top: 5px; font-size: 15px; }
 .railway-map-toolbar__actions { display: flex; gap: 8px; }
-.railway-map-map-shell { position: relative; flex: 1; min-height: 560px; overflow: hidden; }
+.railway-map-map-shell { position: relative; flex: 1; min-height: 560px; overflow: hidden; container-type: inline-size; }
 .railway-map-map-shell .leaflet-container { background: #050b14; }
 .boundary-label { display: none; }
 .boundary-tooltip { padding: 2px 7px; border: 1px solid rgba(79,143,190,0.32); border-radius: 6px; background: rgba(6,17,29,0.92); box-shadow: 0 6px 16px rgba(0,0,0,0.4); color: #9fc3dd; font-size: 10px; font-weight: 600; white-space: nowrap; }
@@ -2721,10 +2802,97 @@ path.leaflet-interactive:focus-visible {
 .railway-map-map-shell .leaflet-control-zoom a { width: 34px !important; height: 34px !important; line-height: 32px !important; color: #9fd8ea !important; background: rgba(10,22,37,0.94) !important; border-color: rgba(148,163,184,0.16) !important; }
 .railway-map-map-shell .leaflet-control-zoom a:hover { color: #eaf6ff !important; background: rgba(22,45,68,0.96) !important; }
 .railway-map-map-shell .leaflet-control-attribution { display: none; }
-.railway-map-canvas-empty { position: absolute; inset: 0; z-index: 400; display: grid; place-content: center; justify-items: center; gap: 10px; pointer-events: none; text-align: center; }
-.railway-map-canvas-empty:empty { display: none; }
-.railway-map-canvas-empty::before { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at center, rgba(7,17,30,0.06), transparent 42%); }
-.railway-map-canvas-empty > * { position: relative; }.railway-map-canvas-empty strong { color: #cfe9f5; font-size: 14px; letter-spacing: 0.16em; }.railway-map-canvas-empty span { color: #7f97ad; font-size: 12px; }
+.railway-map-canvas-empty {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 480;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  pointer-events: none;
+  text-align: center;
+  user-select: none;
+  width: max-content;
+  max-width: 90%;
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+.railway-map-canvas-empty:empty {
+  display: none;
+}
+.railway-map-canvas-empty::before {
+  content: "";
+  position: absolute;
+  inset: -20px -36px;
+  border-radius: 24px;
+  background: radial-gradient(circle at center, rgba(6, 17, 30, 0.4), transparent 75%);
+  pointer-events: none;
+  z-index: -1;
+}
+.railway-map-canvas-empty__icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: rgba(8, 25, 42, 0.78);
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  color: #22d3ee;
+  box-shadow: 0 0 24px rgba(34, 211, 238, 0.22), inset 0 0 10px rgba(34, 211, 238, 0.12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: width 200ms ease, height 200ms ease, border-radius 200ms ease;
+}
+.railway-map-canvas-empty strong {
+  position: relative;
+  color: #e2f1f8;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.75);
+  transition: font-size 200ms ease;
+}
+.railway-map-canvas-empty span {
+  position: relative;
+  color: #8da4b8;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.85);
+  transition: font-size 200ms ease;
+}
+@container (max-width: 720px) {
+  .railway-map-canvas-empty { gap: 9px; }
+  .railway-map-canvas-empty__icon { width: 40px; height: 40px; border-radius: 11px; }
+  .railway-map-canvas-empty__icon svg { width: 22px; height: 22px; }
+  .railway-map-canvas-empty strong { font-size: 13px; letter-spacing: 0.12em; }
+  .railway-map-canvas-empty span { font-size: 11.5px; }
+}
+@container (max-width: 480px) {
+  .railway-map-canvas-empty { gap: 7px; }
+  .railway-map-canvas-empty__icon { width: 34px; height: 34px; border-radius: 9px; }
+  .railway-map-canvas-empty__icon svg { width: 18px; height: 18px; }
+  .railway-map-canvas-empty strong { font-size: 11px; letter-spacing: 0.1em; }
+  .railway-map-canvas-empty span { font-size: 10px; }
+}
+@media (max-width: 900px) {
+  .railway-map-canvas-empty { gap: 9px; }
+  .railway-map-canvas-empty__icon { width: 40px; height: 40px; border-radius: 11px; }
+  .railway-map-canvas-empty__icon svg { width: 22px; height: 22px; }
+  .railway-map-canvas-empty strong { font-size: 13px; letter-spacing: 0.12em; }
+  .railway-map-canvas-empty span { font-size: 11.5px; }
+}
+@media (max-width: 580px) {
+  .railway-map-canvas-empty { gap: 7px; }
+  .railway-map-canvas-empty__icon { width: 34px; height: 34px; border-radius: 9px; }
+  .railway-map-canvas-empty__icon svg { width: 18px; height: 18px; }
+  .railway-map-canvas-empty strong { font-size: 11px; letter-spacing: 0.1em; }
+  .railway-map-canvas-empty span { font-size: 10px; }
+}
 .railway-map-legend { position: absolute; right: 18px; bottom: 18px; z-index: 500; display: grid; gap: 7px; min-width: 166px; padding: 13px 15px; border: 1px solid rgba(148,163,184,0.23); border-radius: 12px; background: rgba(8,19,32,0.9); box-shadow: 0 12px 28px rgba(9,17,30,0.2); color: #b9c8d7; font-size: 11px; backdrop-filter: blur(12px); transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1), opacity 200ms ease; }
 .railway-map-legend--minimized { min-width: auto; padding: 8px 14px; border-radius: 20px; cursor: pointer; background: rgba(8,19,32,0.9); box-shadow: 0 6px 18px rgba(0,0,0,0.5); display: flex; align-items: center; }
 .railway-map-legend--minimized:hover { border-color: rgba(34,211,238,0.6); background: rgba(12,28,48,0.95); transform: translateY(-2px); }
@@ -3061,8 +3229,13 @@ path.leaflet-interactive:focus-visible {
 
 .list-toolbar { display: flex; justify-content: flex-end; align-items: center; gap: 8px; padding: 10px var(--s4) 0; }
 
-.plan-form__note { padding: 0 var(--s6) var(--s4); font-size: 11px; color: var(--text-4); }
-.plan-form__actions { padding-top: 28px; }
+.plan-form__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+  padding-top: 0;
+}
 
 .type-cell { display: inline-flex; align-items: center; gap: 7px; }
 .type-cell svg { color: var(--text-4); flex-shrink: 0; }
@@ -3583,6 +3756,60 @@ body.theme-white .assigned-pkg-card {
   box-shadow: 0 4px 16px rgba(22, 163, 74, 0.1);
 }
 
+[data-theme="white"] .assigned-pkg-card__pkg-id,
+body.theme-white .assigned-pkg-card__pkg-id {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+  border-color: #86efac;
+}
+
+[data-theme="white"] .assigned-pkg-card__tag,
+body.theme-white .assigned-pkg-card__tag {
+  color: #15803d;
+}
+
+[data-theme="white"] .assigned-pkg-card__title,
+body.theme-white .assigned-pkg-card__title {
+  color: #0f172a;
+}
+
+[data-theme="white"] .assigned-pkg-card__grid,
+body.theme-white .assigned-pkg-card__grid {
+  background: #ffffff;
+  border-color: #bbf7d0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="white"] .assigned-pkg-card__label,
+body.theme-white .assigned-pkg-card__label {
+  color: #64748b;
+}
+
+[data-theme="white"] .assigned-pkg-card__val--time,
+body.theme-white .assigned-pkg-card__val--time {
+  color: #0284c7;
+}
+
+[data-theme="white"] .assigned-pkg-card__val--loc,
+body.theme-white .assigned-pkg-card__val--loc {
+  color: #0f172a;
+}
+
+[data-theme="white"] .assigned-pkg-card__val--tasks,
+body.theme-white .assigned-pkg-card__val--tasks {
+  color: #7e22ce;
+}
+
+[data-theme="white"] .assigned-pkg-card__val--mach,
+body.theme-white .assigned-pkg-card__val--mach {
+  color: #b45309;
+}
+
+[data-theme="white"] .assigned-pkg-card__desc,
+body.theme-white .assigned-pkg-card__desc {
+  color: #334155;
+}
+
 /* ── White Mode: Toasts & Notifications ── */
 [data-theme="white"] .toast,
 body.theme-white .toast {
@@ -3744,14 +3971,17 @@ body.theme-white .emergency-metric-chip {
 }
 
 .ops-time-cell {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   font-family: var(--mono);
   font-weight: 600;
   color: var(--text);
   font-size: 12.5px;
   white-space: nowrap;
+}
+
+.ops-time-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .ops-time-dot {
@@ -3764,6 +3994,10 @@ body.theme-white .emergency-metric-chip {
 }
 
 .ops-operation-cell {
+  vertical-align: middle;
+}
+
+.ops-operation-wrap {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -3911,8 +4145,8 @@ body.theme-white .ops-status-text--scheduled {
 }
 
 .maint-card {
-  min-width: 250px;
-  flex: 0 0 250px;
+  min-width: 255px;
+  flex: 0 0 255px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -3921,13 +4155,22 @@ body.theme-white .ops-status-text--scheduled {
   flex-direction: column;
   gap: 8px;
   box-shadow: var(--shadow-sm);
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+  text-align: left;
 }
 
 .maint-card:hover {
-  transform: translateY(-2px);
+  transform: translateY(-4px);
   border-color: var(--accent);
-  box-shadow: var(--shadow);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+}
+
+.maint-card:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
 }
 
 .maint-card__header {
@@ -3961,6 +4204,14 @@ body.theme-white .ops-status-text--scheduled {
   background: var(--surface-2);
   border: 1px solid var(--border);
   color: var(--text-2);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.maint-block-pill:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent-2);
 }
 
 .maint-card__title {
@@ -3973,9 +4224,70 @@ body.theme-white .ops-status-text--scheduled {
   text-overflow: ellipsis;
 }
 
+.maint-card__dept-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+}
+
 .maint-card__dept {
   font-size: 12px;
   color: var(--text-3);
+  font-weight: 500;
+}
+
+.maint-card__meta-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.maint-status-chip {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 1.5px 6px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.maint-status-chip--pending {
+  background: rgba(245, 158, 11, 0.14);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.maint-status-chip--approved {
+  background: rgba(34, 197, 94, 0.14);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.maint-status-chip--in_progress {
+  background: rgba(56, 189, 248, 0.14);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.maint-status-chip--completed {
+  background: rgba(148, 163, 184, 0.14);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.maint-card__arrow {
+  color: var(--text-3);
+  opacity: 0.6;
+  transition: transform 0.2s ease, opacity 0.2s ease, color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.maint-card:hover .maint-card__arrow {
+  transform: translate(2px, -2px);
+  opacity: 1;
+  color: var(--accent);
 }
 
 /* White mode overrides for Maintenance Cards */
@@ -3988,8 +4300,8 @@ body.theme-white .maint-card {
 
 [data-theme="white"] .maint-card:hover,
 body.theme-white .maint-card:hover {
-  border-color: #1d4ed8;
-  box-shadow: 0 8px 20px rgba(29, 78, 216, 0.10);
+  border-color: #3b82f6;
+  box-shadow: 0 8px 22px rgba(37, 99, 235, 0.12);
 }
 
 [data-theme="white"] .maint-time-pill,
@@ -4005,6 +4317,12 @@ body.theme-white .maint-block-pill {
   color: #1a44c8;
 }
 
+[data-theme="white"] .maint-block-pill:hover,
+body.theme-white .maint-block-pill:hover {
+  background: #dbeafe;
+  border-color: #3b82f6;
+}
+
 [data-theme="white"] .maint-card__title,
 body.theme-white .maint-card__title {
   color: #0f172a;
@@ -4013,6 +4331,39 @@ body.theme-white .maint-card__title {
 [data-theme="white"] .maint-card__dept,
 body.theme-white .maint-card__dept {
   color: #64748b;
+}
+
+[data-theme="white"] .maint-status-chip--pending,
+body.theme-white .maint-status-chip--pending {
+  background: #fef3c7;
+  color: #b45309;
+  border-color: #fde68a;
+}
+
+[data-theme="white"] .maint-status-chip--approved,
+body.theme-white .maint-status-chip--approved {
+  background: #dcfce7;
+  color: #15803d;
+  border-color: #bbf7d0;
+}
+
+[data-theme="white"] .maint-status-chip--in_progress,
+body.theme-white .maint-status-chip--in_progress {
+  background: #e0f2fe;
+  color: #0369a1;
+  border-color: #bae6fd;
+}
+
+[data-theme="white"] .maint-status-chip--completed,
+body.theme-white .maint-status-chip--completed {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #cbd5e1;
+}
+
+[data-theme="white"] .maint-card:hover .maint-card__arrow,
+body.theme-white .maint-card:hover .maint-card__arrow {
+  color: #2563eb;
 }
 
 /* ── 3. Quick Navigation (Compact Buttons) ───────────────── */
@@ -4313,6 +4664,375 @@ body.theme-white .railway-map-statusbar b {
   color: #0f172a;
 }
 
+[data-theme="white"] .railway-map-eyebrow,
+body.theme-white .railway-map-eyebrow {
+  color: #0284c7;
+}
+
+[data-theme="white"] .railway-map-section-title,
+body.theme-white .railway-map-section-title {
+  color: #1e293b;
+  font-weight: 800;
+}
+
+[data-theme="white"] .railway-map-impact,
+body.theme-white .railway-map-impact,
+[data-theme="white"] .railway-map-route-summary,
+body.theme-white .railway-map-route-summary,
+[data-theme="white"] .railway-map-layers,
+body.theme-white .railway-map-layers,
+[data-theme="white"] .railway-map-records,
+body.theme-white .railway-map-records {
+  border-top-color: #e2e8f0;
+}
+
+/* Train Summary Card in White Mode */
+[data-theme="white"] .railway-map-train-card,
+body.theme-white .railway-map-train-card {
+  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+  border: 1.5px solid #cbd5e1;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="white"] .railway-map-train-card__top,
+body.theme-white .railway-map-train-card__top {
+  color: #0284c7;
+  font-weight: 800;
+}
+
+[data-theme="white"] .railway-map-train-card h2,
+body.theme-white .railway-map-train-card h2 {
+  color: #0f172a;
+}
+
+[data-theme="white"] .railway-map-train-card p,
+body.theme-white .railway-map-train-card p {
+  color: #334155;
+}
+
+[data-theme="white"] .railway-map-train-card__meta,
+body.theme-white .railway-map-train-card__meta {
+  border-top-color: #e2e8f0;
+  color: #475569;
+}
+
+[data-theme="white"] .railway-map-train-card__meta b,
+body.theme-white .railway-map-train-card__meta b {
+  color: #0f172a;
+}
+
+[data-theme="white"] .railway-priority-desc,
+body.theme-white .railway-priority-desc {
+  color: #64748b;
+}
+
+/* Network Impact Metrics in White Mode */
+[data-theme="white"] .railway-map-metric,
+body.theme-white .railway-map-metric {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+[data-theme="white"] .railway-map-metric:hover,
+body.theme-white .railway-map-metric:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+[data-theme="white"] .railway-map-metric strong,
+body.theme-white .railway-map-metric strong {
+  color: #0f172a;
+}
+
+[data-theme="white"] .railway-map-metric span,
+body.theme-white .railway-map-metric span {
+  color: #475569;
+  font-weight: 600;
+}
+
+[data-theme="white"] .railway-map-metric--blue strong,
+body.theme-white .railway-map-metric--blue strong {
+  color: #0284c7;
+}
+
+[data-theme="white"] .railway-map-metric--amber strong,
+body.theme-white .railway-map-metric--amber strong {
+  color: #d97706;
+}
+
+[data-theme="white"] .railway-map-metric--red strong,
+body.theme-white .railway-map-metric--red strong {
+  color: #dc2626;
+}
+
+[data-theme="white"] .railway-map-metric--green strong,
+body.theme-white .railway-map-metric--green strong {
+  color: #16a34a;
+}
+
+[data-theme="white"] .railway-map-metric--violet strong,
+body.theme-white .railway-map-metric--violet strong {
+  color: #7c3aed;
+}
+
+/* Route Timeline in White Mode */
+[data-theme="white"] .railway-map-route-count,
+body.theme-white .railway-map-route-count {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+  font-weight: 700;
+}
+
+[data-theme="white"] .railway-map-route-stop,
+body.theme-white .railway-map-route-stop {
+  color: #1e293b;
+}
+
+[data-theme="white"] .railway-map-route-stop:hover,
+body.theme-white .railway-map-route-stop:hover {
+  background: #f1f5f9;
+}
+
+[data-theme="white"] .railway-map-route-stop.is-active,
+body.theme-white .railway-map-route-stop.is-active {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
+}
+
+[data-theme="white"] .railway-map-route-stop.railstop-current,
+body.theme-white .railway-map-route-stop.railstop-current {
+  background: #f0fdfa;
+  border-color: #5eead4;
+}
+
+[data-theme="white"] .railway-map-route-stop__node,
+body.theme-white .railway-map-route-stop__node {
+  border-color: #94a3b8;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.2);
+}
+
+[data-theme="white"] .railway-map-route-stop:not(:last-child) .railway-map-route-stop__body::after,
+body.theme-white .railway-map-route-stop:not(:last-child) .railway-map-route-stop__body::after {
+  background: linear-gradient(#93c5fd, #cbd5e1);
+}
+
+[data-theme="white"] .railway-map-route-stop__code,
+body.theme-white .railway-map-route-stop__code {
+  color: #0f172a;
+}
+
+[data-theme="white"] .railway-map-route-stop.is-active .railway-map-route-stop__code,
+body.theme-white .railway-map-route-stop.is-active .railway-map-route-stop__code {
+  color: #1d4ed8;
+}
+
+[data-theme="white"] .railway-map-route-stop__code em,
+body.theme-white .railway-map-route-stop__code em {
+  color: #dc2626;
+}
+
+[data-theme="white"] .railway-map-route-stop__name,
+body.theme-white .railway-map-route-stop__name {
+  color: #334155;
+  font-weight: 500;
+}
+
+[data-theme="white"] .railway-map-route-stop__times,
+body.theme-white .railway-map-route-stop__times {
+  color: #64748b;
+}
+
+[data-theme="white"] .railway-map-route-stop__times b,
+body.theme-white .railway-map-route-stop__times b {
+  color: #0f172a;
+}
+
+[data-theme="white"] .railway-map-route-stop.railstop-online .railway-map-route-stop__node,
+body.theme-white .railway-map-route-stop.railstop-online .railway-map-route-stop__node,
+[data-theme="white"] .railway-map-route-stop.railstop-ontime .railway-map-route-stop__node,
+body.theme-white .railway-map-route-stop.railstop-ontime .railway-map-route-stop__node {
+  border-color: #16a34a;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
+}
+
+[data-theme="white"] .railway-map-route-stop.railstop-minor .railway-map-route-stop__node,
+body.theme-white .railway-map-route-stop.railstop-minor .railway-map-route-stop__node {
+  border-color: #d97706;
+  background: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25);
+}
+
+[data-theme="white"] .railway-map-route-stop.railstop-late .railway-map-route-stop__node,
+body.theme-white .railway-map-route-stop.railstop-late .railway-map-route-stop__node {
+  border-color: #dc2626;
+  background: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25);
+}
+
+[data-theme="white"] .railway-map-route-stop.railstop-passed,
+body.theme-white .railway-map-route-stop.railstop-passed {
+  opacity: 0.6;
+}
+
+[data-theme="white"] .railway-map-route-stop.railstop-passed .railway-map-route-stop__node,
+body.theme-white .railway-map-route-stop.railstop-passed .railway-map-route-stop__node {
+  border-color: #94a3b8;
+  background: #cbd5e1;
+  box-shadow: none;
+}
+
+[data-theme="white"] .railway-map-route-stop.railstop-current .railway-map-route-stop__node,
+body.theme-white .railway-map-route-stop.railstop-current .railway-map-route-stop__node {
+  border-color: #0284c7;
+  background: #0ea5e9;
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.3), 0 0 10px rgba(14, 165, 233, 0.6);
+}
+
+/* Sidebar Records / Conflicts in White Mode */
+[data-theme="white"] .railway-map-record,
+body.theme-white .railway-map-record {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #1e293b;
+}
+
+[data-theme="white"] .railway-map-record b,
+body.theme-white .railway-map-record b {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+[data-theme="white"] .railway-map-record small,
+body.theme-white .railway-map-record small {
+  color: #64748b;
+}
+
+[data-theme="white"] .railway-map-record--button:hover,
+body.theme-white .railway-map-record--button:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+[data-theme="white"] .railway-release-order,
+body.theme-white .railway-release-order {
+  border-top-color: #e2e8f0;
+  color: #475569;
+}
+
+[data-theme="white"] .railway-release-order b,
+body.theme-white .railway-release-order b {
+  color: #0f172a;
+}
+
+[data-theme="white"] .railway-map-drawer-release .railway-release-order,
+body.theme-white .railway-map-drawer-release .railway-release-order {
+  background: #fef2f2;
+}
+
+[data-theme="white"] .railway-tree__row,
+body.theme-white .railway-tree__row {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #334155;
+}
+
+[data-theme="white"] .railway-tree__dir,
+body.theme-white .railway-tree__dir {
+  color: #64748b;
+}
+
+[data-theme="white"] .railway-tree__col,
+body.theme-white .railway-tree__col {
+  color: #0f172a;
+}
+
+/* Layer Toggles in White Mode */
+[data-theme="white"] .railway-layer-toggle,
+body.theme-white .railway-layer-toggle {
+  color: #334155;
+  font-weight: 500;
+}
+
+[data-theme="white"] .railway-layer-toggle:hover,
+body.theme-white .railway-layer-toggle:hover {
+  color: #0f172a;
+}
+
+/* Alerts and Empty State in White Mode */
+[data-theme="white"] .railway-map-alert,
+body.theme-white .railway-map-alert {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+[data-theme="white"] .railway-map-alert strong,
+body.theme-white .railway-map-alert strong {
+  color: #b45309;
+}
+
+[data-theme="white"] .railway-map-alert--error,
+body.theme-white .railway-map-alert--error {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+[data-theme="white"] .railway-map-alert--error strong,
+body.theme-white .railway-map-alert--error strong {
+  color: #dc2626;
+}
+
+[data-theme="white"] .railway-map-empty,
+body.theme-white .railway-map-empty {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+[data-theme="white"] .railway-map-empty strong,
+body.theme-white .railway-map-empty strong {
+  color: #0f172a;
+}
+
+[data-theme="white"] .railway-map-empty p,
+body.theme-white .railway-map-empty p {
+  color: #64748b;
+}
+
+[data-theme="white"] .railway-map-muted,
+body.theme-white .railway-map-muted {
+  color: #64748b;
+}
+
+[data-theme="white"] .railway-map-inline-state,
+body.theme-white .railway-map-inline-state {
+  color: #475569;
+}
+
+/* Map Canvas Toolbar in White Mode */
+[data-theme="white"] .railway-map-toolbar,
+body.theme-white .railway-map-toolbar {
+  background: #ffffff;
+  border-bottom-color: #e2e8f0;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+}
+
+[data-theme="white"] .railway-map-toolbar strong,
+body.theme-white .railway-map-toolbar strong {
+  color: #0f172a;
+}
+
+[data-theme="white"] .railway-map-toolbar__kicker,
+body.theme-white .railway-map-toolbar__kicker {
+  color: #0284c7;
+}
+
 /* Floating HUD & Legend in White Mode */
 [data-theme="white"] .railway-map-hud,
 body.theme-white .railway-map-hud,
@@ -4362,7 +5082,33 @@ body.theme-white .railway-map-legend__btn {
 
 [data-theme="white"] .railway-map-legend strong,
 body.theme-white .railway-map-legend strong {
-  color: #0f172a;
+  color: #0f172a !important;
+}
+
+[data-theme="white"] .railway-map-legend span,
+body.theme-white .railway-map-legend span {
+  color: #334155 !important;
+  font-weight: 500;
+}
+
+[data-theme="white"] .railway-map-legend svg,
+body.theme-white .railway-map-legend svg {
+  color: #0284c7 !important;
+}
+
+[data-theme="white"] .railway-map-legend-line,
+body.theme-white .railway-map-legend-line {
+  background: #0284c7;
+}
+
+[data-theme="white"] .railway-map-legend-line--dim,
+body.theme-white .railway-map-legend-line--dim {
+  background: #64748b;
+}
+
+[data-theme="white"] .railway-map-map-shell::after,
+body.theme-white .railway-map-map-shell::after {
+  display: none;
 }
 
 /* Emergency Map Top HUD in White Mode */
@@ -4411,6 +5157,601 @@ body.theme-white .railway-conflict-tooltip {
   from { transform: scale(0.96); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
+
+/* ── Preferred Start & Table Tag Styling (Incoming Requests & Lifecycles) ── */
+.incoming-preferred-start,
+.lifecycle-preferred-start {
+  color: #e9d5ff;
+}
+
+.incoming-recent-time {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text);
+}
+.incoming-recent-time.is-recent {
+  color: #38bdf8;
+}
+
+.incoming-package-tag {
+  font-size: 10.5px;
+  font-family: monospace;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  display: inline-block;
+}
+.incoming-package-tag.is-pending {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.incoming-package-tag.is-assigned {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+/* Day Mode Overrides strictly scoped to [data-theme="white"] */
+[data-theme="white"] .incoming-preferred-start,
+body.theme-white .incoming-preferred-start,
+[data-theme="white"] .lifecycle-preferred-start,
+body.theme-white .lifecycle-preferred-start {
+  color: #6d28d9 !important;
+  font-weight: 700;
+}
+
+[data-theme="white"] .incoming-recent-time.is-recent,
+body.theme-white .incoming-recent-time.is-recent {
+  color: #0284c7 !important;
+}
+
+[data-theme="white"] .incoming-package-tag.is-pending,
+body.theme-white .incoming-package-tag.is-pending {
+  background: #fef3c7 !important;
+  color: #b45309 !important;
+  border-color: #fde68a !important;
+}
+
+[data-theme="white"] .incoming-package-tag.is-assigned,
+body.theme-white .incoming-package-tag.is-assigned {
+  background: #dcfce7 !important;
+  color: #15803d !important;
+  border-color: #bbf7d0 !important;
+}
+
+/* ── Conflicts Page: Target Focus & Filtering ── */
+.conflict-active-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.16) 0%, rgba(15, 23, 42, 0.9) 100%);
+  border: 1.5px solid rgba(239, 68, 68, 0.45);
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.14);
+}
+
+.conflict-active-banner__left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.conflict-active-banner__pulse {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 10px #ef4444;
+  animation: livePulse 1.8s infinite;
+  flex-shrink: 0;
+}
+
+.conflict-active-banner strong {
+  display: block;
+  color: #fecaca;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.conflict-active-banner p {
+  margin: 2px 0 0;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.conflict-active-banner__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.conflict-target-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgba(239, 68, 68, 0.22);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  white-space: nowrap;
+}
+
+tr.row-highlighted {
+  background: rgba(239, 68, 68, 0.12) !important;
+  border-left: 4px solid #ef4444 !important;
+}
+tr.row-highlighted:hover {
+  background: rgba(239, 68, 68, 0.20) !important;
+}
+
+.conflict-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.conflict-filter-search {
+  position: relative;
+  flex: 1;
+  min-width: 240px;
+}
+.conflict-filter-search input {
+  width: 100%;
+  height: 36px;
+  padding: 0 12px 0 36px;
+  border-radius: 8px;
+  border: 1px solid var(--border-2);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12.5px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.conflict-filter-search input:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+}
+.conflict-filter-search svg {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-4);
+  pointer-events: none;
+}
+
+/* Day Mode Overrides strictly scoped under [data-theme="white"] */
+[data-theme="white"] .conflict-active-banner,
+body.theme-white .conflict-active-banner {
+  background: linear-gradient(135deg, #fff5f5 0%, #ffffff 100%);
+  border: 1.5px solid #fca5a5;
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.08);
+}
+
+[data-theme="white"] .conflict-active-banner strong,
+body.theme-white .conflict-active-banner strong {
+  color: #991b1b;
+}
+
+[data-theme="white"] .conflict-active-banner p,
+body.theme-white .conflict-active-banner p {
+  color: #475569;
+}
+
+[data-theme="white"] .conflict-target-chip,
+body.theme-white .conflict-target-chip {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+
+[data-theme="white"] tr.row-highlighted,
+body.theme-white tr.row-highlighted {
+  background: #fff5f5 !important;
+  border-left: 4px solid #dc2626 !important;
+}
+
+[data-theme="white"] tr.row-highlighted:hover,
+body.theme-white tr.row-highlighted:hover {
+  background: #fee2e2 !important;
+}
+
+[data-theme="white"] .conflict-filter-bar,
+body.theme-white .conflict-filter-bar {
+  background: #f8fafc;
+  border-bottom-color: #e2e8f0;
+}
+
+/* ============================================================
+   SIMULATOR INJECT CARD (TMS / SMMS / TDMS)
+   Works seamlessly in both Dark Mode and Light Mode
+   ============================================================ */
+
+.simulator-inject-card {
+  padding: 18px 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  background: linear-gradient(180deg, rgba(14, 28, 48, 0.92) 0%, rgba(9, 17, 30, 0.96) 100%);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  font-size: 13px;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.simulator-inject-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.simulator-inject-title {
+  color: #f1f5f9;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: -0.01em;
+}
+
+.simulator-inject-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  padding: 2px 9px;
+  border-radius: 999px;
+  line-height: 1.4;
+}
+
+.simulator-inject-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.simulator-inject-close:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.simulator-inject-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+
+@media (max-width: 960px) {
+  .simulator-inject-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .simulator-inject-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.simulator-inject-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.simulator-inject-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.simulator-inject-card .input,
+.simulator-inject-card .select {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  font-size: 13px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  color: #f8fafc;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.simulator-inject-card .input:focus,
+.simulator-inject-card .select:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+}
+
+.simulator-inject-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  flex-wrap: wrap;
+}
+
+.simulator-inject-note {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 11.5px;
+  line-height: 1.45;
+  flex: 1;
+  min-width: 260px;
+}
+
+.simulator-inject-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.simulator-inject-result {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.simulator-inject-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 15px;
+  border-radius: 8px;
+  border: 1px dashed rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.05);
+  color: #38bdf8;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.simulator-inject-trigger:hover {
+  background: rgba(56, 189, 248, 0.1);
+  border-color: #38bdf8;
+  transform: translateY(-1px);
+}
+
+/* --- LIGHT MODE / WHITE THEME OVERRIDES --- */
+[data-theme="white"] .simulator-inject-card,
+body.theme-white .simulator-inject-card {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid #bae6fd;
+  box-shadow: 0 6px 20px rgba(14, 165, 233, 0.07), 0 2px 5px rgba(15, 23, 42, 0.04);
+}
+
+[data-theme="white"] .simulator-inject-title,
+body.theme-white .simulator-inject-title {
+  color: #0f172a;
+}
+
+[data-theme="white"] .simulator-inject-badge,
+body.theme-white .simulator-inject-badge {
+  color: #0284c7;
+  background: #e0f2fe;
+  border-color: #bae6fd;
+}
+
+[data-theme="white"] .simulator-inject-close,
+body.theme-white .simulator-inject-close {
+  color: #64748b;
+}
+
+[data-theme="white"] .simulator-inject-close:hover,
+body.theme-white .simulator-inject-close:hover {
+  color: #0f172a;
+  background: #f1f5f9;
+}
+
+[data-theme="white"] .simulator-inject-label,
+body.theme-white .simulator-inject-label {
+  color: #334155;
+}
+
+[data-theme="white"] .simulator-inject-card .input,
+[data-theme="white"] .simulator-inject-card .select,
+body.theme-white .simulator-inject-card .input,
+body.theme-white .simulator-inject-card .select {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="white"] .simulator-inject-card .input:focus,
+[data-theme="white"] .simulator-inject-card .select:focus,
+body.theme-white .simulator-inject-card .input:focus,
+body.theme-white .simulator-inject-card .select:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.16);
+}
+
+[data-theme="white"] .simulator-inject-footer,
+body.theme-white .simulator-inject-footer {
+  border-top-color: #e2e8f0;
+}
+
+[data-theme="white"] .simulator-inject-note,
+body.theme-white .simulator-inject-note {
+  color: #64748b;
+}
+
+[data-theme="white"] .simulator-inject-trigger,
+body.theme-white .simulator-inject-trigger {
+  color: #0284c7;
+  background: rgba(14, 165, 233, 0.06);
+  border: 1px dashed rgba(14, 165, 233, 0.45);
+}
+
+[data-theme="white"] .simulator-inject-trigger:hover,
+body.theme-white .simulator-inject-trigger:hover {
+  background: rgba(14, 165, 233, 0.12);
+  border-color: #0284c7;
+}
+
+/* ============================================================
+   FOCUSED INSPECTION HUD (BLOCK PLANNING ML)
+   Theme-aware banner with seamless Light/Dark mode styling
+   ============================================================ */
+
+.focused-inspection-hud {
+  margin-bottom: 16px;
+  border-radius: 12px;
+  padding: 14px 18px;
+  border: 1.5px solid rgba(56, 189, 248, 0.45);
+  background: linear-gradient(180deg, rgba(14, 28, 48, 0.92) 0%, rgba(9, 17, 30, 0.96) 100%);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.focused-inspection-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.focused-inspection-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.focused-inspection-icon {
+  color: #38bdf8;
+  flex-shrink: 0;
+}
+
+.focused-inspection-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: #f1f5f9;
+  letter-spacing: -0.01em;
+}
+
+.focused-inspection-pkg {
+  color: #38bdf8;
+  font-family: var(--mono, monospace);
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+.focused-inspection-subtitle {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 3px;
+  line-height: 1.4;
+}
+
+.focused-inspection-code {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 11.5px;
+}
+
+.focused-inspection-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Light mode / white theme overrides */
+[data-theme="white"] .focused-inspection-hud,
+body.theme-white .focused-inspection-hud {
+  background: linear-gradient(180deg, #ffffff 0%, #f0f7ff 100%);
+  border: 1.5px solid #38bdf8;
+  box-shadow: 0 6px 20px rgba(14, 165, 233, 0.08), 0 2px 5px rgba(15, 23, 42, 0.04);
+}
+
+[data-theme="white"] .focused-inspection-icon,
+body.theme-white .focused-inspection-icon {
+  color: #0284c7;
+}
+
+[data-theme="white"] .focused-inspection-title,
+body.theme-white .focused-inspection-title {
+  color: #0f172a;
+}
+
+[data-theme="white"] .focused-inspection-pkg,
+body.theme-white .focused-inspection-pkg {
+  color: #0284c7;
+}
+
+[data-theme="white"] .focused-inspection-subtitle,
+body.theme-white .focused-inspection-subtitle {
+  color: #475569;
+}
+
+[data-theme="white"] .focused-inspection-code,
+body.theme-white .focused-inspection-code {
+  color: #0369a1;
+  background: #e0f2fe;
+  border: 1px solid #bae6fd;
+}
+
+/* Targeted task row highlight */
+tr.targeted-task-row-active {
+  background: rgba(56, 189, 248, 0.24) !important;
+  outline: 2px solid #38bdf8 !important;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.4) !important;
+  position: relative;
+  z-index: 2;
+}
+
+[data-theme="white"] tr.targeted-task-row-active,
+body.theme-white tr.targeted-task-row-active {
+  background: #e0f2fe !important;
+  outline: 2px solid #0284c7 !important;
+  box-shadow: 0 0 14px rgba(2, 132, 199, 0.28) !important;
+}
+
+[data-theme="white"] tr.targeted-task-row-active td,
+body.theme-white tr.targeted-task-row-active td {
+  color: #0f172a !important;
+}
+
+
+
+
 
 
 

@@ -52,20 +52,31 @@ async function findAll(query) {
   if (status) where.status = status.toUpperCase();
 
   try {
-    const [total, plans] = await Promise.all([
-      prisma.blockPlan.count({ where }),
-      prisma.blockPlan.findMany({
-        where,
-        skip,
-        take,
-        orderBy: { planned_start: "desc" },
-        include: listInclude,
-      }),
-    ]);
+    const plans = await prisma.blockPlan.findMany({
+      where,
+      orderBy: [{ planned_start: "desc" }, { plan_id: "desc" }],
+      include: listInclude,
+    });
 
-    if (total > 0) {
+    if (plans.length > 0) {
+      // Deduplicate plans having identical block_id, planned_start, planned_end, and status
+      const seen = new Set();
+      const uniquePlans = [];
+      for (const p of plans) {
+        const startStr = p.planned_start ? new Date(p.planned_start).toISOString() : "";
+        const endStr = p.planned_end ? new Date(p.planned_end).toISOString() : "";
+        const key = `${p.block_id}_${startStr}_${endStr}_${p.status}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          uniquePlans.push(p);
+        }
+      }
+
+      const total = uniquePlans.length;
+      const paged = uniquePlans.slice(skip, skip + take);
+
       return {
-        data: plans,
+        data: paged,
         pagination: {
           page,
           limit,
@@ -164,6 +175,23 @@ async function persistSchedule(output) {
 
   try {
     return await runInTransaction(async (tx) => {
+      // Clean up previous unapproved PROPOSED plans on the same blocks so we don't accumulate duplicates
+      const blockIds = output.mega_blocks.map((mb) => BigInt(mb.block_id));
+      const stalePlans = await tx.blockPlan.findMany({
+        where: {
+          block_id: { in: blockIds },
+          status: "PROPOSED",
+        },
+        select: { plan_id: true },
+      });
+      const staleIds = stalePlans.map((p) => p.plan_id);
+      if (staleIds.length > 0) {
+        await tx.blockConflict.deleteMany({ where: { plan_id: { in: staleIds } } });
+        await tx.planTrainImpact.deleteMany({ where: { plan_id: { in: staleIds } } });
+        await tx.planMaintenanceTask.deleteMany({ where: { plan_id: { in: staleIds } } });
+        await tx.blockPlan.deleteMany({ where: { plan_id: { in: staleIds } } });
+      }
+
       const plans = [];
 
       for (const megaBlock of output.mega_blocks) {

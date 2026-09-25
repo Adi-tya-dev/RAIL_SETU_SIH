@@ -8,6 +8,7 @@ export default function DataTable({
   rows = [],
   rowKey,
   onRowClick,
+  rowClassName,
   loading = false,
   emptyMessage = "No records found.",
   ariaLabel,
@@ -38,7 +39,10 @@ export default function DataTable({
           {rows.map((row, index) => (
             <tr
               key={rowKey ? rowKey(row, index) : index}
-              className={onRowClick ? "is-clickable" : ""}
+              className={[
+                onRowClick ? "is-clickable" : "",
+                rowClassName ? rowClassName(row, index) : "",
+              ].filter(Boolean).join(" ")}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
               tabIndex={onRowClick ? 0 : undefined}
               onKeyDown={

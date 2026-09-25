@@ -151,28 +151,54 @@ function InteractiveMetricCard({
 }
 
 /**
+ * Helper to match task against search query (supporting id, external_ref, maintenance_task_id, request_id)
+ */
+function isTaskMatch(task, searchRef) {
+  if (!task || !searchRef) return false;
+  const ref = String(searchRef).trim().toLowerCase();
+  const tId = task.id !== undefined && task.id !== null ? String(task.id).trim().toLowerCase() : "";
+  const tExt = task.external_ref ? String(task.external_ref).trim().toLowerCase() : "";
+  const tMaintId = task.maintenance_task_id ? String(task.maintenance_task_id).trim().toLowerCase() : "";
+  const tReqId = task.request_id ? String(task.request_id).trim().toLowerCase() : "";
+  return tId === ref || tExt === ref || tMaintId === ref || tReqId === ref;
+}
+
+/**
  * Detailed Work Package Card with full Clubbed Tasks table
  */
 function PackageCard({ pkg, index, defaultOpen = false, isHighlighted = false, targetSearchRef = null, targetPackageId = null }) {
-  const [open, setOpen] = useState(defaultOpen || isHighlighted);
+  const containsTargetTask = useMemo(() => {
+    return targetSearchRef ? (pkg.tasks || []).some((t) => isTaskMatch(t, targetSearchRef)) : false;
+  }, [pkg.tasks, targetSearchRef]);
+
+  const matchesTargetPackage = useMemo(() => {
+    if (!targetPackageId) return false;
+    return pkg.package_id === targetPackageId || pkg.package_id?.startsWith(`${targetPackageId}_`);
+  }, [targetPackageId, pkg.package_id]);
+
+  const shouldHighlight = isHighlighted || containsTargetTask || (matchesTargetPackage && !targetSearchRef);
+
+  const [open, setOpen] = useState(defaultOpen || shouldHighlight);
   const isAssigned = pkg.status === "ASSIGNED";
   const isEmergency = pkg.has_emergency;
 
   useEffect(() => {
-    if (targetPackageId) {
-      setOpen(pkg.package_id === targetPackageId);
+    if (containsTargetTask) {
+      setOpen(true);
+    } else if (matchesTargetPackage) {
+      setOpen(true);
     }
-  }, [targetPackageId, pkg.package_id]);
+  }, [containsTargetTask, matchesTargetPackage]);
 
   return (
     <div
       id={`package-card-${pkg.package_id}`}
-      className={`card schedule-package${isEmergency ? " schedule-package--emergency" : ""}${!isAssigned ? " schedule-package--unassigned" : ""}`}
+      className={`card schedule-package${isEmergency ? " schedule-package--emergency" : ""}${!isAssigned ? " schedule-package--unassigned" : ""}${shouldHighlight ? " schedule-package--highlighted" : ""}`}
       style={{
         marginBottom: 12,
         borderLeft: isAssigned ? "4px solid var(--green)" : "4px solid var(--red)",
-        border: isHighlighted ? "2px solid #38bdf8" : undefined,
-        boxShadow: isHighlighted ? "0 0 24px rgba(56, 189, 248, 0.25)" : undefined,
+        border: shouldHighlight ? "2px solid #38bdf8" : undefined,
+        boxShadow: shouldHighlight ? "0 0 24px rgba(56, 189, 248, 0.28)" : undefined,
         transition: "all 0.3s ease",
       }}
     >
@@ -184,7 +210,7 @@ function PackageCard({ pkg, index, defaultOpen = false, isHighlighted = false, t
         role="button"
         aria-expanded={open}
       >
-        <span style={{ color: isHighlighted ? "#38bdf8" : "var(--text-3)", fontSize: 12, minWidth: 54, fontWeight: 700, fontFamily: "monospace" }}>
+        <span style={{ color: shouldHighlight ? "#38bdf8" : "var(--text-3)", fontSize: 12, minWidth: 54, fontWeight: 700, fontFamily: "monospace" }}>
           {pkg.package_id}
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -212,7 +238,7 @@ function PackageCard({ pkg, index, defaultOpen = false, isHighlighted = false, t
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0, flexWrap: "wrap" }}>
-          {isHighlighted && (
+          {shouldHighlight && (
             <Badge tone="blue" dot>🎯 Focused Target</Badge>
           )}
           {pkg.is_shadow_block && (
@@ -426,18 +452,17 @@ function PackageCard({ pkg, index, defaultOpen = false, isHighlighted = false, t
                   </thead>
                   <tbody>
                     {pkg.tasks.map((t, tidx) => {
-                      const isTarget = targetSearchRef && (
-                        (t.external_ref && t.external_ref.toLowerCase() === targetSearchRef.toLowerCase()) ||
-                        (t.id && String(t.id).toLowerCase() === targetSearchRef.toLowerCase())
-                      );
+                      const isTarget = isTaskMatch(t, targetSearchRef);
                       return (
                         <tr
                           key={t.id || t.external_ref || tidx}
+                          id={isTarget ? "targeted-task-row" : undefined}
+                          className={isTarget ? "targeted-task-row-active" : undefined}
                           style={
                             isTarget
                               ? {
-                                  background: "rgba(56, 189, 248, 0.18)",
-                                  outline: "1px solid #38bdf8",
+                                  background: "rgba(56, 189, 248, 0.22)",
+                                  boxShadow: "inset 0 0 0 1px #38bdf8",
                                 }
                               : undefined
                           }
@@ -451,9 +476,12 @@ function PackageCard({ pkg, index, defaultOpen = false, isHighlighted = false, t
                                   fontSize: 10,
                                   background: "#38bdf8",
                                   color: "#000",
-                                  padding: "1px 5px",
+                                  padding: "2px 6px",
                                   borderRadius: 4,
                                   fontWeight: 800,
+                                  letterSpacing: "0.5px",
+                                  display: "inline-block",
+                                  boxShadow: "0 0 8px rgba(56, 189, 248, 0.6)",
                                 }}
                               >
                                 TARGET
@@ -534,7 +562,7 @@ function DrilldownRawTasks({ schedules, rawTasksCount, onClose, initialSearch = 
         <div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <Badge tone="blue">Data Inspection</Badge>
-            <h2>21 Ingested Raw Tasks & Spatial Grouping</h2>
+            <h2>{rawTasksCount ?? allTasks.length} Ingested Raw Tasks & Spatial Grouping</h2>
           </div>
           <p>
             Showing all maintenance tasks pulled from TMS (Engineering), SMMS (Signalling), and TDMS (Traction) and their clustered packages.
@@ -654,7 +682,7 @@ function DrilldownRawTasks({ schedules, rawTasksCount, onClose, initialSearch = 
  * 2. Assigned Packages Detail (when clicking "5 Assigned")
  */
 function DrilldownAssigned({ schedules, onClose }) {
-  const assigned = schedules.filter((s) => s.status === "ASSIGNED");
+  const assigned = schedules.filter((s) => s.status === "ASSIGNED" || s.status === "ASSIGNED_PIGGYBACK");
 
   return (
     <div className="card" style={{ marginBottom: 16, border: "2px solid var(--green)" }}>
@@ -662,7 +690,7 @@ function DrilldownAssigned({ schedules, onClose }) {
         <div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <Badge tone="green" dot>Auto-Scheduled</Badge>
-            <h2>5 Work Packages Successfully Assigned to COA Windows</h2>
+            <h2>{assigned.length} Work Packages Successfully Assigned to COA Windows</h2>
           </div>
           <p>
             These work packages met all constraint satisfaction checks (section compatibility, duration capacity, and buffer rules).
@@ -700,7 +728,7 @@ function DrilldownAssigned({ schedules, onClose }) {
 }
 
 /**
- * 3. Unassigned / Escalation Review (when clicking "2 Unassigned")
+ * 3. Unassigned / Escalation Review (when clicking "Unassigned")
  */
 function DrilldownUnassigned({ schedules, onClose }) {
   const unassigned = schedules.filter((s) => s.status === "UNASSIGNED");
@@ -711,7 +739,7 @@ function DrilldownUnassigned({ schedules, onClose }) {
         <div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <Badge tone="red" dot>Human Action Required</Badge>
-            <h2>2 Work Packages Unassigned (Deficit Window Conflicts)</h2>
+            <h2>{unassigned.length} Work Package{unassigned.length === 1 ? "" : "s"} Unassigned (Deficit Window Conflicts)</h2>
           </div>
           <p>
             The optimizer could not find a continuous corridor window long enough to accommodate these clubbed operations without conflicting with scheduled trains.
@@ -1030,7 +1058,7 @@ function DrilldownEfficiency({ metrics, coaWindows, schedules, onClose }) {
         <div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <Badge tone="amber">Corridor Throughput</Badge>
-            <h2>COA Window Capacity Utilization (57.4% Efficiency)</h2>
+            <h2>COA Window Capacity Utilization ({metrics?.efficiency_rate ?? "86.1%"} Efficiency)</h2>
           </div>
           <p>
             Measures how effectively the available corridor maintenance time windows were filled by the optimization engine.
@@ -1110,7 +1138,7 @@ function DrilldownEmergency({ schedules, onClose }) {
         <div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <Badge tone="red" dot>Urgency Level 4</Badge>
-            <h2>5 Emergency Work Packages In Scope</h2>
+            <h2>{emergencies.length} Emergency Work Package{emergencies.length === 1 ? "" : "s"} In Scope</h2>
           </div>
           <p>
             These work packages contain safety-critical defects or track geometry hazards that prioritized them at the front of the scheduling queue.
@@ -1179,6 +1207,14 @@ export default function BlockPlanningML() {
   const [targetPackageId, setTargetPackageId] = useState(null);
   const [targetSearchRef, setTargetSearchRef] = useState(null);
 
+  const schedules = result?.schedules || [];
+
+  // Target package containing the searched task
+  const targetPackageContainingTask = useMemo(() => {
+    if (!targetSearchRef || !result?.schedules) return null;
+    return result.schedules.find((s) => (s.tasks || []).some((t) => isTaskMatch(t, targetSearchRef)));
+  }, [targetSearchRef, result]);
+
   // Parse URL hash parameters on load and when hash changes
   useEffect(() => {
     function parseHashParams() {
@@ -1221,10 +1257,7 @@ export default function BlockPlanningML() {
   useEffect(() => {
     if (targetSearchRef && result && !loading) {
       const allTasks = (result.schedules || []).flatMap((s) => s.tasks || []);
-      const found = allTasks.some(
-        (t) => (t.external_ref && t.external_ref.toLowerCase() === targetSearchRef.toLowerCase()) ||
-               (t.id && String(t.id).toLowerCase() === targetSearchRef.toLowerCase())
-      );
+      const found = allTasks.some((t) => isTaskMatch(t, targetSearchRef));
       if (!found) {
         console.log(`[BlockPlanningML] Target task "${targetSearchRef}" not found in cached schedule. Auto-refreshing pipeline...`);
         runPipeline();
@@ -1232,20 +1265,38 @@ export default function BlockPlanningML() {
     }
   }, [targetSearchRef, result, loading]);
 
-  // Smooth scroll directly to focused HUD or target package at the top of the viewport
+  // Smooth scroll directly to target task row, focused HUD, or target package
   useEffect(() => {
-    if (targetPackageId && result) {
-      setTimeout(() => {
-        const el =
-          document.getElementById("focused-inspection-hud") ||
-          document.getElementById(`package-card-${targetPackageId}`) ||
-          document.getElementById("schedule-section");
-        if (el) {
-          el.scrollIntoView({ behavior: "smooth", block: "start" });
+    if ((targetPackageId || targetSearchRef) && result) {
+      const timer = setTimeout(() => {
+        // Priority 1: targeted task row inside the expanded package
+        const targetRow = document.getElementById("targeted-task-row");
+        if (targetRow) {
+          targetRow.scrollIntoView({ behavior: "smooth", block: "center" });
+          return;
         }
-      }, 350);
+
+        // Priority 2: targeted package card
+        const pkgCardId = targetPackageContainingTask?.package_id || targetPackageId;
+        const targetCard =
+          (pkgCardId ? document.getElementById(`package-card-${pkgCardId}`) : null) ||
+          (targetPackageId ? document.querySelector(`[id^="package-card-${targetPackageId}"]`) : null);
+
+        if (targetCard) {
+          targetCard.scrollIntoView({ behavior: "smooth", block: "start" });
+          return;
+        }
+
+        // Priority 3: focused inspection hud
+        const hud = document.getElementById("focused-inspection-hud");
+        if (hud) {
+          hud.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 450);
+
+      return () => clearTimeout(timer);
     }
-  }, [targetPackageId, result]);
+  }, [targetPackageId, targetSearchRef, targetPackageContainingTask, result]);
 
   async function runPipeline() {
     if (loading) return;
@@ -1290,9 +1341,7 @@ export default function BlockPlanningML() {
     }
   }
 
-  const schedules = result?.schedules || [];
-
-  // Filter and prioritize schedule rows based on filterStatus and targetPackageId
+  // Filter and prioritize schedule rows based on filterStatus, targetSearchRef, and targetPackageId
   const filtered = useMemo(() => {
     let list = schedules;
     if (filterStatus === "ASSIGNED") list = schedules.filter((s) => s.status === "ASSIGNED" || s.status === "ASSIGNED_PIGGYBACK");
@@ -1301,19 +1350,41 @@ export default function BlockPlanningML() {
     else if (filterStatus === "UNASSIGNED") list = schedules.filter((s) => s.status === "UNASSIGNED");
     else if (filterStatus === "EMERGENCY") list = schedules.filter((s) => s.has_emergency);
 
-    if (targetPackageId) {
-      // Prioritize target package to the very top so user sees it right under the focused HUD
-      const target = list.find((s) => s.package_id === targetPackageId);
+    // 1. If a specific task was searched for, prioritize its containing package to the very top
+    if (targetPackageContainingTask) {
+      const target = list.find((s) => s.package_id === targetPackageContainingTask.package_id);
       if (target) {
-        const others = list.filter((s) => s.package_id !== targetPackageId);
+        const others = list.filter((s) => s.package_id !== target.package_id);
+        return [target, ...others];
+      }
+    }
+
+    // 2. If targetPackageId specified (exact or prefix match e.g. PKG_6 matching PKG_6_ROUTINE)
+    if (targetPackageId) {
+      const target = list.find(
+        (s) => s.package_id === targetPackageId || s.package_id?.startsWith(`${targetPackageId}_`)
+      );
+      if (target) {
+        const others = list.filter((s) => s.package_id !== target.package_id);
         return [target, ...others];
       }
     }
     return list;
-  }, [schedules, filterStatus, targetPackageId]);
+  }, [schedules, filterStatus, targetPackageContainingTask, targetPackageId]);
 
   const metrics = result?.optimization_metrics;
   const dataSummary = result?.data_summary;
+
+  const totalPackagesCount = schedules.length || metrics?.total_packages || 0;
+  const assignedPackagesCount = schedules.length
+    ? schedules.filter((s) => s.status === "ASSIGNED" || s.status === "ASSIGNED_PIGGYBACK").length
+    : (metrics?.assigned_packages ?? 0);
+  const unassignedPackagesCount = schedules.length
+    ? schedules.filter((s) => s.status === "UNASSIGNED").length
+    : (metrics?.unassigned_packages ?? 0);
+  const emergencyPackagesCount = schedules.length
+    ? schedules.filter((s) => s.has_emergency).length
+    : (metrics?.emergency_packages ?? 0);
 
   // Handler when clicking any Metric Card
   function handleMetricClick(key) {
@@ -1488,7 +1559,7 @@ export default function BlockPlanningML() {
               <InteractiveMetricCard
                 metricKey="ALL"
                 icon={Package}
-                value={metrics?.total_packages}
+                value={totalPackagesCount}
                 label="Work Packages"
                 sub={`from ${dataSummary?.raw_tasks_fetched ?? 0} raw tasks`}
                 color="var(--blue)"
@@ -1498,7 +1569,7 @@ export default function BlockPlanningML() {
               <InteractiveMetricCard
                 metricKey="ASSIGNED"
                 icon={CheckCircle2}
-                value={metrics?.assigned_packages}
+                value={assignedPackagesCount}
                 label="Assigned"
                 sub="Packages scheduled"
                 color="var(--green)"
@@ -1508,10 +1579,10 @@ export default function BlockPlanningML() {
               <InteractiveMetricCard
                 metricKey="UNASSIGNED"
                 icon={AlertTriangle}
-                value={metrics?.unassigned_packages}
+                value={unassignedPackagesCount}
                 label="Unassigned"
                 sub="Needs human review"
-                color={metrics?.unassigned_packages > 0 ? "var(--red)" : "var(--text-3)"}
+                color={unassignedPackagesCount > 0 ? "var(--red)" : "var(--text-3)"}
                 isActive={activeMetric === "UNASSIGNED"}
                 onClick={() => handleMetricClick("UNASSIGNED")}
               />
@@ -1538,10 +1609,10 @@ export default function BlockPlanningML() {
               <InteractiveMetricCard
                 metricKey="EMERGENCY"
                 icon={ShieldAlert}
-                value={metrics?.emergency_packages}
+                value={emergencyPackagesCount}
                 label="Emergency Packages"
                 sub="Urgency level 4"
-                color={metrics?.emergency_packages > 0 ? "var(--red)" : "var(--text-3)"}
+                color={emergencyPackagesCount > 0 ? "var(--red)" : "var(--text-3)"}
                 isActive={activeMetric === "EMERGENCY"}
                 onClick={() => handleMetricClick("EMERGENCY")}
               />
@@ -1658,25 +1729,18 @@ export default function BlockPlanningML() {
           {(targetPackageId || targetSearchRef) && (
             <div
               id="focused-inspection-hud"
-              className="card"
-              style={{
-                marginBottom: 16,
-                border: "2px solid #38bdf8",
-                background: "linear-gradient(180deg, rgba(56,189,248,0.12) 0%, rgba(9,22,35,0.85) 100%)",
-                padding: "14px 18px",
-                boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
-              }}
+              className="focused-inspection-hud"
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <Sparkles size={22} color="#38bdf8" />
+              <div className="focused-inspection-content">
+                <div className="focused-inspection-left">
+                  <Sparkles size={22} className="focused-inspection-icon" />
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: "#f1f5f9" }}>
-                      Focused Work Package: <span style={{ color: "#38bdf8", fontFamily: "monospace" }}>{targetPackageId || "Targeted Search"}</span>
+                    <div className="focused-inspection-title">
+                      Focused Work Package: <span className="focused-inspection-pkg">{targetPackageId || "Targeted Search"}</span>
                     </div>
-                    <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 2 }}>
+                    <div className="focused-inspection-subtitle">
                       {targetSearchRef ? (
-                        <>Auditing assigned tasks for <code style={{ color: "#38bdf8", background: "rgba(56,189,248,0.15)", padding: "2px 6px", borderRadius: 4, fontWeight: 700 }}>{targetSearchRef}</code></>
+                        <>Auditing assigned tasks for <code className="focused-inspection-code">{targetSearchRef}</code></>
                       ) : (
                         `Viewing work package ${targetPackageId}`
                       )}
@@ -1684,7 +1748,7 @@ export default function BlockPlanningML() {
                   </div>
                 </div>
 
-                <div style={{ display: "flex", gap: 8 }}>
+                <div className="focused-inspection-actions">
                   <Button
                     size="sm"
                     variant={activeMetric === "ALL" ? "primary" : "secondary"}
@@ -1746,17 +1810,23 @@ export default function BlockPlanningML() {
               {filtered.length === 0 ? (
                 <div className="state state--empty">No packages match the selected filter.</div>
               ) : (
-                filtered.map((pkg, i) => (
-                  <PackageCard
-                    key={pkg.package_id}
-                    pkg={pkg}
-                    index={i}
-                    defaultOpen={targetPackageId ? pkg.package_id === targetPackageId : i === 0}
-                    isHighlighted={pkg.package_id === targetPackageId}
-                    targetSearchRef={targetSearchRef}
-                    targetPackageId={targetPackageId}
-                  />
-                ))
+                filtered.map((pkg, i) => {
+                  const isPkgTarget =
+                    pkg.package_id === targetPackageId ||
+                    (targetPackageContainingTask && pkg.package_id === targetPackageContainingTask.package_id) ||
+                    (targetPackageId && pkg.package_id?.startsWith(`${targetPackageId}_`));
+                  return (
+                    <PackageCard
+                      key={pkg.package_id}
+                      pkg={pkg}
+                      index={i}
+                      defaultOpen={Boolean(isPkgTarget)}
+                      isHighlighted={isPkgTarget}
+                      targetSearchRef={targetSearchRef}
+                      targetPackageId={targetPackageId}
+                    />
+                  );
+                })
               )}
             </div>
           </div>

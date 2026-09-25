@@ -437,10 +437,13 @@ function makeUnassigned(pkg, reason) {
  * Derives summary stats for the API response.
  */
 function computeOptimizationMetrics(schedule, workPackages, coaWindows = []) {
-  const assigned = schedule.filter((s) => s.status === "ASSIGNED");
+  const directAssigned = schedule.filter((s) => s.status === "ASSIGNED");
+  const piggybackedAssigned = schedule.filter((s) => s.status === "ASSIGNED_PIGGYBACK");
+  const assigned = [...directAssigned, ...piggybackedAssigned];
   const unassigned = schedule.filter((s) => s.status === "UNASSIGNED");
+
   const totalDurationScheduled = assigned.reduce((sum, s) => sum + (s.duration_needed_mins || 0), 0);
-  const totalDurationRequested = workPackages.reduce((sum, p) => sum + (p.total_duration_required || 0), 0);
+  const totalDurationRequested = schedule.reduce((sum, s) => sum + (s.duration_needed_mins || s.total_duration_required || 0), 0);
   const efficiencyRate = totalDurationRequested > 0
     ? ((totalDurationScheduled / totalDurationRequested) * 100).toFixed(1) + "%"
     : "0.0%";
@@ -493,18 +496,21 @@ function computeOptimizationMetrics(schedule, workPackages, coaWindows = []) {
   const shadowDelaySavedMins = shadowPackages.reduce((sum, s) => sum + (s.duration_needed_mins || 0), 0);
 
   return {
-    total_packages: workPackages.length,
+    total_packages: schedule.length,
+    initial_clusters_count: workPackages.length,
     assigned_packages: assigned.length,
+    direct_assigned_packages: directAssigned.length,
+    piggybacked_packages: piggybackedAssigned.length,
     unassigned_packages: unassigned.length,
     shadow_packages_count: shadowPackages.length,
     pulled_forward_packages_count: pulledForwardPackages.length,
     shadow_delay_saved_mins: shadowDelaySavedMins,
-    total_tasks_in_scope: workPackages.reduce((sum, p) => sum + (p.task_count || 0), 0),
+    total_tasks_in_scope: schedule.reduce((sum, s) => sum + (s.task_count || (s.tasks ? s.tasks.length : 0)), 0),
     time_saved_mins: totalTimeSavedMins,
     total_duration_scheduled_mins: totalDurationScheduled,
     total_duration_requested_mins: totalDurationRequested,
     efficiency_rate: efficiencyRate,
-    emergency_packages: workPackages.filter((p) => p.has_emergency).length,
+    emergency_packages: schedule.filter((s) => s.has_emergency).length,
     package_savings: packageSavings,
     window_utilizations: windowUtilizations,
   };
