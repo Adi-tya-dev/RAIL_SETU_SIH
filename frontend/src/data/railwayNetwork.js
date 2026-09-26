@@ -45,7 +45,7 @@ export const STATIONS = {
   NGP:  { name: "Nagpur Junction",          lat: 21.1458, lng: 79.0882, type: "MAJOR_JUNCTION" },
   WR:   { name: "Wardha Junction",          lat: 20.7452, lng: 78.6034, type: "JUNCTION" },
   CHNR: { name: "Chandrapur",               lat: 19.9536, lng: 79.2998, type: "STATION" },
-  BPQ:  { name: "Balharshah Junction",      lat: 19.8443, lng: 79.8606, type: "JUNCTION" },
+  BPQ:  { name: "Balharshah Junction",      lat: 19.8443, lng: 79.3508, type: "JUNCTION" },
   G:    { name: "Gondia Junction",          lat: 21.4640, lng: 80.1964, type: "JUNCTION" },
   BD:   { name: "Bhandara Road",            lat: 21.1589, lng: 79.6534, type: "STATION" },
   DURG: { name: "Durg Junction",            lat: 21.1924, lng: 81.2853, type: "JUNCTION" },
@@ -125,8 +125,6 @@ export const EDGES = [
   ["OGL",  "BZA",   85, 130, "MAIN",  60],
   ["BZA",  "KZJ",  250, 120, "MAIN",  50],
   ["KZJ",  "WL",    15, 110, "MAIN",  50],
-  ["WL",   "NGP",  265, 120, "MAIN",  50],
-  ["KZJ",  "NGP",  280, 120, "MAIN",  50],
   ["NGP",  "ET",   185, 110, "MAIN",  40],
   ["ET",   "BPL",   90, 120, "MAIN",  50],
   ["BPL",  "BHS",  117, 110, "MAIN",  45],
@@ -306,6 +304,92 @@ export function dijkstra(graph, start, goal) {
 }
 
 /**
+ * Resolves a train's stop sequence into exact continuous physical railway track geometry.
+ * For every consecutive pair of stops (A -> B), it finds the shortest track corridor
+ * on the physical railway network graph via Dijkstra.
+ * Returns the exact sequence of railway track node coordinates with zero artificial curves.
+ *
+ * @param {Array<{station_code?: string, station?: any, latitude?: number, longitude?: number}|string>} stops
+ * @param {Map} [customGraph]
+ * @returns {{ path: Array<[number, number]>, nodes: string[] }}
+ */
+export function resolveTrackGeometry(stops = [], customGraph = null) {
+  if (!stops || stops.length === 0) return { path: [], nodes: [] };
+  const graph = customGraph || buildGraph([]);
+
+  const cleanStops = stops.map((item) => {
+    if (!item) return null;
+    const station = item.station || item;
+    const code = station.station_code || item.station_code || (typeof item === "string" ? item : null);
+    const lat = Number(station.latitude ?? station.lat);
+    const lng = Number(station.longitude ?? station.lng);
+    const coord = Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : (code && STATIONS[code] ? [STATIONS[code].lat, STATIONS[code].lng] : null);
+    return { code, coord };
+  }).filter((s) => s && (s.coord || (s.code && STATIONS[s.code])));
+
+  if (cleanStops.length === 0) return { path: [], nodes: [] };
+  if (cleanStops.length === 1) {
+    const pt = cleanStops[0].coord || (cleanStops[0].code && STATIONS[cleanStops[0].code] ? [STATIONS[cleanStops[0].code].lat, STATIONS[cleanStops[0].code].lng] : null);
+    return { path: pt ? [pt] : [], nodes: cleanStops[0].code ? [cleanStops[0].code] : [] };
+  }
+
+  const resultPoints = [];
+  const resultNodes = [];
+
+  for (let i = 0; i < cleanStops.length - 1; i++) {
+    const curr = cleanStops[i];
+    const next = cleanStops[i + 1];
+
+    const codeA = curr.code;
+    const codeB = next.code;
+
+    let segNodes = null;
+    if (codeA && codeB && graph.has(codeA) && graph.has(codeB)) {
+      if (codeA === codeB) {
+        segNodes = [codeA];
+      } else {
+        const res = dijkstra(graph, codeA, codeB);
+        if (res && res.path && res.path.length >= 2) {
+          segNodes = res.path;
+        }
+      }
+    }
+
+    if (segNodes && segNodes.length > 0) {
+      const startK = i === 0 ? 0 : 1;
+      for (let k = startK; k < segNodes.length; k++) {
+        const nodeCode = segNodes[k];
+        const s = STATIONS[nodeCode];
+        const pt = (k === 0 && curr.coord) ? curr.coord : (k === segNodes.length - 1 && next.coord) ? next.coord : (s ? [s.lat, s.lng] : null);
+        if (pt) {
+          const lastPt = resultPoints[resultPoints.length - 1];
+          if (!lastPt || lastPt[0] !== pt[0] || lastPt[1] !== pt[1]) {
+            resultPoints.push(pt);
+            resultNodes.push(nodeCode);
+          }
+        }
+      }
+    } else {
+      const ptA = curr.coord || (codeA && STATIONS[codeA] ? [STATIONS[codeA].lat, STATIONS[codeA].lng] : null);
+      const ptB = next.coord || (codeB && STATIONS[codeB] ? [STATIONS[codeB].lat, STATIONS[codeB].lng] : null);
+      if (i === 0 && ptA) {
+        resultPoints.push(ptA);
+        if (codeA) resultNodes.push(codeA);
+      }
+      if (ptB) {
+        const lastPt = resultPoints[resultPoints.length - 1];
+        if (!lastPt || lastPt[0] !== ptB[0] || lastPt[1] !== ptB[1]) {
+          resultPoints.push(ptB);
+          if (codeB) resultNodes.push(codeB);
+        }
+      }
+    }
+  }
+
+  return { path: resultPoints, nodes: resultNodes };
+}
+
+/**
  * Client-side resolver for bypass tracks.
  * Returns full station list and coordinates following real railway track edges.
  */
@@ -327,11 +411,10 @@ export function resolveBypassRoute({ scheduledStops = [], blockCode = "B001", by
     const head = divIdx >= 0 ? scheduledStops.slice(0, divIdx) : [];
     const tail = convIdx >= 0 ? scheduledStops.slice(convIdx + 1) : [];
 
-    const fullRoute = [...head, ...bypassPathOverride, ...tail];
-    const waypoints = fullRoute.map((code) => {
-      const s = STATIONS[code];
-      return s ? [s.lat, s.lng] : null;
-    }).filter(Boolean);
+    const fullRouteRaw = [...head, ...bypassPathOverride, ...tail];
+    const trackGeo = resolveTrackGeometry(fullRouteRaw, graph);
+    const waypoints = trackGeo.path;
+    const fullRoute = trackGeo.nodes.length > 0 ? trackGeo.nodes : fullRouteRaw;
 
     return {
       divergeStation,
@@ -391,12 +474,10 @@ export function resolveBypassRoute({ scheduledStops = [], blockCode = "B001", by
   const bypassPath = result.path;
   const head = scheduledStops.slice(0, divergeIdx);
   const tail = scheduledStops.slice(convergeIdx + 1);
-  const fullRoute = [...head, ...bypassPath, ...tail];
-
-  const waypoints = fullRoute.map((code) => {
-    const s = STATIONS[code];
-    return s ? [s.lat, s.lng] : null;
-  }).filter(Boolean);
+  const fullRouteRaw = [...head, ...bypassPath, ...tail];
+  const trackGeo = resolveTrackGeometry(fullRouteRaw, graph);
+  const waypoints = trackGeo.path;
+  const fullRoute = trackGeo.nodes.length > 0 ? trackGeo.nodes : fullRouteRaw;
 
   return {
     divergeStation,

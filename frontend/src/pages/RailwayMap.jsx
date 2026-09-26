@@ -15,7 +15,7 @@ import Drawer from "../components/common/Drawer";
 import MaintenanceDrawer from "../components/maintenance/MaintenanceDrawer";
 import { DetailSection, DetailList } from "../components/common/DetailList";
 import { navigate, useRoute } from "../hooks/useRoute";
-import { STATIONS, EDGES, resolveBypassRoute } from "../data/railwayNetwork";
+import { STATIONS, EDGES, resolveBypassRoute, resolveTrackGeometry } from "../data/railwayNetwork";
 
 const INDIA_BOUNDS = [[7.5, 68.0], [37.2, 97.4]];
 const INDIA_CENTER = [22.35, 82.7];
@@ -26,8 +26,12 @@ const DISTRICTS_GEOJSON = "/geo/india-districts.geojson";
 
 const normalizeId = (value) => value === null || value === undefined ? "" : String(value);
 const coordinate = (record) => {
-  const lat = Number(record?.latitude);
-  const lng = Number(record?.longitude);
+  const code = record?.station_code || record?.code;
+  if (code && STATIONS[code] && Number.isFinite(STATIONS[code].lat) && Number.isFinite(STATIONS[code].lng)) {
+    return [STATIONS[code].lat, STATIONS[code].lng];
+  }
+  const lat = Number(record?.latitude ?? record?.lat);
+  const lng = Number(record?.longitude ?? record?.lng);
   return Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : null;
 };
 const orderedStations = (train) => [...(train?.train_routes || [])].sort((a, b) => Number(a.sequence_number || 0) - Number(b.sequence_number || 0));
@@ -1064,11 +1068,24 @@ export default function RailwayMap() {
   }, [search, trains]);
 
   const routeStations = useMemo(() => orderedStations(selectedTrain), [selectedTrain]);
-  const routePoints = useMemo(() => {
-    return routeStations.map((route) => coordinate(route.station)).filter(Boolean);
+
+  // Construct train route strictly along the existing physical railway track geometry
+  const routeTrackGeometry = useMemo(() => {
+    return resolveTrackGeometry(routeStations);
   }, [routeStations]);
 
-  const routePath = useMemo(() => corridorPath(routePoints), [routePoints]);
+  const routePath = useMemo(() => {
+    if (routeTrackGeometry.path.length > 1) {
+      return routeTrackGeometry.path;
+    }
+    return routeStations.map((route) => coordinate(route.station)).filter(Boolean);
+  }, [routeTrackGeometry, routeStations]);
+
+  const routePoints = useMemo(() => {
+    return routePath.length > 0
+      ? routePath
+      : routeStations.map((route) => coordinate(route.station)).filter(Boolean);
+  }, [routePath, routeStations]);
   const routeDistance = useMemo(() => routePoints.slice(1).reduce((total, point, index) => total + distanceBetween(routePoints[index], point), 0), [routePoints]);
   const routeMaxDelay = useMemo(() => {
     const delays = routeStations.map(delayMinutes).filter((value) => value !== null);
@@ -1110,10 +1127,15 @@ export default function RailwayMap() {
   }, []);
 
   const networkRoutes = useMemo(() => networkTrains
-    .map((train) => ({ train, stations: orderedStations(train) }))
-    .map(({ train, stations }) => ({ train, points: stations.map((route) => coordinate(route.station)).filter(Boolean) }))
-    .filter(({ points }) => points.length > 1)
-    .map(({ train, points }) => ({ train, path: corridorPath(points) })), [networkTrains]);
+    .map((train) => {
+      const stations = orderedStations(train);
+      const geo = resolveTrackGeometry(stations);
+      const path = geo.path.length > 1
+        ? geo.path
+        : stations.map((route) => coordinate(route.station)).filter(Boolean);
+      return { train, path };
+    })
+    .filter(({ path }) => path.length > 1), [networkTrains]);
 
   const networkStations = useMemo(() => {
     const nodes = new Map();
@@ -1532,8 +1554,9 @@ export default function RailwayMap() {
           return pt ? { code, name: st.name || code, point: pt } : null;
         }).filter(Boolean);
 
+        const cleanTrackPath = (resolved.waypoints && resolved.waypoints.length >= 2) ? resolved.waypoints : trackPoints;
         return {
-          path: corridorPath(trackPoints),
+          path: cleanTrackPath,
           bypassPath: resolved.bypassPath,
           fullRoute: resolved.fullRoute,
           waypoints: bypassWaypoints,

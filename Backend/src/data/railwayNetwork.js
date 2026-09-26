@@ -53,7 +53,7 @@ const STATIONS = {
   NGP:  { name: "Nagpur Junction",          lat: 21.1458, lng: 79.0882, type: "MAJOR_JUNCTION" },
   WR:   { name: "Wardha Junction",          lat: 20.7452, lng: 78.6034, type: "JUNCTION" },
   CHNR: { name: "Chandrapur",               lat: 19.9536, lng: 79.2998, type: "STATION" },
-  BPQ:  { name: "Balharshah Junction",      lat: 19.8443, lng: 79.8606, type: "JUNCTION" },
+  BPQ:  { name: "Balharshah Junction",      lat: 19.8443, lng: 79.3508, type: "JUNCTION" },
   G:    { name: "Gondia Junction",          lat: 21.4640, lng: 80.1964, type: "JUNCTION" },
   BD:   { name: "Bhandara Road",            lat: 21.1589, lng: 79.6534, type: "STATION" },
   DURG: { name: "Durg Junction",            lat: 21.1924, lng: 81.2853, type: "JUNCTION" },
@@ -142,8 +142,6 @@ const EDGES = [
   ["OGL",  "BZA",   85, 130, "MAIN",  60],
   ["BZA",  "KZJ",  250, 120, "MAIN",  50],
   ["KZJ",  "WL",    15, 110, "MAIN",  50],
-  ["WL",   "NGP",  265, 120, "MAIN",  50],
-  ["KZJ",  "NGP",  280, 120, "MAIN",  50], // direct (via Wl shortcut)
   ["NGP",  "ET",   185, 110, "MAIN",  40],
   ["ET",   "BPL",   90, 120, "MAIN",  50],
   ["BPL",  "BHS",  117, 110, "MAIN",  45],
