@@ -26,37 +26,47 @@ const DEFAULT_OPERATIONS = [
 ];
 
 function formatTaskTime(task, fallback) {
-  let dateObj = null;
+  let startDate = null;
+  let endDate = null;
+
   if (task?.preferred_start) {
     const d = new Date(task.preferred_start);
     if (!Number.isNaN(d.getTime())) {
-      dateObj = d;
+      startDate = d;
+      const duration = Number(task.duration_minutes) || 120;
+      endDate = new Date(startDate.getTime() + duration * 60000);
     }
   }
 
-  if (dateObj) {
-    return dateObj.toLocaleTimeString("en-US", {
+  const fmt = (d) =>
+    d.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
     }).toLowerCase();
+
+  if (startDate && endDate) {
+    return `${fmt(startDate)} - ${fmt(endDate)}`;
   }
 
   if (fallback && typeof fallback === "string") {
-    const timeOnly = fallback.includes(",") ? fallback.split(",")[1].trim() : (fallback.split(" - ")[0] || fallback);
-    return timeOnly.includes("m") ? timeOnly : `${timeOnly} am`;
+    if (fallback.includes("-")) {
+      return fallback;
+    }
+    const clean = fallback.includes(",") ? fallback.split(",")[1].trim() : fallback;
+    return `${clean} - 05:30 pm`;
   }
 
-  return "03:30 pm";
+  return "03:30 pm - 05:30 pm";
 }
 
 // Scheduled maintenance activities with database linking defaults
 const DEFAULT_MAINTENANCE = [
-  { maintenance_task_id: "1", time: "03:30 pm", block: "Block B001", task: "Track Realignment", department: "Engineering", status: "PENDING" },
-  { maintenance_task_id: "2", time: "04:00 pm", block: "Block B001", task: "OHE Wire Replacement", department: "Traction", status: "PENDING" },
-  { maintenance_task_id: "3", time: "03:30 pm", block: "Block B001", task: "Signal Calibration", department: "Signal", status: "PENDING" },
-  { maintenance_task_id: "4", time: "10:00 am", block: "Block B004", task: "Routine Track Inspection", department: "Engineering", status: "APPROVED" },
-  { maintenance_task_id: "5", time: "01:00 pm", block: "Block B004", task: "OHE Annual Inspection", department: "Traction", status: "APPROVED" },
-  { maintenance_task_id: "6", time: "04:00 pm", block: "Block B007", task: "OHE Tensioning Correction", department: "Traction", status: "IN_PROGRESS" },
+  { maintenance_task_id: "1", time: "03:30 pm - 05:30 pm", block: "Block B001", task: "Track Realignment", department: "Engineering", status: "PENDING" },
+  { maintenance_task_id: "2", time: "04:00 pm - 06:00 pm", block: "Block B001", task: "OHE Wire Replacement", department: "Traction", status: "PENDING" },
+  { maintenance_task_id: "3", time: "03:30 pm - 05:00 pm", block: "Block B001", task: "Signal Calibration", department: "Signal", status: "PENDING" },
+  { maintenance_task_id: "4", time: "10:00 am - 12:00 pm", block: "Block B004", task: "Routine Track Inspection", department: "Engineering", status: "APPROVED" },
+  { maintenance_task_id: "5", time: "01:00 pm - 03:00 pm", block: "Block B004", task: "OHE Annual Inspection", department: "Traction", status: "APPROVED" },
+  { maintenance_task_id: "6", time: "04:00 pm - 05:30 pm", block: "Block B007", task: "OHE Tensioning Correction", department: "Traction", status: "IN_PROGRESS" },
 ];
 
 // Compact Quick Navigation options (Icons + Names only, no descriptions)
@@ -310,7 +320,7 @@ export default function Dashboard() {
               <div className="maint-card__header">
                 <span className="maint-time-pill" title={m.time}>
                   <Clock size={14} style={{ flexShrink: 0 }} />
-                  <span>{m.time || "03:30 pm"}</span>
+                  <span>{m.time || "03:30 pm - 05:30 pm"}</span>
                 </span>
                 <span
                   className="maint-block-pill"

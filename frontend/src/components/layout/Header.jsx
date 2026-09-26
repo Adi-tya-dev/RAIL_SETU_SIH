@@ -80,8 +80,7 @@ export default function Header({ currentPath, onToggleSidebar, collapsed }) {
         {!collapsed && (
           <div className="brand">
             <div className="brand-mark" aria-hidden="true">
-              <span className="brand-mark__rail" />
-              <span className="brand-mark__bridge" />
+              <img src="/logo.png" alt="RailSetu Logo" className="brand-logo-img" />
             </div>
             <div className="brand-text">
               <div className="brand-name">
