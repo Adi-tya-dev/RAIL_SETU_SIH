@@ -1311,13 +1311,31 @@ export default function RailwayMap() {
     const urlBlock = queryParams.get("block") || queryParams.get("blockCode");
     const hasConflictReq = queryParams.get("conflict") === "true" || queryParams.get("conflicts") === "true" || Boolean(queryParams.get("conflictId"));
 
-    let targetTrainId = urlTrainId;
-    if (!targetTrainId && urlTrainNumber && trains.length > 0) {
-      const match = trains.find((t) => String(t.train_number) === String(urlTrainNumber));
-      if (match) targetTrainId = match.train_id;
+    let targetTrainId = null;
+
+    // 1. In Indian Railways, trainNumber (e.g. 12615) is unique and authoritative across all systems
+    if (urlTrainNumber && trains.length > 0) {
+      const match = trains.find((t) => String(t.train_number).trim() === String(urlTrainNumber).trim());
+      if (match) {
+        targetTrainId = match.train_id;
+      }
     }
 
-    // If only block is provided, match the train that traverses that block
+    // 2. If no trainNumber match found, verify if urlTrainId matches a known train
+    if (!targetTrainId && urlTrainId && trains.length > 0) {
+      const matchById = trains.find((t) => String(t.train_id) === String(urlTrainId));
+      if (matchById) {
+        if (!urlTrainNumber || String(matchById.train_number).trim() === String(urlTrainNumber).trim()) {
+          targetTrainId = matchById.train_id;
+        }
+      } else {
+        targetTrainId = urlTrainId;
+      }
+    } else if (!targetTrainId && urlTrainId) {
+      targetTrainId = urlTrainId;
+    }
+
+    // 3. If only block is provided, match the train that traverses that block
     if (!targetTrainId && urlBlock && networkTrains.length > 0) {
       const matchTrain = networkTrains.find((t) =>
         (t.train_block_movements || []).some((m) =>

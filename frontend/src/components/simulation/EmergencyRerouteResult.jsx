@@ -219,8 +219,10 @@ export default function EmergencyRerouteResult({ result }) {
                           </span>
                         )}
                       </div>
-                      <div style={{ display: "flex", gap: 8, marginTop: 6, fontSize: 11, color: "var(--text-3)" }}>
+                      <div style={{ display: "flex", gap: 6, marginTop: 6, fontSize: 11, color: "var(--text-3)", flexWrap: "wrap" }}>
                         <span>Stops: <strong style={{ color: s.preservation_pct === 100 ? "var(--green, #22c55e)" : "var(--amber, #eab308)" }}>{s.preservation_pct}%</strong></span>
+                        <span>•</span>
+                        <span>Avoided: <strong style={{ color: (s.stops_avoided_count ?? 0) === 0 ? "var(--green, #22c55e)" : "var(--amber, #eab308)" }}>{s.stops_avoided_count ?? (s.stops_bypassed?.length || 0)}</strong></span>
                         <span>•</span>
                         <span>Delay: <strong>+{s.estimated_delay_minutes}m</strong></span>
                       </div>
@@ -343,6 +345,23 @@ export default function EmergencyRerouteResult({ result }) {
                 <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 8 }}>
                   {activeStrat.description}
                 </div>
+
+                {activeStrat.stoppage_minimization_rationale && (
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: isDayMode ? "#0284c7" : "#38bdf8",
+                      marginTop: 6,
+                      background: isDayMode ? "#f0f9ff" : "rgba(56, 189, 248, 0.08)",
+                      border: isDayMode ? "1px solid #bae6fd" : "1px solid rgba(56, 189, 248, 0.2)",
+                      padding: "4px 8px",
+                      borderRadius: 4,
+                      display: "inline-block",
+                    }}
+                  >
+                    🎯 <strong>Stoppage Preservation Objective:</strong> {activeStrat.stoppage_minimization_rationale}
+                  </div>
+                )}
 
                 {/* Interactive Track Schematic & Reroute Path Diagram */}
                 <TrackSchematicMap
