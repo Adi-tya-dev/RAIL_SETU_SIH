@@ -22,6 +22,7 @@ export default function TrackSchematicMap({ train, activeStrategy, emergencyEven
   const duration = emergencyEvent?.closure_duration_minutes || 120;
 
   function handleOpenGisMap() {
+    const bypassStr = (activeStrategy.reroute_path?.bypass_path || []).join(",");
     const params = new URLSearchParams({
       trainId: train.train_id,
       trainNumber: train.train_number,
@@ -29,7 +30,15 @@ export default function TrackSchematicMap({ train, activeStrategy, emergencyEven
       strategy: activeStrategy.id,
       strategyName: activeStrategy.name,
       bypassed: (activeStrategy.stops_bypassed || []).join(","),
+      served: (activeStrategy.stops_served || []).join(","),
+      ...(bypassStr ? { bypassPath: bypassStr } : {}),
     });
+    if (activeStrategy.reroute_path) {
+      try {
+        sessionStorage.setItem(`reroute_path_${train.train_id}`, JSON.stringify(activeStrategy.reroute_path));
+        sessionStorage.setItem(`reroute_path_${train.train_number}`, JSON.stringify(activeStrategy.reroute_path));
+      } catch (e) {}
+    }
     navigate(`/map?${params.toString()}`);
   }
 

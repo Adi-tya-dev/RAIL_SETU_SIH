@@ -255,15 +255,23 @@ export default function EmergencyRerouteResult({ result }) {
                       variant="secondary"
                       size="sm"
                       onClick={() => {
+                        const bypassStr = (activeStrat.reroute_path?.bypass_path || []).join(",");
                         const params = new URLSearchParams({
                           trainId: t.train_id,
                           trainNumber: t.train_number,
-                          block: emergency_event?.block_code || "B002",
+                          block: emergency_event?.block_code || "B001",
                           strategy: activeStrat.id,
                           strategyName: activeStrat.name,
                           bypassed: (activeStrat.stops_bypassed || []).join(","),
                           served: (activeStrat.stops_served || []).join(","),
+                          ...(bypassStr ? { bypassPath: bypassStr } : {}),
                         });
+                        if (activeStrat.reroute_path) {
+                          try {
+                            sessionStorage.setItem(`reroute_path_${t.train_id}`, JSON.stringify(activeStrat.reroute_path));
+                            sessionStorage.setItem(`reroute_path_${t.train_number}`, JSON.stringify(activeStrat.reroute_path));
+                          } catch (e) {}
+                        }
                         navigate(`/map?${params.toString()}`);
                       }}
                       style={{
@@ -360,6 +368,113 @@ export default function EmergencyRerouteResult({ result }) {
                     }}
                   >
                     🎯 <strong>Stoppage Preservation Objective:</strong> {activeStrat.stoppage_minimization_rationale}
+                  </div>
+                )}
+
+                {/* Dijkstra Bypass Path Visualization */}
+                {activeStrat.reroute_path && (
+                  <div
+                    style={{
+                      marginTop: 14,
+                      padding: "12px 14px",
+                      background: isDayMode ? "#fefce8" : "rgba(245, 158, 11, 0.08)",
+                      border: isDayMode ? "1px solid #fde68a" : "1px solid rgba(245, 158, 11, 0.25)",
+                      borderRadius: 8,
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 700, color: isDayMode ? "#b45309" : "#fbbf24", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                      <span>🔀</span>
+                      <span>Dijkstra-Discovered Bypass Route</span>
+                      <span style={{ fontSize: 10, fontWeight: 400, color: "var(--text-3)", marginLeft: 4 }}>
+                        (k-Shortest Paths · IR Network Graph)
+                      </span>
+                    </div>
+
+                    {/* Bypass path as a flowing route diagram */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", marginBottom: 10 }}>
+                      {(activeStrat.reroute_path.bypass_path || []).map((code, idx, arr) => {
+                        const isFirst = idx === 0;
+                        const isLast  = idx === arr.length - 1;
+                        const isNew   = (activeStrat.reroute_path.new_waypoints || []).includes(code);
+                        return (
+                          <span key={code} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <span
+                              style={{
+                                padding: "3px 8px",
+                                borderRadius: 4,
+                                fontSize: 11,
+                                fontWeight: 700,
+                                background: isFirst || isLast
+                                  ? (isDayMode ? "#dcfce7" : "rgba(34,197,94,0.15)")
+                                  : isNew
+                                  ? (isDayMode ? "#fef3c7" : "rgba(245,158,11,0.15)")
+                                  : (isDayMode ? "#f1f5f9" : "rgba(148,163,184,0.12)"),
+                                border: isFirst || isLast
+                                  ? (isDayMode ? "1px solid #86efac" : "1px solid rgba(34,197,94,0.35)")
+                                  : isNew
+                                  ? (isDayMode ? "1px solid #fde68a" : "1px solid rgba(245,158,11,0.35)")
+                                  : (isDayMode ? "1px solid #cbd5e1" : "1px solid rgba(148,163,184,0.2)"),
+                                color: isFirst || isLast
+                                  ? (isDayMode ? "#15803d" : "#4ade80")
+                                  : isNew
+                                  ? (isDayMode ? "#b45309" : "#fbbf24")
+                                  : "var(--text-2)",
+                              }}
+                            >
+                              {isFirst ? "📍 " : isLast ? "🏁 " : isNew ? "⟶ " : "· "}{code}
+                            </span>
+                            {idx < arr.length - 1 && (
+                              <span style={{ color: isDayMode ? "#d97706" : "#f59e0b", fontSize: 12, fontWeight: 700 }}>→</span>
+                            )}
+                          </span>
+                        );
+                      })}
+                    </div>
+
+                    {/* Route stats */}
+                    <div style={{ display: "flex", gap: 16, fontSize: 11, color: "var(--text-3)", flexWrap: "wrap" }}>
+                      {activeStrat.reroute_path.extra_dist_km != null && (
+                        <span>📏 +<strong style={{ color: "var(--text)" }}>{activeStrat.reroute_path.extra_dist_km} km</strong> extra distance</span>
+                      )}
+                      {activeStrat.reroute_path.extra_time_min != null && (
+                        <span>⏱ +<strong style={{ color: "var(--text)" }}>{activeStrat.reroute_path.extra_time_min} min</strong> added transit</span>
+                      )}
+                      {activeStrat.reroute_path.new_waypoints?.length > 0 && (
+                        <span>🗺 <strong style={{ color: "var(--text)" }}>{activeStrat.reroute_path.new_waypoints.length}</strong> new waypoint(s) on bypass</span>
+                      )}
+                      {activeStrat.reroute_path.diverge_station && (
+                        <span>↗ Diverges at <strong style={{ color: "var(--text)" }}>{activeStrat.reroute_path.diverge_station}</strong></span>
+                      )}
+                      {activeStrat.reroute_path.converge_station && (
+                        <span>↘ Rejoins at <strong style={{ color: "var(--text)" }}>{activeStrat.reroute_path.converge_station}</strong></span>
+                      )}
+                    </div>
+
+                    {/* Multiple bypass candidates if available */}
+                    {activeStrat.bypass_candidates && activeStrat.bypass_candidates.length > 1 && (
+                      <div style={{ marginTop: 10, paddingTop: 8, borderTop: isDayMode ? "1px solid #fde68a" : "1px solid rgba(245,158,11,0.2)" }}>
+                        <div style={{ fontSize: 10, color: "var(--text-3)", marginBottom: 6 }}>All evaluated bypass paths ({activeStrat.bypass_candidates.length} candidates):</div>
+                        {activeStrat.bypass_candidates.map((c) => (
+                          <div key={c.rank} style={{ fontSize: 10, color: "var(--text-3)", marginBottom: 3 }}>
+                            #{c.rank} [{c.path.join(" → ")}] — {c.preservation_pct}% preserved, +{c.extra_time_min}m, +{c.extra_dist_km}km
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Pathfinder metadata badge */}
+                {t.pathfinder_metadata && (
+                  <div style={{ marginTop: 8, fontSize: 10, color: "var(--text-3)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <span style={{ padding: "2px 6px", borderRadius: 3, background: isDayMode ? "#f0fdf4" : "rgba(34,197,94,0.08)", border: isDayMode ? "1px solid #bbf7d0" : "1px solid rgba(34,197,94,0.2)", color: isDayMode ? "#15803d" : "#4ade80", fontWeight: 600 }}>
+                      ⚙ {t.pathfinder_metadata.engine || "Dijkstra Multi-Objective"}
+                    </span>
+                    <span>Diverge: <strong>{t.pathfinder_metadata.diverge_station || "—"}</strong></span>
+                    <span>·</span>
+                    <span>Converge: <strong>{t.pathfinder_metadata.converge_station || "—"}</strong></span>
+                    <span>·</span>
+                    <span>Paths evaluated: <strong>{t.pathfinder_metadata.bypass_paths_found ?? 0}</strong></span>
                   </div>
                 )}
 

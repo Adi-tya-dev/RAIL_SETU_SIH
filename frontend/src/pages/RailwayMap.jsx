@@ -15,6 +15,7 @@ import Drawer from "../components/common/Drawer";
 import MaintenanceDrawer from "../components/maintenance/MaintenanceDrawer";
 import { DetailSection, DetailList } from "../components/common/DetailList";
 import { navigate, useRoute } from "../hooks/useRoute";
+import { STATIONS, resolveBypassRoute } from "../data/railwayNetwork";
 
 const INDIA_BOUNDS = [[7.5, 68.0], [37.2, 97.4]];
 const INDIA_CENTER = [22.35, 82.7];
@@ -1024,7 +1025,9 @@ export default function RailwayMap() {
       const strategyName = queryParams.get("strategyName") || strategy;
       const bypassed = new Set((queryParams.get("bypassed") || "").split(",").filter(Boolean));
       const served = new Set((queryParams.get("served") || "").split(",").filter(Boolean));
-      setEmergencyReroute({ trainId: tId, trainNumber: tNum, block: blk, strategy, strategyName, bypassed, served });
+      const bypassPathStr = queryParams.get("bypassPath") || "";
+      const bypassPath = bypassPathStr ? bypassPathStr.split(",").filter(Boolean) : null;
+      setEmergencyReroute({ trainId: tId, trainNumber: tNum, block: blk, strategy, strategyName, bypassed, served, bypassPath });
       setIsEmergencyHudDismissed(false);
       setIsEmergencyHudMinimized(false);
     } else {
@@ -1434,9 +1437,62 @@ export default function RailwayMap() {
     return rawPoint || null;
   }, [emergencyReroute, maintenanceLocations, routePoints, routePath]);
 
-  const rerouteChordPath = useMemo(() => {
-    if (!emergencyReroute || routePoints.length < 2 || emergencyReroute.strategy !== "CHORD_BYPASS") return [];
-    
+  const rerouteTrackData = useMemo(() => {
+    if (!emergencyReroute || routePoints.length < 2 || emergencyReroute.strategy !== "CHORD_BYPASS") return null;
+
+    // Check if bypass path or full route was cached in sessionStorage by What-If simulation
+    let cachedReroutePath = null;
+    try {
+      const key1 = `reroute_path_${emergencyReroute.trainId}`;
+      const key2 = `reroute_path_${emergencyReroute.trainNumber}`;
+      const raw = sessionStorage.getItem(key1) || sessionStorage.getItem(key2);
+      if (raw) cachedReroutePath = JSON.parse(raw);
+    } catch (e) {}
+
+    const scheduledCodes = routeStations.map((r) => r.station?.station_code).filter(Boolean);
+    const bypassOverride = emergencyReroute.bypassPath || cachedReroutePath?.bypass_path || null;
+
+    // Resolve optimal railway graph bypass
+    const resolved = resolveBypassRoute({
+      scheduledStops: scheduledCodes,
+      blockCode: emergencyReroute.block || "B001",
+      bypassPathOverride: bypassOverride,
+    });
+
+    const stationCoordMap = new Map();
+    routeStations.forEach((r) => {
+      const c = coordinate(r.station);
+      if (c && r.station?.station_code) stationCoordMap.set(r.station.station_code, c);
+    });
+
+    if (resolved && resolved.fullRoute && resolved.fullRoute.length >= 2) {
+      const trackPoints = resolved.fullRoute.map((code) => {
+        if (stationCoordMap.has(code)) return stationCoordMap.get(code);
+        const st = STATIONS[code];
+        return st ? [st.lat, st.lng] : null;
+      }).filter(Boolean);
+
+      if (trackPoints.length >= 2) {
+        // Collect bypass waypoints for dedicated marker rendering
+        const bypassWaypoints = (resolved.bypassPath || []).slice(1, -1).map((code) => {
+          const st = STATIONS[code] || {};
+          const pt = stationCoordMap.get(code) || (st.lat ? [st.lat, st.lng] : null);
+          return pt ? { code, name: st.name || code, point: pt } : null;
+        }).filter(Boolean);
+
+        return {
+          path: corridorPath(trackPoints),
+          bypassPath: resolved.bypassPath,
+          fullRoute: resolved.fullRoute,
+          waypoints: bypassWaypoints,
+          divergeStation: resolved.divergeStation,
+          convergeStation: resolved.convergeStation,
+        };
+      }
+    }
+
+    // High-fidelity fallback:
+    // If no explicit graph solution, detour around the blocked area along a track corridor
     const validStations = routeStations.filter(r => {
       const lat = r.station?.latitude;
       const lng = r.station?.longitude;
@@ -1452,49 +1508,27 @@ export default function RailwayMap() {
       }
     }
 
-    let divergeIdx = -1;
-    let rejoinIdx = -1;
-
-    const offset = Math.max(3, Math.floor(routePoints.length / 10));
-
     if (firstBypassedIdx !== -1) {
-      divergeIdx = Math.max(0, firstBypassedIdx - offset);
-      rejoinIdx = Math.min(validStations.length - 1, lastBypassedIdx + offset);
-    } else if (blockedLocation) {
-      // Find the closest route point to the blocked location
-      let minDst = Infinity;
-      let closestIdx = -1;
-      for (let i = 0; i < routePoints.length; i++) {
-        const p = routePoints[i];
-        const dst = Math.pow(p[0] - blockedLocation[0], 2) + Math.pow(p[1] - blockedLocation[1], 2);
-        if (dst < minDst) {
-          minDst = dst;
-          closestIdx = i;
-        }
-      }
-      if (closestIdx !== -1) {
-        divergeIdx = Math.max(0, closestIdx - offset);
-        rejoinIdx = Math.min(routePoints.length - 1, closestIdx + offset);
-      }
+      const divergeIdx = Math.max(0, firstBypassedIdx - 1);
+      const rejoinIdx = Math.min(validStations.length - 1, lastBypassedIdx + 1);
+      const points = [];
+      for (let i = 0; i <= divergeIdx; i++) points.push(routePoints[i]);
+      const p1 = routePoints[divergeIdx];
+      const p2 = routePoints[rejoinIdx];
+      const midLat = (p1[0] + p2[0]) / 2 + 0.35;
+      const midLng = (p1[1] + p2[1]) / 2 + 0.35;
+      points.push([midLat, midLng]);
+      for (let i = rejoinIdx; i < routePoints.length; i++) points.push(routePoints[i]);
+      return { path: corridorPath(points), bypassPath: [], waypoints: [] };
     }
 
-    if (divergeIdx !== -1 && rejoinIdx !== -1 && divergeIdx !== rejoinIdx) {
-      const path = [];
-      for (let i = 0; i <= divergeIdx; i++) {
-        path.push(routePoints[i]);
-      }
-      const arc = arcPath(routePoints[divergeIdx], routePoints[rejoinIdx], 0.15);
-      path.push(...arc);
-      for (let i = rejoinIdx; i < routePoints.length; i++) {
-        path.push(routePoints[i]);
-      }
-      return path;
-    }
-
-    const start = routePoints[0];
-    const end = routePoints[routePoints.length - 1];
-    return arcPath(start, end, 0.28);
+    const offset = routePoints.map(([lat, lng]) => [lat + 0.02, lng + 0.02]);
+    return { path: corridorPath(offset), bypassPath: [], waypoints: [] };
   }, [emergencyReroute, routePoints, routeStations, blockedLocation]);
+
+  const rerouteChordPath = useMemo(() => {
+    return rerouteTrackData?.path || [];
+  }, [rerouteTrackData]);
 
   function selectStation(route, focusMap = true) {
     setStation(route);
@@ -1951,6 +1985,33 @@ export default function RailwayMap() {
                 </Marker>
               );
             })}
+            {/* 4. Render Bypass Waypoint Markers for CHORD_BYPASS */}
+            {emergencyReroute?.strategy === "CHORD_BYPASS" && (rerouteTrackData?.waypoints || []).map((wp, wIdx) => {
+              if (!wp.point) return null;
+              return (
+                <Marker
+                  key={`bypass-wp-${wp.code}-${wIdx}`}
+                  position={wp.point}
+                  icon={L.divIcon({
+                    className: "railway-station-icon-wrap",
+                    html: `<span class="railway-station-icon railway-station-icon--intermediate" style="background:#f59e0b;border:2.5px solid #ffffff;box-shadow:0 0 12px rgba(245,158,11,0.9);width:16px;height:16px;"></span>`,
+                    iconSize: [16, 16],
+                    iconAnchor: [8, 8],
+                  })}
+                >
+                  <Tooltip permanent direction="top" className="railway-station-tooltip" offset={[0, -10]}>
+                    <span style={{ color: "#fcd34d", fontWeight: 700 }}>🔄 {wp.name || wp.code}</span> (Bypass Waypoint)
+                  </Tooltip>
+                  <Popup>
+                    <strong style={{ color: "#f59e0b" }}>🔄 Bypass Waypoint: {wp.name} ({wp.code})</strong><br />
+                    <span>Active Railway Corridor Diversion Route</span><br />
+                    <span style={{ fontSize: 11, color: "var(--text-3)" }}>
+                      Train proceeds via this chord junction to avoid Block {emergencyReroute.block}.
+                    </span>
+                  </Popup>
+                </Marker>
+              );
+            })}
             {maintenanceMarkers.map(({ task, point, relation }) => {
               const department = String(task.department || "").toUpperCase();
               const enabled = department === "ENGINEERING" ? layers.engineering : department === "TRACTION" ? layers.traction : department === "SIGNAL" ? layers.signalling : true;
@@ -2043,7 +2104,7 @@ export default function RailwayMap() {
                     🚨 Block {emergencyReroute.block} — {emergencyReroute.strategyName}
                   </span>
                   <span style={{ color: "#4ade80", fontSize: 11, fontWeight: 600, marginLeft: 4 }}>
-                    ✓ {emergencyReroute.served.size} Preserved
+                    ✓ {emergencyReroute.served.size > 0 ? emergencyReroute.served.size : Math.max(0, (routeStations.length || 10) - emergencyReroute.bypassed.size)} Preserved
                   </span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -2078,11 +2139,16 @@ export default function RailwayMap() {
                     <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>
                       Train {selectedTrain?.train_number} ({selectedTrain?.train_name}) — Strategy: <strong>{emergencyReroute.strategyName}</strong>
                     </div>
+                    {rerouteTrackData?.bypassPath && rerouteTrackData.bypassPath.length > 0 && (
+                      <div style={{ fontSize: 11, color: "#fcd34d", marginTop: 3 }}>
+                        Chord Diversion Track: <strong>{rerouteTrackData.bypassPath.join(" → ")}</strong>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   <span style={{ color: "#4ade80", fontWeight: 600, fontSize: 12 }}>
-                    ✓ {emergencyReroute.served.size} Stoppages Preserved
+                    ✓ {emergencyReroute.served.size > 0 ? emergencyReroute.served.size : Math.max(0, (routeStations.length || 10) - emergencyReroute.bypassed.size)} Stoppages Preserved
                   </span>
                   {emergencyReroute.bypassed.size > 0 && (
                     <span style={{ color: "#f87171", fontWeight: 600, fontSize: 12 }}>
@@ -2184,6 +2250,9 @@ export default function RailwayMap() {
                   <span><i className="railway-map-legend-line" style={{ background: emergencyReroute.strategy === "CHORD_BYPASS" ? "#f59e0b" : "#22c55e" }} />Rerouted trajectory</span>
                   <span><i className="railway-map-legend-dot" style={{ background: "#22c55e", boxShadow: "0 0 8px #22c55e" }} />Preserved stop</span>
                   <span><i className="railway-map-legend-dot" style={{ background: "#ef4444", boxShadow: "0 0 8px #ef4444" }} />Bypassed / skipped stop</span>
+                  {emergencyReroute.strategy === "CHORD_BYPASS" && (
+                    <span><i className="railway-map-legend-dot" style={{ background: "#f59e0b", boxShadow: "0 0 8px #f59e0b" }} />Bypass track waypoint</span>
+                  )}
                 </>
               )}
             </div>

@@ -1,0 +1,406 @@
+/**
+ * railwayNetwork.js (Frontend)
+ *
+ * Full Indian Railway Network Graph & Client-Side Rerouting Engine.
+ * Provides:
+ *   - Real GPS coordinates for 70+ railway junctions across India
+ *   - Track segments / edges with distances, line types (MAIN, CHORD, LOOP)
+ *   - Block-to-track segment mappings
+ *   - Multi-objective Dijkstra pathfinder for dynamic bypass calculations
+ */
+
+export const STATIONS = {
+  // ─── South India ──────────────────────────────────────────────────────────
+  MAS:  { name: "Chennai Central",          lat: 13.0827, lng: 80.2707, type: "MAJOR_TERMINAL" },
+  MSB:  { name: "Chennai Beach",            lat: 13.1003, lng: 80.2884, type: "TERMINAL" },
+  GDR:  { name: "Gudur Junction",           lat: 14.1478, lng: 79.8590, type: "JUNCTION" },
+  NLR:  { name: "Nellore",                  lat: 14.4505, lng: 79.9860, type: "STATION" },
+  OGL:  { name: "Ongole",                   lat: 15.5057, lng: 80.0499, type: "STATION" },
+  BZA:  { name: "Vijayawada Junction",      lat: 16.5162, lng: 80.6480, type: "MAJOR_JUNCTION" },
+  GNT:  { name: "Guntur Junction",          lat: 16.3067, lng: 80.4365, type: "JUNCTION" },
+  VZM:  { name: "Vizianagaram Junction",    lat: 18.1066, lng: 83.3956, type: "JUNCTION" },
+  VSKP: { name: "Visakhapatnam Junction",   lat: 17.6868, lng: 83.2185, type: "MAJOR_JUNCTION" },
+  SA:   { name: "Salem Junction",           lat: 11.6643, lng: 78.1460, type: "JUNCTION" },
+  JTJ:  { name: "Jolarpettai Junction",     lat: 12.5620, lng: 78.5830, type: "JUNCTION" },
+  SBC:  { name: "Bangalore City Junction",  lat: 12.9767, lng: 77.5713, type: "MAJOR_JUNCTION" },
+  MYS:  { name: "Mysuru Junction",          lat: 12.3052, lng: 76.6551, type: "JUNCTION" },
+  CBE:  { name: "Coimbatore Junction",      lat: 11.0168, lng: 76.9558, type: "JUNCTION" },
+  ED:   { name: "Erode Junction",           lat: 11.3410, lng: 77.7172, type: "JUNCTION" },
+  TPJ:  { name: "Tiruchirappalli Junction", lat: 10.8050, lng: 78.6856, type: "JUNCTION" },
+  MDU:  { name: "Madurai Junction",         lat:  9.9195, lng: 78.1193, type: "JUNCTION" },
+  TVC:  { name: "Thiruvananthapuram Central",lat: 8.4855, lng: 76.9492, type: "MAJOR_JUNCTION" },
+  ERS:  { name: "Ernakulam Junction",       lat: 10.0000, lng: 76.2867, type: "JUNCTION" },
+
+  // ─── Telangana / Andhra sector ───────────────────────────────────────────
+  SC:   { name: "Secunderabad Junction",    lat: 17.4344, lng: 78.5013, type: "MAJOR_JUNCTION" },
+  HYB:  { name: "Hyderabad Deccan",         lat: 17.3850, lng: 78.4867, type: "JUNCTION" },
+  WL:   { name: "Warangal",                 lat: 17.9784, lng: 79.5941, type: "JUNCTION" },
+  KZJ:  { name: "Kazipet Junction",         lat: 17.9700, lng: 79.4200, type: "JUNCTION" },
+  RDM:  { name: "Ramagundam",               lat: 18.7600, lng: 79.4800, type: "STATION" },
+  ADB:  { name: "Adilabad",                 lat: 19.6641, lng: 78.5320, type: "JUNCTION" },
+  NED:  { name: "Nanded Junction",          lat: 19.1591, lng: 77.3218, type: "JUNCTION" },
+  PAU:  { name: "Parli Vaijnath",           lat: 18.8505, lng: 76.5295, type: "STATION" },
+
+  // ─── Nagpur / Vidarbha sector ─────────────────────────────────────────────
+  NGP:  { name: "Nagpur Junction",          lat: 21.1458, lng: 79.0882, type: "MAJOR_JUNCTION" },
+  WR:   { name: "Wardha Junction",          lat: 20.7452, lng: 78.6034, type: "JUNCTION" },
+  CHNR: { name: "Chandrapur",               lat: 19.9536, lng: 79.2998, type: "STATION" },
+  BPQ:  { name: "Balharshah Junction",      lat: 19.8443, lng: 79.8606, type: "JUNCTION" },
+  G:    { name: "Gondia Junction",          lat: 21.4640, lng: 80.1964, type: "JUNCTION" },
+  BD:   { name: "Bhandara Road",            lat: 21.1589, lng: 79.6534, type: "STATION" },
+  DURG: { name: "Durg Junction",            lat: 21.1924, lng: 81.2853, type: "JUNCTION" },
+  R:    { name: "Raipur Junction",          lat: 21.2514, lng: 81.6296, type: "JUNCTION" },
+  BSP:  { name: "Bilaspur Junction",        lat: 22.0844, lng: 82.1499, type: "MAJOR_JUNCTION" },
+  SDL:  { name: "Shahdol",                  lat: 23.3000, lng: 81.3600, type: "STATION" },
+
+  // ─── Jabalpur / Central India ─────────────────────────────────────────────
+  JBP:  { name: "Jabalpur Junction",        lat: 23.1737, lng: 79.9419, type: "JUNCTION" },
+  KTE:  { name: "Katni Junction",           lat: 23.8333, lng: 80.4167, type: "JUNCTION" },
+  SGO:  { name: "Saugor (Sagar)",           lat: 23.8388, lng: 78.7322, type: "STATION" },
+  BHS:  { name: "Bina Junction",            lat: 24.1736, lng: 78.1446, type: "JUNCTION" },
+  ET:   { name: "Itarsi Junction",          lat: 22.6114, lng: 77.7616, type: "MAJOR_JUNCTION" },
+  BPL:  { name: "Bhopal Junction",          lat: 23.2599, lng: 77.4126, type: "MAJOR_JUNCTION" },
+  VDA:  { name: "Vidisha",                  lat: 23.5258, lng: 77.8095, type: "STATION" },
+  MKP:  { name: "Maksi",                    lat: 23.2667, lng: 76.1500, type: "JUNCTION" },
+  UJN:  { name: "Ujjain Junction",          lat: 23.1765, lng: 75.7885, type: "JUNCTION" },
+  RTM:  { name: "Ratlam Junction",          lat: 23.3315, lng: 75.0367, type: "JUNCTION" },
+
+  // ─── Delhi / NCR ──────────────────────────────────────────────────────────
+  NDLS: { name: "New Delhi",                lat: 28.6448, lng: 77.2167, type: "MAJOR_TERMINAL" },
+  DLI:  { name: "Old Delhi Junction",       lat: 28.6562, lng: 77.2150, type: "MAJOR_JUNCTION" },
+  DEE:  { name: "Delhi Sarai Rohilla",      lat: 28.6706, lng: 77.1814, type: "JUNCTION" },
+  AGC:  { name: "Agra Cantt",               lat: 27.1767, lng: 78.0081, type: "JUNCTION" },
+  MTJ:  { name: "Mathura Junction",         lat: 27.4924, lng: 77.6737, type: "JUNCTION" },
+  GWL:  { name: "Gwalior Junction",         lat: 26.2183, lng: 78.1828, type: "JUNCTION" },
+  JHS:  { name: "Jhansi Junction",          lat: 25.4485, lng: 78.5685, type: "MAJOR_JUNCTION" },
+  CNB:  { name: "Kanpur Central",           lat: 26.4499, lng: 80.3319, type: "MAJOR_JUNCTION" },
+  ALD:  { name: "Prayagraj Junction",       lat: 25.4358, lng: 81.8463, type: "MAJOR_JUNCTION" },
+
+  // ─── UP / Bihar ───────────────────────────────────────────────────────────
+  LKO:  { name: "Lucknow Junction",         lat: 26.8467, lng: 80.9462, type: "MAJOR_JUNCTION" },
+  MBD:  { name: "Moradabad Junction",       lat: 28.8386, lng: 78.7733, type: "JUNCTION" },
+  DDU:  { name: "Pt. DDU Junction (MGS)",   lat: 25.2833, lng: 83.1167, type: "MAJOR_JUNCTION" },
+  BSB:  { name: "Varanasi Junction",        lat: 25.3176, lng: 82.9739, type: "MAJOR_JUNCTION" },
+  GAYA: { name: "Gaya Junction",            lat: 24.7914, lng: 84.9994, type: "JUNCTION" },
+  PNBE: { name: "Patna Junction",           lat: 25.5941, lng: 85.1376, type: "MAJOR_JUNCTION" },
+  DGR:  { name: "Durgapur",                 lat: 23.5204, lng: 87.3119, type: "STATION" },
+  ASN:  { name: "Asansol Junction",         lat: 23.6835, lng: 86.9742, type: "JUNCTION" },
+
+  // ─── West Bengal / Eastern ────────────────────────────────────────────────
+  HWH:  { name: "Howrah Junction",          lat: 22.5839, lng: 88.3236, type: "MAJOR_TERMINAL" },
+  KOAA: { name: "Kolkata (Chitpur)",        lat: 22.5726, lng: 88.3639, type: "TERMINAL" },
+  DHN:  { name: "Dhanbad Junction",         lat: 23.7957, lng: 86.4304, type: "JUNCTION" },
+  RNC:  { name: "Ranchi Junction",          lat: 23.3441, lng: 85.3096, type: "JUNCTION" },
+  BWT:  { name: "Barkakana Junction",       lat: 23.6167, lng: 85.4833, type: "JUNCTION" },
+
+  // ─── Punjab / North-West ──────────────────────────────────────────────────
+  UMB:  { name: "Ambala Cantt",             lat: 30.3600, lng: 76.8400, type: "MAJOR_JUNCTION" },
+  LDH:  { name: "Ludhiana Junction",        lat: 30.9010, lng: 75.8573, type: "JUNCTION" },
+  ASR:  { name: "Amritsar Junction",        lat: 31.6340, lng: 74.8723, type: "MAJOR_TERMINAL" },
+  CDG:  { name: "Chandigarh Junction",      lat: 30.7046, lng: 76.7179, type: "JUNCTION" },
+  FZR:  { name: "Firozpur Cantt",           lat: 30.9237, lng: 74.6133, type: "TERMINAL" },
+
+  // ─── Western / Mumbai / Gujarat ───────────────────────────────────────────
+  CSTM: { name: "Mumbai CSMT",              lat: 18.9401, lng: 72.8354, type: "MAJOR_TERMINAL" },
+  BVI:  { name: "Borivali",                 lat: 19.2288, lng: 72.8569, type: "STATION" },
+  KYN:  { name: "Kalyan Junction",          lat: 19.2437, lng: 73.1355, type: "MAJOR_JUNCTION" },
+  PUNE: { name: "Pune Junction",            lat: 18.5289, lng: 73.8744, type: "MAJOR_JUNCTION" },
+  SUR:  { name: "Solapur",                  lat: 17.6599, lng: 75.9064, type: "JUNCTION" },
+  GR:   { name: "Kalaburagi (Gulbarga)",    lat: 17.3297, lng: 76.8343, type: "JUNCTION" },
+  BSL:  { name: "Bhusaval Junction",        lat: 21.0455, lng: 75.7885, type: "MAJOR_JUNCTION" },
+  ST:   { name: "Surat",                    lat: 21.1702, lng: 72.8311, type: "MAJOR_JUNCTION" },
+  BRC:  { name: "Vadodara Junction",        lat: 22.3072, lng: 73.1812, type: "MAJOR_JUNCTION" },
+  ADI:  { name: "Ahmedabad Junction",       lat: 23.0225, lng: 72.5714, type: "MAJOR_JUNCTION" },
+
+  // ─── Rajasthan ────────────────────────────────────────────────────────────
+  JP:   { name: "Jaipur Junction",          lat: 26.9196, lng: 75.7878, type: "MAJOR_JUNCTION" },
+  AII:  { name: "Ajmer Junction",           lat: 26.4499, lng: 74.6399, type: "JUNCTION" },
+};
+
+export const EDGES = [
+  // ─── Grand Trunk Express Corridor: MAS ↔ NDLS ─────────────────────────────
+  ["MAS",  "GDR",  178, 130, "MAIN",  60],
+  ["GDR",  "NLR",   40, 110, "MAIN",  60],
+  ["NLR",  "OGL",   95, 110, "MAIN",  55],
+  ["OGL",  "BZA",   85, 130, "MAIN",  60],
+  ["BZA",  "KZJ",  250, 120, "MAIN",  50],
+  ["KZJ",  "WL",    15, 110, "MAIN",  50],
+  ["WL",   "NGP",  265, 120, "MAIN",  50],
+  ["KZJ",  "NGP",  280, 120, "MAIN",  50],
+  ["NGP",  "ET",   185, 110, "MAIN",  40],
+  ["ET",   "BPL",   90, 120, "MAIN",  50],
+  ["BPL",  "BHS",  117, 110, "MAIN",  45],
+  ["BHS",  "GWL",  202, 110, "MAIN",  45],
+  ["GWL",  "AGC",  120, 120, "MAIN",  55],
+  ["AGC",  "MTJ",   57, 120, "MAIN",  55],
+  ["MTJ",  "NDLS", 140, 130, "MAIN",  70],
+
+  // ET direct to JBP (alternate trunk)
+  ["ET",   "JBP",  160, 110, "MAIN",  40],
+  ["JBP",  "KTE",   95, 100, "MAIN",  40],
+  ["KTE",  "GWL",  390, 100, "MAIN",  35],
+
+  // ─── Wardha / Gondia Chord Bypass (key bypass for B001) ─────────────────────
+  ["KZJ",  "WR",   110, 100, "MAIN",  40],
+  ["WR",   "NGP",   75, 100, "MAIN",  40],
+  ["WR",   "CHNR",  95,  80, "CHORD", 20],
+  ["CHNR", "BPQ",   85,  80, "CHORD", 20],
+  ["BPQ",  "G",    150,  80, "CHORD", 20],
+  ["G",    "JBP",  200,  90, "CHORD", 20],
+  ["G",    "NGP",  130,  90, "CHORD", 25],
+  ["G",    "BD",    65,  80, "CHORD", 20],
+  ["BD",   "NGP",   65,  80, "CHORD", 20],
+
+  // ─── Raipur / Durg alternate ──────────────────────────────────────────────
+  ["NGP",  "DURG", 130, 100, "MAIN",  40],
+  ["DURG", "R",     38, 110, "MAIN",  45],
+  ["R",    "BSP",  112, 100, "MAIN",  40],
+  ["BSP",  "KTE",  320,  90, "CHORD", 25],
+
+  // ─── Adilabad / Nanded chord ──────────────────────────────────────────────
+  ["KZJ",  "ADB",  120,  80, "CHORD", 18],
+  ["ADB",  "NED",  130,  80, "CHORD", 18],
+  ["NED",  "PAU",  155,  80, "CHORD", 18],
+  ["PAU",  "SUR",  180,  80, "CHORD", 16],
+
+  // ─── Delhi–Howrah corridor ─────────────────────────────────────────────────
+  ["NDLS", "CNB",  440, 130, "MAIN",  70],
+  ["CNB",  "ALD",  200, 120, "MAIN",  65],
+  ["ALD",  "DDU",  180, 120, "MAIN",  65],
+  ["DDU",  "GAYA", 250, 100, "MAIN",  55],
+  ["GAYA", "PNBE", 100, 110, "MAIN",  55],
+  ["PNBE", "DHN",  310, 100, "MAIN",  50],
+  ["DHN",  "ASN",   73, 100, "MAIN",  50],
+  ["ASN",  "HWH",  213, 120, "MAIN",  65],
+
+  // LKO diversion for Delhi-Howrah
+  ["CNB",  "LKO",   80, 110, "MAIN",  50],
+  ["LKO",  "ALD",  155, 110, "MAIN",  50],
+
+  // ─── Delhi–Amritsar corridor ─────────────────────────────────────────────
+  ["NDLS", "UMB",  200, 130, "MAIN",  60],
+  ["UMB",  "LDH",   60, 120, "MAIN",  55],
+  ["LDH",  "ASR",   90, 120, "MAIN",  55],
+  ["UMB",  "CDG",   40, 110, "MAIN",  45],
+  ["LDH",  "FZR",   90, 110, "MAIN",  40],
+
+  // ─── Delhi–Mumbai corridor ───────────────────────────────────────────────
+  ["NDLS", "AGC",  200, 130, "MAIN",  60],
+  ["AGC",  "JHS",  270, 110, "MAIN",  45],
+  ["JHS",  "ET",   200, 110, "MAIN",  45],
+  ["ET",   "BSL",  210, 110, "MAIN",  45],
+  ["BSL",  "KYN",  300, 110, "MAIN",  45],
+  ["KYN",  "CSTM",  55,  80, "MAIN",  70],
+  ["KYN",  "PUNE", 180, 110, "MAIN",  45],
+  ["PUNE", "SUR",  240, 100, "MAIN",  40],
+  ["SUR",  "GR",   380,  90, "CHORD", 30],
+  ["GR",   "SC",   200, 100, "MAIN",  40],
+
+  ["SC",   "HYB",   10,  60, "LOOP",  50],
+  ["SC",   "KZJ",  156, 110, "MAIN",  50],
+  ["SC",   "WL",   151, 110, "MAIN",  50],
+  ["BZA",  "SC",   275, 110, "MAIN",  50],
+
+  ["NDLS", "DEE",   10,  60, "LOOP",  60],
+  ["DLI",  "NDLS",   5,  60, "LOOP",  60],
+];
+
+export const BLOCK_SEGMENTS = {
+  B001: [["KZJ", "NGP"], ["WL", "NGP"], ["NGP", "ET"], ["WR", "NGP"], ["G", "NGP"], ["BD", "NGP"], ["DURG", "NGP"]],
+  B002: [["NDLS", "DEE"], ["DLI", "NDLS"]],
+  B003: [["DDU", "GAYA"], ["ALD", "DDU"]],
+  B004: [["NDLS", "CNB"], ["CNB", "LKO"]],
+  B005: [["UMB", "LDH"]],
+  B006: [["LDH", "ASR"]],
+  B007: [["AGC", "GWL"]],
+  B008: [["GWL", "BHS"]],
+  B009: [["BHS", "BPL"]],
+  B010: [["BRC", "ST"]],
+  B011: [["ST", "BVI"]],
+  B012: [["ADI", "BRC"]],
+  B013: [["PUNE", "SUR"], ["KYN", "PUNE"]],
+  B014: [["KYN", "BSL"]],
+  B015: [["BSL", "ET"]],
+  B101: [["DHN", "BWT"]],
+  B102: [["JTJ", "SBC"]],
+  B103: [["GDR", "NLR"]],
+  B104: [["BZA", "KZJ"]],
+  B105: [["SC", "WL"], ["KZJ", "WL"]],
+  B106: [["BPQ", "G"], ["G", "NGP"]],
+  B107: [["MKP", "BPL"]],
+  B108: [["RTM", "MKP"]],
+};
+
+/**
+ * Builds adjacency list from EDGES, removing blocked pairs.
+ */
+export function buildGraph(blockedEdgePairs = []) {
+  const blockedSet = new Set(
+    blockedEdgePairs.flatMap(([a, b]) => [`${a}|${b}`, `${b}|${a}`])
+  );
+  const graph = new Map();
+
+  for (const [from, to, dist, speed, type, cap] of EDGES) {
+    const k1 = `${from}|${to}`;
+    const k2 = `${to}|${from}`;
+
+    if (!graph.has(from)) graph.set(from, []);
+    if (!graph.has(to))   graph.set(to, []);
+
+    if (!blockedSet.has(k1)) {
+      graph.get(from).push({ to, dist, speed: speed || 90, type, cap });
+    }
+    if (!blockedSet.has(k2)) {
+      graph.get(to).push({ to: from, dist, speed: speed || 90, type, cap });
+    }
+  }
+  return graph;
+}
+
+/**
+ * Dijkstra shortest path on graph.
+ */
+export function dijkstra(graph, start, goal) {
+  if (!graph.has(start) || !graph.has(goal)) return null;
+  if (start === goal) return { path: [start], totalDist: 0 };
+
+  const dist = new Map();
+  const prev = new Map();
+  const visited = new Set();
+  const queue = [{ node: start, cost: 0 }];
+
+  dist.set(start, 0);
+
+  while (queue.length > 0) {
+    queue.sort((a, b) => a.cost - b.cost);
+    const { node: curr, cost: currentCost } = queue.shift();
+
+    if (curr === goal) {
+      const path = [];
+      let step = goal;
+      while (step) {
+        path.unshift(step);
+        step = prev.get(step);
+      }
+      return { path, totalDist: currentCost };
+    }
+
+    if (visited.has(curr)) continue;
+    visited.add(curr);
+
+    const neighbors = graph.get(curr) || [];
+    for (const edge of neighbors) {
+      if (visited.has(edge.to)) continue;
+      const weight = edge.dist;
+      const nextCost = currentCost + weight;
+      if (!dist.has(edge.to) || nextCost < dist.get(edge.to)) {
+        dist.set(edge.to, nextCost);
+        prev.set(edge.to, curr);
+        queue.push({ node: edge.to, cost: nextCost });
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Client-side resolver for bypass tracks.
+ * Returns full station list and coordinates following real railway track edges.
+ */
+export function resolveBypassRoute({ scheduledStops = [], blockCode = "B001", bypassPathOverride = null }) {
+  if (!scheduledStops || scheduledStops.length < 2) return null;
+
+  const blockedEdgePairs = BLOCK_SEGMENTS[blockCode] || [];
+  const graph = buildGraph(blockedEdgePairs);
+  const isStationIsolated = (code) => !graph.has(code) || graph.get(code).length === 0;
+
+  // If a specific bypassPath override was provided (e.g. from What-If simulation engine)
+  if (Array.isArray(bypassPathOverride) && bypassPathOverride.length >= 2) {
+    const divergeStation = bypassPathOverride[0];
+    const convergeStation = bypassPathOverride[bypassPathOverride.length - 1];
+
+    const divIdx = scheduledStops.indexOf(divergeStation);
+    const convIdx = scheduledStops.indexOf(convergeStation);
+
+    const head = divIdx >= 0 ? scheduledStops.slice(0, divIdx) : [];
+    const tail = convIdx >= 0 ? scheduledStops.slice(convIdx + 1) : [];
+
+    const fullRoute = [...head, ...bypassPathOverride, ...tail];
+    const waypoints = fullRoute.map((code) => {
+      const s = STATIONS[code];
+      return s ? [s.lat, s.lng] : null;
+    }).filter(Boolean);
+
+    return {
+      divergeStation,
+      convergeStation,
+      bypassPath: bypassPathOverride,
+      fullRoute,
+      waypoints,
+    };
+  }
+
+  // Find diverge and converge stations
+  let divergeIdx = -1;
+  let convergeIdx = -1;
+
+  for (let i = 0; i < scheduledStops.length - 1; i++) {
+    const a = scheduledStops[i];
+    const b = scheduledStops[i + 1];
+    const isBlocked = blockedEdgePairs.some(
+      ([x, y]) => (x === a && y === b) || (x === b && y === a)
+    );
+    if (isBlocked) {
+      if (divergeIdx === -1) divergeIdx = i;
+      convergeIdx = i + 1;
+    }
+  }
+
+  if (divergeIdx === -1) {
+    const blockedNodeSet = new Set(blockedEdgePairs.flat());
+    for (let i = 0; i < scheduledStops.length; i++) {
+      if (blockedNodeSet.has(scheduledStops[i])) {
+        if (divergeIdx === -1) divergeIdx = Math.max(0, i - 1);
+        convergeIdx = Math.min(scheduledStops.length - 1, i + 1);
+      }
+    }
+  }
+
+  // Ensure diverge and converge stations have open capacity
+  while (divergeIdx > 0 && isStationIsolated(scheduledStops[divergeIdx])) {
+    divergeIdx--;
+  }
+  while (convergeIdx < scheduledStops.length - 1 && isStationIsolated(scheduledStops[convergeIdx])) {
+    convergeIdx++;
+  }
+
+  if (divergeIdx === -1 || convergeIdx === -1 || divergeIdx >= convergeIdx) {
+    return null;
+  }
+
+  const divergeStation = scheduledStops[divergeIdx];
+  const convergeStation = scheduledStops[convergeIdx];
+
+  const result = dijkstra(graph, divergeStation, convergeStation);
+  if (!result || !result.path || result.path.length < 2) {
+    return null;
+  }
+
+  const bypassPath = result.path;
+  const head = scheduledStops.slice(0, divergeIdx);
+  const tail = scheduledStops.slice(convergeIdx + 1);
+  const fullRoute = [...head, ...bypassPath, ...tail];
+
+  const waypoints = fullRoute.map((code) => {
+    const s = STATIONS[code];
+    return s ? [s.lat, s.lng] : null;
+  }).filter(Boolean);
+
+  return {
+    divergeStation,
+    convergeStation,
+    bypassPath,
+    fullRoute,
+    waypoints,
+  };
+}
