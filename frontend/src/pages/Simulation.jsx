@@ -176,41 +176,17 @@ export default function Simulation() {
       <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
         <button
           onClick={() => setMode("emergency")}
-          style={{
-            padding: "10px 18px",
-            borderRadius: 8,
-            border: mode === "emergency" ? "1.5px solid #ef4444" : "1px solid var(--border)",
-            background: mode === "emergency" ? "rgba(239, 68, 68, 0.12)" : "var(--surface)",
-            color: mode === "emergency" ? "#fca5a5" : "var(--text-2)",
-            fontWeight: 600,
-            fontSize: 13,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-          }}
+          className={`sim-mode-btn ${mode === "emergency" ? "sim-mode-btn--emergency" : ""}`}
         >
-          <ShieldAlert size={16} color={mode === "emergency" ? "#ef4444" : "var(--text-3)"} />
+          <ShieldAlert size={16} color="currentColor" />
           Emergency Track Block & Train Rerouting
         </button>
 
         <button
           onClick={() => setMode("delay")}
-          style={{
-            padding: "10px 18px",
-            borderRadius: 8,
-            border: mode === "delay" ? "1.5px solid #38bdf8" : "1px solid var(--border)",
-            background: mode === "delay" ? "rgba(56, 189, 248, 0.12)" : "var(--surface)",
-            color: mode === "delay" ? "#38bdf8" : "var(--text-2)",
-            fontWeight: 600,
-            fontSize: 13,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-          }}
+          className={`sim-mode-btn ${mode === "delay" ? "sim-mode-btn--delay" : ""}`}
         >
-          <Clock size={16} color={mode === "delay" ? "#38bdf8" : "var(--text-3)"} />
+          <Clock size={16} color="currentColor" />
           Plan Overrun & Delay Extension
         </button>
       </div>

@@ -1028,10 +1028,18 @@ function WeeklyHorizonView({
                 variant="primary"
                 size="sm"
                 icon={ExternalLink}
-                onClick={() => navigate("/conflicts")}
+                onClick={() => {
+                  const bCode = activeConflictInfo?.blockCode || conflictingPlan?.block?.block_code || "";
+                  const tNum = activeConflictInfo?.trainNum || "";
+                  const q = new URLSearchParams();
+                  if (bCode) q.set("block", bCode);
+                  if (tNum && !tNum.startsWith("#")) q.set("trainNumber", tNum);
+                  navigate(`/conflicts?${q.toString()}`);
+                }}
                 style={{ background: "var(--red)", borderColor: "var(--red)" }}
+                title={`Inspect Block ${activeConflictInfo?.blockCode || ""} conflicts`}
               >
-                Redirect to Conflicts Page (/conflicts)
+                Inspect Block {activeConflictInfo?.blockCode || ""} in Conflicts (/conflicts)
               </Button>
               <button
                 type="button"
@@ -1072,11 +1080,22 @@ function WeeklyHorizonView({
                     (cp.adjustment_reason?.match(/#([A-Za-z0-9]+)/)?.[1]) ||
                     `#${idx + 1}`;
                   const isSel = idx === selectedConflictIndex;
+                  const cleanTrainNum = trainTag && !trainTag.startsWith("#") ? trainTag : "";
                   return (
                     <button
                       key={cp.plan_id || idx}
                       type="button"
-                      onClick={() => setSelectedConflictIndex(idx)}
+                      onClick={() => {
+                        if (isSel) {
+                          const q = new URLSearchParams();
+                          if (bCode) q.set("block", bCode);
+                          if (cleanTrainNum) q.set("trainNumber", cleanTrainNum);
+                          navigate(`/conflicts?${q.toString()}`);
+                        } else {
+                          setSelectedConflictIndex(idx);
+                        }
+                      }}
+                      title={isSel ? `Click again to inspect Block ${bCode} in Conflicts page` : `Select Block ${bCode}`}
                       style={{
                         padding: "4px 10px",
                         borderRadius: 6,
@@ -1096,6 +1115,7 @@ function WeeklyHorizonView({
                         {bCode}
                       </span>
                       <span style={{ opacity: 0.85 }}>({trainTag})</span>
+                      {isSel && <ExternalLink size={12} style={{ color: "var(--red)", marginLeft: 2 }} />}
                     </button>
                   );
                 })}
@@ -1231,9 +1251,16 @@ function WeeklyHorizonView({
                   variant="primary"
                   size="sm"
                   icon={ExternalLink}
-                  onClick={() => navigate("/conflicts")}
+                  onClick={() => {
+                    const bCode = activeConflictInfo?.blockCode || conflictingPlan?.block?.block_code || "";
+                    const tNum = activeConflictInfo?.trainNum || "";
+                    const q = new URLSearchParams();
+                    if (bCode) q.set("block", bCode);
+                    if (tNum && !tNum.startsWith("#")) q.set("trainNumber", tNum);
+                    navigate(`/conflicts?${q.toString()}`);
+                  }}
                 >
-                  Redirect to /conflicts
+                  Inspect Block {activeConflictInfo?.blockCode || ""} in /conflicts
                 </Button>
               </div>
             </div>

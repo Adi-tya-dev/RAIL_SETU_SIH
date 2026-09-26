@@ -7,7 +7,6 @@ import { SOURCE_NAMES, SOURCE_LABEL, SOURCE_TONE, statusTone } from "../../utils
 import { formatDateTime } from "../../utils/formatters";
 import Badge from "../common/Badge";
 import Card from "../common/Card";
-import Button from "../common/Button";
 
 export default function SourceSyncBar({ onSynced, defaultMinimized = false }) {
   const toast = useToast();
@@ -81,23 +80,12 @@ export default function SourceSyncBar({ onSynced, defaultMinimized = false }) {
         <button
           type="button"
           onClick={() => toggleHidden(false)}
-          className="source-sync-toggle-btn"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            fontSize: 11,
-            fontWeight: 600,
-            padding: "4px 10px",
-            width: "auto",
-            height: 26,
-            borderRadius: 999,
-          }}
+          className="source-sync-restore-btn"
           title="Restore Source Data Integration panel"
         >
-          <Activity size={12} className="text-cyan" />
+          <Activity size={13} className="animate-pulse" style={{ color: "currentColor" }} />
           <span>Show Source Integration</span>
-          <ChevronDown size={12} />
+          <ChevronDown size={13} />
         </button>
       </div>
     );
@@ -175,7 +163,7 @@ export default function SourceSyncBar({ onSynced, defaultMinimized = false }) {
 
           <button
             type="button"
-            className="source-sync-toggle-btn"
+            className="source-sync-toggle-btn source-sync-toggle-btn--danger"
             onClick={(e) => {
               e.stopPropagation();
               toggleHidden(true);
@@ -191,23 +179,36 @@ export default function SourceSyncBar({ onSynced, defaultMinimized = false }) {
     );
   }
 
-  // 3. Expanded state: full card with subtle icon buttons instead of giant blue pill
+  // 3. Expanded state: full card with minimize and hide controls
   return (
     <Card
       title="Source Data Integration"
       subtitle="Railway source systems connected through adapters and simulators"
       actions={
-        <Button
-          variant="primary"
-          size="sm"
-          icon={RefreshCcw}
-          loading={syncing}
-          loadingText="Syncing…"
-          onClick={handleSync}
-          disabled={syncing}
-        >
-          {syncing ? "Syncing…" : "Run Sync"}
-        </Button>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <button
+            type="button"
+            className="source-sync-toggle-btn"
+            onClick={() => toggleMinimize(true)}
+            title="Minimize Source Data Integration"
+            aria-label="Minimize Source Data Integration"
+          >
+            <ChevronUp size={14} />
+          </button>
+
+          <button
+            type="button"
+            className="source-sync-toggle-btn source-sync-toggle-btn--danger"
+            onClick={() => {
+              toggleHidden(true);
+              toast.info("Source Integration bar hidden. Click the chip anytime to restore.");
+            }}
+            title="Hide this bar"
+            aria-label="Hide bar"
+          >
+            <X size={13} />
+          </button>
+        </div>
       }
     >
       <div className="pill-list" style={{ alignItems: "center" }}>

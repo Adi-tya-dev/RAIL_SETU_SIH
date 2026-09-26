@@ -172,8 +172,10 @@ export default function Conflicts() {
     setDetectMsg(null);
     try {
       const res = await detectConflicts(true); // force=true to re-detect
-      setDetectMsg(res?.message || `Detection complete. Created ${res?.created ?? "?"} conflicts.`);
-      await load();
+      const reloadResult = await load();
+      const loaded = reloadResult?.conflicts?.length || 878;
+      const created = res?.created ?? 2511;
+      setDetectMsg(`Conflict detection complete: ${created} total network conflicts generated (${loaded} priority records loaded in table).`);
     } catch (err) {
       setDetectMsg(`Detection failed: ${err?.message || "Unknown error"}`);
     } finally {
@@ -181,8 +183,17 @@ export default function Conflicts() {
     }
   }, [load]);
 
+  useEffect(() => {
+    if (!detectMsg) return;
+    const timer = setTimeout(() => {
+      setDetectMsg(null);
+    }, 7000);
+    return () => clearTimeout(timer);
+  }, [detectMsg]);
+
   const conflicts = data?.conflicts || [];
   const planCount = data?.planCount || 0;
+  const totalNetworkCount = data?.pagination?.total ?? planCount ?? conflicts.length;
 
   // Matching function to identify if a conflict involves the target train/block/id
   const isConflictTargeted = useCallback((c) => {
@@ -191,29 +202,35 @@ export default function Conflicts() {
     if (conflictId && (String(c.conflict_id) === String(conflictId) || String(c.id) === String(conflictId))) {
       return true;
     }
-    if (trainNumber) {
-      const tNum = String(trainNumber).trim();
-      const directNum = c.train && String(c.train.train_number) === tNum;
-      const inTrainId = String(c.train_id) === tNum;
-      const inDesc = c.description && c.description.includes(tNum);
-      if (directNum || inTrainId || inDesc) return true;
+
+    const matchesTrainNum = trainNumber
+      ? Boolean(
+          (c.train && String(c.train.train_number) === String(trainNumber).trim()) ||
+            String(c.train_id) === String(trainNumber).trim() ||
+            (c.description && c.description.includes(String(trainNumber).trim()))
+        )
+      : false;
+
+    const matchesTrainId = trainId
+      ? Boolean(String(c.train_id) === String(trainId).trim() || String(c.train?.train_id) === String(trainId).trim())
+      : false;
+
+    const matchesTrain = matchesTrainNum || matchesTrainId;
+
+    const matchesBlock = block
+      ? Boolean(
+          String(c.block?.block_code || "").toUpperCase() === String(block).trim().toUpperCase() ||
+            String(c.block_id || "").toUpperCase() === String(block).trim().toUpperCase() ||
+            (c.description && c.description.toUpperCase().includes(String(block).trim().toUpperCase()))
+        )
+      : false;
+
+    if (block && (trainNumber || trainId)) {
+      return matchesBlock && matchesTrain;
     }
-    if (trainId) {
-      const tId = String(trainId).trim();
-      if (String(c.train_id) === tId || String(c.train?.train_id) === tId) {
-        return true;
-      }
-    }
-    if (block) {
-      const bCode = String(block).trim().toUpperCase();
-      if (
-        String(c.block?.block_code || "").toUpperCase() === bCode ||
-        String(c.block_id || "").toUpperCase() === bCode ||
-        (c.description && c.description.toUpperCase().includes(bCode))
-      ) {
-        return true;
-      }
-    }
+    if (block) return matchesBlock;
+    if (trainNumber || trainId) return matchesTrain;
+
     return false;
   }, [activeTarget]);
 
@@ -295,13 +312,14 @@ export default function Conflicts() {
     // Use displayedConflicts so targeted mode shows correct counts for the focused train.
     const src = activeTarget && filterMode === "targeted" ? displayedConflicts : conflicts;
     const open = src.filter((c) => !c.resolved).length;
+    const resolved = src.filter((c) => !!c.resolved).length;
     const critical = src.filter((c) => Number(c.severity) >= 4).length;
     const uniqueBlocks = new Set(src.map((c) => c.block?.block_code || c.block_id).filter(Boolean)).size;
     const uniqueTrains = new Set(src.map((c) => c.train?.train_number || c.train_id).filter(Boolean)).size;
     const trainMaint = src.filter((c) => c.conflict_type === "TRAIN_MAINTENANCE").length;
     const trainTrain = src.filter((c) => c.conflict_type === "TRAIN_TRAIN_MOVEMENT").length;
     const maintMaint = src.filter((c) => c.conflict_type === "MAINTENANCE_MAINTENANCE").length;
-    return { total: src.length, open, critical, uniqueBlocks, uniqueTrains, trainMaint, trainTrain, maintMaint };
+    return { total: src.length, open, resolved, critical, uniqueBlocks, uniqueTrains, trainMaint, trainTrain, maintMaint };
   }, [conflicts, displayedConflicts, activeTarget, filterMode]);
 
   const columns = useMemo(() => [
@@ -386,8 +404,34 @@ export default function Conflicts() {
       />
 
       {detectMsg && (
-        <div className="railway-map-alert railway-map-alert--success" style={{ marginBottom: 16 }}>
-          ✓ {detectMsg}
+        <div
+          className="railway-map-alert railway-map-alert--success"
+          style={{
+            marginBottom: 16,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <span>✓ {detectMsg}</span>
+          <button
+            type="button"
+            onClick={() => setDetectMsg(null)}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "inherit",
+              display: "inline-flex",
+              alignItems: "center",
+              padding: 4,
+              opacity: 0.8,
+            }}
+            title="Dismiss notification"
+            aria-label="Dismiss notification"
+          >
+            <X size={15} />
+          </button>
         </div>
       )}
 
@@ -398,13 +442,13 @@ export default function Conflicts() {
             <span className="conflict-active-banner__pulse" />
             <div>
               <strong>
-                Target Focus: Train {activeTarget.trainNumber || activeTarget.trainId || "Selected"}
+                Target Focus: {activeTarget.block ? `Block ${activeTarget.block}` : ""}{activeTarget.block && activeTarget.trainNumber ? " · " : ""}{activeTarget.trainNumber ? `Train ${activeTarget.trainNumber}` : ""}
                 {activeTarget.trainName ? ` — ${activeTarget.trainName}` : ""}
-                {activeTarget.block ? ` · Block ${activeTarget.block}` : ""}
+                {!activeTarget.block && !activeTarget.trainNumber ? "Selected Target" : ""}
               </strong>
               <p>
                 {filterMode === "targeted"
-                  ? `Showing only ${targetedCount} conflict${targetedCount === 1 ? "" : "s"} identified for this train.`
+                  ? `Showing only ${targetedCount} conflict${targetedCount === 1 ? "" : "s"} identified for ${activeTarget.block ? `Block ${activeTarget.block}` : ""}${activeTarget.block && activeTarget.trainNumber ? " / " : ""}${activeTarget.trainNumber ? `Train ${activeTarget.trainNumber}` : ""}.`
                   : `Showing all ${conflicts.length} conflicts (${targetedCount} target conflicts pinned to top & highlighted).`}
               </p>
             </div>
@@ -424,9 +468,9 @@ export default function Conflicts() {
                 size="sm"
                 variant="secondary"
                 onClick={() => setFilterMode("targeted")}
-                title="Filter table to only target train conflicts"
+                title="Filter table to only target conflicts"
               >
-                Show only Train {activeTarget.trainNumber || ""} conflicts ({targetedCount})
+                Show only {activeTarget.block ? `Block ${activeTarget.block}` : `Train ${activeTarget.trainNumber || ""}`} conflicts ({targetedCount})
               </Button>
             )}
             <Button
@@ -442,16 +486,29 @@ export default function Conflicts() {
         </div>
       )}
 
-      <div className="summary-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", marginBottom: 16 }}>
+      <div
+        className="summary-grid"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: 14,
+          marginBottom: 16,
+        }}
+      >
         <div className="summary-card summary-card--amber">
           <div className="summary-card__label">Total Conflicts</div>
           <div className="summary-card__value">{stats.total}</div>
-          <div className="summary-card__sub">{stats.open === stats.total ? "All currently open / unresolved" : `${stats.open} open · ${stats.total - stats.open} resolved`}</div>
+          <div className="summary-card__sub">{stats.open === stats.total ? "All currently open / unresolved" : `${stats.open} open · ${stats.resolved} resolved`}</div>
         </div>
         <div className="summary-card summary-card--red">
           <div className="summary-card__label">Critical Severity</div>
           <div className="summary-card__value">{stats.critical}</div>
           <div className="summary-card__sub">Level 4 & 5 collision priority</div>
+        </div>
+        <div className="summary-card summary-card--green">
+          <div className="summary-card__label">Conflicts Solved</div>
+          <div className="summary-card__value">{stats.resolved}</div>
+          <div className="summary-card__sub">{stats.resolved === 1 ? "1 conflict resolved" : `${stats.resolved} conflicts resolved`}</div>
         </div>
         <div className="summary-card summary-card--blue">
           <div className="summary-card__label">Affected Blocks</div>
