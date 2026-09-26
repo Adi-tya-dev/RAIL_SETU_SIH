@@ -25,32 +25,38 @@ const DEFAULT_OPERATIONS = [
   { time: "11:19 - 11:35", operation: "12301 Howrah Rajdhani Express", type: "RAJDHANI", block: "Block B002", status: "SCHEDULED" },
 ];
 
-function formatTaskTimeRange(task, fallback) {
+function formatTaskTime(task, fallback) {
+  let dateObj = null;
   if (task?.preferred_start) {
-    const s = formatTime(task.preferred_start);
-    if (task.deadline) {
-      const e = formatTime(task.deadline);
-      return `${s} - ${e}`;
+    const d = new Date(task.preferred_start);
+    if (!Number.isNaN(d.getTime())) {
+      dateObj = d;
     }
-    if (task.duration_minutes) {
-      const startMs = new Date(task.preferred_start).getTime();
-      const endMs = new Date(startMs + Number(task.duration_minutes) * 60000);
-      const e = formatTime(endMs);
-      return `${s} - ${e}`;
-    }
-    return s;
   }
-  return fallback || "08:00 - 10:00";
+
+  if (dateObj) {
+    return dateObj.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }).toLowerCase();
+  }
+
+  if (fallback && typeof fallback === "string") {
+    const timeOnly = fallback.includes(",") ? fallback.split(",")[1].trim() : (fallback.split(" - ")[0] || fallback);
+    return timeOnly.includes("m") ? timeOnly : `${timeOnly} am`;
+  }
+
+  return "03:30 pm";
 }
 
 // Scheduled maintenance activities with database linking defaults
 const DEFAULT_MAINTENANCE = [
-  { maintenance_task_id: "1", timeRange: "06:00 - 09:00", block: "Block B001", task: "Track Realignment", department: "Engineering", status: "PENDING" },
-  { maintenance_task_id: "2", timeRange: "06:30 - 08:30", block: "Block B001", task: "OHE Wire Replacement", department: "Traction", status: "PENDING" },
-  { maintenance_task_id: "3", timeRange: "10:00 - 12:00", block: "Block B001", task: "Signal Calibration", department: "Signal", status: "PENDING" },
-  { maintenance_task_id: "4", timeRange: "10:00 - 11:00", block: "Block B004", task: "Routine Track Inspection", department: "Engineering", status: "APPROVED" },
-  { maintenance_task_id: "5", timeRange: "13:00 - 15:30", block: "Block B004", task: "OHE Annual Inspection", department: "Traction", status: "APPROVED" },
-  { maintenance_task_id: "6", timeRange: "16:00 - 17:30", block: "Block B007", task: "OHE Tensioning Correction", department: "Traction", status: "IN_PROGRESS" },
+  { maintenance_task_id: "1", time: "03:30 pm", block: "Block B001", task: "Track Realignment", department: "Engineering", status: "PENDING" },
+  { maintenance_task_id: "2", time: "04:00 pm", block: "Block B001", task: "OHE Wire Replacement", department: "Traction", status: "PENDING" },
+  { maintenance_task_id: "3", time: "03:30 pm", block: "Block B001", task: "Signal Calibration", department: "Signal", status: "PENDING" },
+  { maintenance_task_id: "4", time: "10:00 am", block: "Block B004", task: "Routine Track Inspection", department: "Engineering", status: "APPROVED" },
+  { maintenance_task_id: "5", time: "01:00 pm", block: "Block B004", task: "OHE Annual Inspection", department: "Traction", status: "APPROVED" },
+  { maintenance_task_id: "6", time: "04:00 pm", block: "Block B007", task: "OHE Tensioning Correction", department: "Traction", status: "IN_PROGRESS" },
 ];
 
 // Compact Quick Navigation options (Icons + Names only, no descriptions)
@@ -112,10 +118,11 @@ export default function Dashboard() {
         const mappedMaint = res.data.slice(0, 10).map((m, idx) => {
           const fallback = DEFAULT_MAINTENANCE[idx] || DEFAULT_MAINTENANCE[0];
           const dept = m.department === "TRACTION" ? "Traction" : m.department === "SIGNAL" ? "Signal" : "Engineering";
+          const formattedTime = formatTaskTime(m, fallback.time);
           return {
             ...m,
             maintenance_task_id: m.maintenance_task_id || fallback.maintenance_task_id || String(idx + 1),
-            timeRange: formatTaskTimeRange(m, fallback.timeRange),
+            time: formattedTime,
             block: m.block?.block_code ? `Block ${m.block.block_code}` : (m.block_code ? `Block ${m.block_code}` : fallback.block),
             task: humanize(m.maintenance_type) || m.description || fallback.task,
             department: dept,
@@ -155,10 +162,11 @@ export default function Dashboard() {
         const mappedMaint = maintRes.data.slice(0, 10).map((m, idx) => {
           const fallback = DEFAULT_MAINTENANCE[idx] || DEFAULT_MAINTENANCE[0];
           const dept = m.department === "TRACTION" ? "Traction" : m.department === "SIGNAL" ? "Signal" : "Engineering";
+          const formattedTime = formatTaskTime(m, fallback.time);
           return {
             ...m,
             maintenance_task_id: m.maintenance_task_id || fallback.maintenance_task_id || String(idx + 1),
-            timeRange: formatTaskTimeRange(m, fallback.timeRange),
+            time: formattedTime,
             block: m.block?.block_code ? `Block ${m.block.block_code}` : (m.block_code ? `Block ${m.block_code}` : fallback.block),
             task: humanize(m.maintenance_type) || m.description || fallback.task,
             department: dept,
@@ -300,9 +308,9 @@ export default function Dashboard() {
               title={`Click to open Task #${m.maintenance_task_id || idx + 1} (${m.task}) details from database`}
             >
               <div className="maint-card__header">
-                <span className="maint-time-pill">
-                  <Clock size={12} />
-                  <span>{m.timeRange}</span>
+                <span className="maint-time-pill" title={m.time}>
+                  <Clock size={14} style={{ flexShrink: 0 }} />
+                  <span>{m.time || "03:30 pm"}</span>
                 </span>
                 <span
                   className="maint-block-pill"

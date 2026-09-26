@@ -4145,15 +4145,15 @@ body.theme-white .ops-status-text--scheduled {
 }
 
 .maint-card {
-  min-width: 255px;
-  flex: 0 0 255px;
+  min-width: 290px;
+  flex: 0 0 290px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 14px 16px;
+  padding: 16px 18px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   box-shadow: var(--shadow-sm);
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.2s ease;
   cursor: pointer;
@@ -4183,22 +4183,24 @@ body.theme-white .ops-status-text--scheduled {
 .maint-time-pill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 3px 9px;
-  border-radius: 6px;
-  font-size: 11px;
+  gap: 7px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 13px;
   font-weight: 700;
   font-family: var(--mono);
-  background: var(--accent-dim);
-  color: var(--accent-2);
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(37, 99, 235, 0.22);
+  color: #0f172a;
+  line-height: 1.2;
 }
 
 .maint-block-pill {
   display: inline-flex;
   align-items: center;
-  padding: 2px 7px;
-  border-radius: 6px;
-  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 12px;
   font-weight: 600;
   font-family: var(--mono);
   background: var(--surface-2);
@@ -4207,6 +4209,8 @@ body.theme-white .ops-status-text--scheduled {
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
+
+
 
 .maint-block-pill:hover {
   background: var(--accent-dim);
@@ -4306,8 +4310,21 @@ body.theme-white .maint-card:hover {
 
 [data-theme="white"] .maint-time-pill,
 body.theme-white .maint-time-pill {
-  background: #1a44c8;
-  color: #ffffff;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #0f172a;
+}
+
+[data-theme="white"] .maint-time-pill svg,
+body.theme-white .maint-time-pill svg {
+  color: #0f172a;
+}
+
+[data-theme="dark"] .maint-time-pill,
+body.theme-dark .maint-time-pill {
+  background: rgba(59, 130, 246, 0.14);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #f8fafc;
 }
 
 [data-theme="white"] .maint-block-pill,
