@@ -44,7 +44,7 @@ function LiveIndicator({ status, newCount }) {
       style={wrapStyle}
       title={
         isLive
-          ? `Real-time simulator feed active${newCount ? ` · ${newCount} new request${newCount > 1 ? "s" : ""} received` : ""}`
+          ? "Real-time simulator feed active"
           : isError
           ? "SSE stream disconnected — live updates paused"
           : "Connecting to live stream…"
@@ -52,24 +52,6 @@ function LiveIndicator({ status, newCount }) {
     >
       <span style={dotStyle} />
       <span>{label}</span>
-      {isLive && newCount > 0 && (
-        <span
-          style={{
-            background: "rgba(34,197,94,0.25)",
-            border: "1px solid rgba(34,197,94,0.5)",
-            color: "#4ade80",
-            borderRadius: 999,
-            padding: "1px 6px",
-            fontSize: 11,
-            fontWeight: 800,
-            lineHeight: "14px",
-            minWidth: 16,
-            textAlign: "center",
-          }}
-        >
-          +{newCount > 99 ? "99+" : newCount}
-        </span>
-      )}
     </div>
   );
 }

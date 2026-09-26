@@ -509,29 +509,7 @@ export default function IncomingRequests() {
               <span>{liveStatus === "live" ? "LIVE" : liveStatus === "error" ? "Disconnected" : "Connecting…"}</span>
             </div>
 
-            {/* New requests counter badge */}
-            {newRequestCount > 0 && (
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "4px 12px",
-                  borderRadius: 999,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  letterSpacing: "0.02em",
-                  background: "rgba(245, 158, 11, 0.16)",
-                  border: "1px solid rgba(245, 158, 11, 0.45)",
-                  color: "#fbbf24",
-                  boxShadow: "0 0 12px rgba(245, 158, 11, 0.25)",
-                  lineHeight: 1,
-                }}
-              >
-                <Zap size={13} style={{ fill: "#fbbf24", flexShrink: 0 }} />
-                <span>+{newRequestCount} new</span>
-              </div>
-            )}
+
           </div>
         }
         subtitle="Engineering, signalling and traction requests pulled from railway source systems (TMS / SMMS / TDMS)"

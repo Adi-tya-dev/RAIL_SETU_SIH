@@ -989,11 +989,11 @@ function WeeklyHorizonView({
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              flexWrap: "wrap",
-              gap: 10,
+              flexWrap: "nowrap",
+              gap: 14,
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: "1 1 auto" }}>
               <div
                 style={{
                   width: 34,
@@ -1004,26 +1004,27 @@ function WeeklyHorizonView({
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  flexShrink: 0,
                 }}
               >
                 <AlertTriangle size={18} />
               </div>
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--red)" }}>
+              <div style={{ minWidth: 0, flex: "1 1 auto" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--red)", whiteSpace: "nowrap" }}>
                     Conflict Intelligence Analysis · Operational Clash Diagnostics
                   </h4>
-                  <Badge tone="red" dot>
+                  <Badge tone="red" dot style={{ flexShrink: 0 }}>
                     {activeConflictInfo?.conflictType || "TRAIN_MAINTENANCE"} (Severity {activeConflictInfo?.severity || 3})
                   </Badge>
                 </div>
-                <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--text-2)" }}>
+                <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--text-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   Showing {conflictingPlans.length} detected timetable clashes across the 7-day operational horizon
                 </p>
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0, marginLeft: "auto" }}>
               <Button
                 variant="primary"
                 size="sm"
@@ -1036,7 +1037,7 @@ function WeeklyHorizonView({
                   if (tNum && !tNum.startsWith("#")) q.set("trainNumber", tNum);
                   navigate(`/conflicts?${q.toString()}`);
                 }}
-                style={{ background: "var(--red)", borderColor: "var(--red)" }}
+                style={{ background: "var(--red)", borderColor: "var(--red)", whiteSpace: "nowrap" }}
                 title={`Inspect Block ${activeConflictInfo?.blockCode || ""} conflicts`}
               >
                 Inspect Block {activeConflictInfo?.blockCode || ""} in Conflicts (/conflicts)
@@ -1046,7 +1047,7 @@ function WeeklyHorizonView({
                 className="btn btn--ghost btn--sm"
                 onClick={() => setActiveMetric(null)}
                 title="Close conflict inspection panel"
-                style={{ padding: 6, borderRadius: "50%" }}
+                style={{ padding: 6, borderRadius: "50%", flexShrink: 0 }}
               >
                 <X size={16} />
               </button>

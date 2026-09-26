@@ -5,10 +5,13 @@ import { formatDateTime } from "../../utils/formatters";
 import { ShieldAlert, Train, ArrowRight, CheckCircle2, AlertTriangle, Clock, MapPin, Zap, RefreshCw, Map as MapIcon, ExternalLink } from "lucide-react";
 import { navigate } from "../../hooks/useRoute";
 import TrackSchematicMap from "./TrackSchematicMap";
+import { useTheme } from "../../contexts/ThemeContext";
 
 export default function EmergencyRerouteResult({ result }) {
   const [selectedStrategies, setSelectedStrategies] = useState({});
   const [dispatchedOrders, setDispatchedOrders] = useState({});
+  const { theme } = useTheme();
+  const isDayMode = theme === "white";
 
   if (!result || !result.reroute_plans) {
     return null;
@@ -262,9 +265,9 @@ export default function EmergencyRerouteResult({ result }) {
                         navigate(`/map?${params.toString()}`);
                       }}
                       style={{
-                        background: "rgba(56, 189, 248, 0.12)",
-                        borderColor: "rgba(56, 189, 248, 0.35)",
-                        color: "#38bdf8",
+                        background: isDayMode ? "#f0f9ff" : "rgba(56, 189, 248, 0.12)",
+                        borderColor: isDayMode ? "#bae6fd" : "rgba(56, 189, 248, 0.35)",
+                        color: isDayMode ? "#0284c7" : "#38bdf8",
                       }}
                     >
                       <MapIcon size={14} style={{ marginRight: 6 }} />
