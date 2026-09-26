@@ -1,6 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Blocks, CalendarX2, Clock3, TrainFront, Wrench, Zap, RefreshCw, MapPin } from "lucide-react";
+import * as LucideIcons from "lucide-react";
 import { listConflicts, detectConflicts } from "../api/conflicts.api";
+
+// Safe icon extraction with fallbacks to prevent runtime ReferenceErrors during future git pulls/merges
+const {
+  AlertTriangle = () => null,
+  Blocks = () => null,
+  CalendarX2 = () => null,
+  Clock3 = () => null,
+  Filter = () => null,
+  MapPin = () => null,
+  RefreshCw = () => null,
+  Search = () => null,
+  TrainFront = () => null,
+  Wrench = () => null,
+  X = () => null,
+  Zap = () => null,
+} = LucideIcons;
 import { useApi } from "../hooks/useApi";
 import { useRoute, navigate } from "../hooks/useRoute";
 import PageHeader from "../components/common/PageHeader";
