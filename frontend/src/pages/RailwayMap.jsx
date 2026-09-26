@@ -15,7 +15,7 @@ import Drawer from "../components/common/Drawer";
 import MaintenanceDrawer from "../components/maintenance/MaintenanceDrawer";
 import { DetailSection, DetailList } from "../components/common/DetailList";
 import { navigate, useRoute } from "../hooks/useRoute";
-import { STATIONS, resolveBypassRoute } from "../data/railwayNetwork";
+import { STATIONS, EDGES, resolveBypassRoute } from "../data/railwayNetwork";
 
 const INDIA_BOUNDS = [[7.5, 68.0], [37.2, 97.4]];
 const INDIA_CENTER = [22.35, 82.7];
@@ -1078,6 +1078,37 @@ export default function RailwayMap() {
   const routeSectionIds = useMemo(() => new Set(routeStations.map((route) => normalizeId(route.station?.section_id)).filter(Boolean)), [routeStations]);
   const movementBlockIds = useMemo(() => new Set((selectedTrain?.train_block_movements || []).map((movement) => normalizeId(movement.block_id))), [selectedTrain]);
 
+  // All permanent physical railway track corridors across India
+  const physicalTracks = useMemo(() => {
+    const seen = new Set();
+    const list = [];
+    for (const [from, to, dist, speed, type] of EDGES) {
+      const pairKey = [from, to].sort().join("|");
+      if (seen.has(pairKey)) continue;
+      seen.add(pairKey);
+
+      const s1 = STATIONS[from];
+      const s2 = STATIONS[to];
+      if (!s1 || !s2 || !s1.lat || !s2.lat) continue;
+
+      list.push({
+        key: `phys-track-${pairKey}`,
+        from,
+        to,
+        fromName: s1.name,
+        toName: s2.name,
+        dist,
+        speed,
+        type,
+        positions: [
+          [s1.lat, s1.lng],
+          [s2.lat, s2.lng],
+        ],
+      });
+    }
+    return list;
+  }, []);
+
   const networkRoutes = useMemo(() => networkTrains
     .map((train) => ({ train, stations: orderedStations(train) }))
     .map(({ train, stations }) => ({ train, points: stations.map((route) => coordinate(route.station)).filter(Boolean) }))
@@ -1087,6 +1118,8 @@ export default function RailwayMap() {
   const networkStations = useMemo(() => {
     const nodes = new Map();
     const edges = new Set();
+
+    // 1. Stations from active trains
     networkTrains.forEach((train) => {
       const stations = orderedStations(train);
       stations.forEach((route) => {
@@ -1107,6 +1140,25 @@ export default function RailwayMap() {
         if (nodes.has(normalizeId(b.station_id))) nodes.get(normalizeId(b.station_id)).degree += 1;
       }
     });
+
+    // 2. Stations from permanent physical track infrastructure
+    for (const [from, to] of EDGES) {
+      const sA = STATIONS[from];
+      const sB = STATIONS[to];
+      if (sA && sA.lat && sA.lng && !nodes.has(from)) {
+        nodes.set(from, { id: from, point: [sA.lat, sA.lng], degree: 0 });
+      }
+      if (sB && sB.lat && sB.lng && !nodes.has(to)) {
+        nodes.set(to, { id: to, point: [sB.lat, sB.lng], degree: 0 });
+      }
+      const k = [from, to].sort().join("|");
+      if (!edges.has(k)) {
+        edges.add(k);
+        if (nodes.has(from)) nodes.get(from).degree += 1;
+        if (nodes.has(to)) nodes.get(to).degree += 1;
+      }
+    }
+
     return [...nodes.values()];
   }, [networkTrains]);
 
@@ -1846,6 +1898,25 @@ export default function RailwayMap() {
             <ResponsiveMapController isTrainSelected={Boolean(selectedTrain)} points={routePoints} />
             <MapViewport points={routePoints} request={viewportRequest} focus={focusBounds ? { bounds: focusBounds.bounds, onDone: () => setFocusBounds(null) } : null} />
             <StationLabelManager count={routeStations.length} />
+            {/* Permanent Physical Railway Track Network */}
+            {physicalTracks.map((track) => (
+              <Polyline
+                key={track.key}
+                positions={track.positions}
+                className="railway-route-network"
+                pathOptions={{
+                  color: track.type === "CHORD" ? "#1f4870" : "#24507a",
+                  weight: track.type === "CHORD" ? 2 : 2.5,
+                  dashArray: track.type === "CHORD" ? "6, 4" : undefined,
+                  opacity: selectedTrain ? 0.35 : 0.6,
+                  smoothFactor: 1,
+                }}
+              >
+                <Tooltip className="railway-network-tooltip">
+                  Track: {track.fromName} ↔ {track.toName} ({track.dist} km • {track.type === "CHORD" ? "Chord Bypass Line" : "Main Corridor"})
+                </Tooltip>
+              </Polyline>
+            ))}
             {networkRoutes.map(({ train, path }) => {
               const isSelected = selectedTrainId === normalizeId(train.train_id);
               if (isSelected) return null;

@@ -140,16 +140,18 @@ export const EDGES = [
   ["JBP",  "KTE",   95, 100, "MAIN",  40],
   ["KTE",  "GWL",  390, 100, "MAIN",  35],
 
-  // ─── Wardha / Gondia Chord Bypass (key bypass for B001) ─────────────────────
-  ["KZJ",  "WR",   110, 100, "MAIN",  40],
-  ["WR",   "NGP",   75, 100, "MAIN",  40],
-  ["WR",   "CHNR",  95,  80, "CHORD", 20],
-  ["CHNR", "BPQ",   85,  80, "CHORD", 20],
-  ["BPQ",  "G",    150,  80, "CHORD", 20],
-  ["G",    "JBP",  200,  90, "CHORD", 20],
-  ["G",    "NGP",  130,  90, "CHORD", 25],
-  ["G",    "BD",    65,  80, "CHORD", 20],
-  ["BD",   "NGP",   65,  80, "CHORD", 20],
+  // ─── Wardha–Itarsi Chord Bypass (Real-world Nagpur Bypass Corridor) ─────────
+  // Geographic South-to-North: KZJ (17.97N) -> BPQ (19.84N) -> CHNR (19.95N) -> WR (20.75N) -> ET (22.61N) -> JBP (23.17N)
+  ["KZJ",  "BPQ",  235, 110, "MAIN",  50],
+  ["BPQ",  "CHNR",  14, 100, "MAIN",  50],
+  ["CHNR", "WR",    80, 100, "MAIN",  50],
+  ["WR",   "NGP",   75, 100, "MAIN",  50],
+  ["WR",   "ET",   280, 100, "CHORD", 35], // Wardha–Narkher–Itarsi bypass chord (bypasses Nagpur)
+  ["WR",   "BSL",  314, 100, "MAIN",  40],
+  ["NGP",  "JBP",  275, 110, "MAIN",  45],
+  ["ET",   "JBP",  245, 110, "MAIN",  45],
+  ["BPL",  "GWL",  390, 120, "MAIN",  50],
+  ["JBP",  "GWL",  490, 100, "MAIN",  40],
 
   // ─── Raipur / Durg alternate ──────────────────────────────────────────────
   ["NGP",  "DURG", 130, 100, "MAIN",  40],
@@ -206,7 +208,7 @@ export const EDGES = [
 ];
 
 export const BLOCK_SEGMENTS = {
-  B001: [["KZJ", "NGP"], ["WL", "NGP"], ["NGP", "ET"], ["WR", "NGP"], ["G", "NGP"], ["BD", "NGP"], ["DURG", "NGP"]],
+  B001: [["KZJ", "NGP"], ["WL", "NGP"], ["NGP", "ET"], ["WR", "NGP"], ["NGP", "JBP"], ["G", "NGP"], ["BD", "NGP"], ["DURG", "NGP"]],
   B002: [["NDLS", "DEE"], ["DLI", "NDLS"]],
   B003: [["DDU", "GAYA"], ["ALD", "DDU"]],
   B004: [["NDLS", "CNB"], ["CNB", "LKO"]],
