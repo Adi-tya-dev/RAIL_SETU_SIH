@@ -34,20 +34,24 @@ function matchTaskDay(task, dayFilter) {
   const taskStart = task.preferred_start || task.requested_at || task.created_at;
   const taskDateStr = taskStart ? new Date(taskStart).toISOString().slice(0, 10) : "";
 
+  const realToday = new Date().toISOString().slice(0, 10);
+  const realTomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  
+  // A week from today
+  const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+
   if (dLower === "today") {
-    const realToday = new Date().toISOString().slice(0, 10);
-    return taskDateStr === "2026-09-15" || taskDateStr === realToday;
+    return taskDateStr === realToday;
   }
   if (dLower === "tomorrow") {
-    const realTomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-    return taskDateStr === "2026-09-16" || taskDateStr === "2026-09-19" || taskDateStr === realTomorrow;
+    return taskDateStr === realTomorrow;
   }
   if (dLower === "week") {
-    return taskDateStr >= "2026-09-15" && taskDateStr <= "2026-09-22";
+    return taskDateStr >= realToday && taskDateStr <= nextWeek;
   }
   if (dLower === "overdue") {
     if (task.status === "COMPLETED") return false;
-    return task.deadline && new Date(task.deadline) < new Date("2026-09-16T00:00:00Z");
+    return task.deadline && new Date(task.deadline) < new Date();
   }
   if (dLower.includes("-")) {
     return taskDateStr === dLower;
@@ -56,6 +60,25 @@ function matchTaskDay(task, dayFilter) {
 }
 
 export default function Maintenance() {
+  const todayDate = new Date();
+  const todayShortStr = todayDate.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  
+  const getDynamicDate = (offset) => {
+    const d = new Date(todayDate);
+    d.setDate(d.getDate() + offset);
+    return {
+      value: d.toISOString().slice(0, 10),
+      label: d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+    };
+  };
+
+  const dynamicDates = [
+    { ...getDynamicDate(0), suffix: " (Today)" },
+    getDynamicDate(1),
+    getDynamicDate(2),
+    getDynamicDate(3),
+    getDynamicDate(4),
+  ];
   const { blocks, sections } = useReferenceData();
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [search, setSearch] = useState("");
@@ -178,7 +201,7 @@ export default function Maintenance() {
           </span>
           {[
             { id: "", label: "All Days" },
-            { id: "today", label: "Today (15 Sep)", highlight: true },
+            { id: "today", label: `Today (${todayShortStr})`, highlight: true },
             { id: "tomorrow", label: "Tomorrow / Next Shifts" },
             { id: "week", label: "Next 7 Days" },
             { id: "overdue", label: "Past / Overdue" },
@@ -239,11 +262,9 @@ export default function Maintenance() {
               <option value="tomorrow">Tomorrow</option>
               <option value="week">Next 7 Days</option>
               <option value="overdue">Past / Overdue</option>
-              <option value="2026-09-15">15 Sep 2026 (Today)</option>
-              <option value="2026-09-19">19 Sep 2026</option>
-              <option value="2026-09-20">20 Sep 2026</option>
-              <option value="2026-09-21">21 Sep 2026</option>
-              <option value="2026-09-22">22 Sep 2026</option>
+              {dynamicDates.map(d => (
+                <option key={d.value} value={d.value}>{d.label}{d.suffix || ""}</option>
+              ))}
             </select>
           </FilterField>
 

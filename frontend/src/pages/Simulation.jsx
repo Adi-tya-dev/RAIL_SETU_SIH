@@ -102,7 +102,9 @@ export default function Simulation() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planId]);
 
-  const plans = (plansQuery.data || []).filter((p) => p && p.plan_id);
+  const plans = (plansQuery.data || []).filter(
+    (p) => p && p.plan_id && p._count && p._count.plan_maintenance_tasks > 0
+  );
   const tasks = useMemo(() => {
     const payload = detailQuery.data?.data || detailQuery.data;
     const list = payload?.maintenance_tasks || [];

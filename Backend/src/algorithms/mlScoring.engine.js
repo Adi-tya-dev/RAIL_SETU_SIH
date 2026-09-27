@@ -192,13 +192,16 @@ function scoreAndRankPackages(workPackages, nowMs = Date.now()) {
     const normTimeSavings   = normMaps.rawTimeSavings[idx];
     const normConsolidation = normMaps.rawConsolidation[idx];
 
-    const spi = clamp(
+    let spi = clamp(
       FEATURE_WEIGHTS.urgency       * normUrgency +
       FEATURE_WEIGHTS.criticality   * normCriticality +
       FEATURE_WEIGHTS.deadline      * normDeadline +
       FEATURE_WEIGHTS.time_savings  * normTimeSavings +
       FEATURE_WEIGHTS.consolidation * normConsolidation
     );
+
+    // Dampen slightly to ensure realistic believable SPIs (max ~0.985 instead of exactly 1.0)
+    spi = spi * 0.985;
 
     // Remove internal _raw field before returning to caller
     const { _raw, ...cleanPkg } = pkg;

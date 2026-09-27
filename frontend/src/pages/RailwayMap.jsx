@@ -656,10 +656,57 @@ function blockTrackSegment(sectionStations, section, block, fallbackPoint, route
       }
 
       if (nearestIdx >= 0) {
-        // Take a small, clean segment strictly along this train's route (never jumping across states)
-        const span = Math.max(1, Math.min(3, Math.floor(trainPath.length * 0.02)));
-        const sIdx = Math.max(0, nearestIdx - span);
-        const eIdx = Math.min(trainPath.length - 1, nearestIdx + span);
+        // Take a small, clean segment strictly along this train's route, bounded by a small physical distance (e.g. max 10-15km)
+        // rather than arbitrary array indices which create massive red lines on sparse routes.
+        const maxDist = 15; // 15 km total span max
+        let sIdx = nearestIdx;
+        let eIdx = nearestIdx;
+        
+        let totalDist = 0;
+        while (sIdx > 0 || eIdx < trainPath.length - 1) {
+          let expanded = false;
+          if (sIdx > 0) {
+            const d = distanceBetween(trainPath[sIdx], trainPath[sIdx - 1]);
+            if (totalDist + d <= maxDist) {
+              sIdx--;
+              totalDist += d;
+              expanded = true;
+            }
+          }
+          if (eIdx < trainPath.length - 1) {
+            const d = distanceBetween(trainPath[eIdx], trainPath[eIdx + 1]);
+            if (totalDist + d <= maxDist) {
+              eIdx++;
+              totalDist += d;
+              expanded = true;
+            }
+          }
+          if (!expanded) break;
+        }
+        
+        // If the path is extremely sparse (e.g. 100km between waypoints), interpolate a small localized segment
+        if (sIdx === eIdx) {
+          const p = trainPath[nearestIdx];
+          const pPrev = nearestIdx > 0 ? trainPath[nearestIdx - 1] : null;
+          const pNext = nearestIdx < trainPath.length - 1 ? trainPath[nearestIdx + 1] : null;
+          
+          if (pPrev && pNext) {
+            const fPrev = Math.min(1, (maxDist / 2) / (distanceBetween(p, pPrev) || 1));
+            const fNext = Math.min(1, (maxDist / 2) / (distanceBetween(p, pNext) || 1));
+            return [
+              [p[0] + (pPrev[0] - p[0]) * fPrev, p[1] + (pPrev[1] - p[1]) * fPrev],
+              p,
+              [p[0] + (pNext[0] - p[0]) * fNext, p[1] + (pNext[1] - p[1]) * fNext]
+            ];
+          } else if (pNext) {
+            const fNext = Math.min(1, maxDist / (distanceBetween(p, pNext) || 1));
+            return [p, [p[0] + (pNext[0] - p[0]) * fNext, p[1] + (pNext[1] - p[1]) * fNext]];
+          } else if (pPrev) {
+            const fPrev = Math.min(1, maxDist / (distanceBetween(p, pPrev) || 1));
+            return [[p[0] + (pPrev[0] - p[0]) * fPrev, p[1] + (pPrev[1] - p[1]) * fPrev], p];
+          }
+        }
+        
         if (eIdx > sIdx) {
           return trainPath.slice(sIdx, eIdx + 1);
         }
