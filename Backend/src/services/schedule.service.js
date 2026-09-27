@@ -72,6 +72,18 @@ async function findAll(query) {
         }
       }
 
+      for (const sp of seedData.blockPlans) {
+        if (!status || (sp.status && sp.status.toUpperCase() === status)) {
+          const startStr = sp.planned_start ? new Date(sp.planned_start).toISOString() : "";
+          const endStr = sp.planned_end ? new Date(sp.planned_end).toISOString() : "";
+          const key = `${sp.block_id}_${startStr}_${endStr}_${sp.status}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            uniquePlans.push(sp);
+          }
+        }
+      }
+
       const total = uniquePlans.length;
       const paged = uniquePlans.slice(skip, skip + take);
 

@@ -8,7 +8,9 @@
  * Total: 43 Trains, 50+ Stations, 19 Sections, 24 Blocks, 15 Assets, 20 Maintenance Tasks.
  */
 
-const BASE = new Date("2026-09-18T00:00:00Z");
+const todayDate = new Date();
+todayDate.setUTCHours(0, 0, 0, 0);
+const BASE = new Date(todayDate.getTime() + 3 * 24 * 60 * 60 * 1000);
 
 function hoursFromBase(h) {
   return new Date(BASE.getTime() + h * 60 * 60 * 1000);

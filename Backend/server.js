@@ -1,4 +1,4 @@
-const app = require("./src/app");
+const app = require("./src/app"); // trigger restart
 const env = require("./src/config/env");
 const logger = require("./src/utils/logger");
 const { checkDatabaseConnection, disconnectDatabase } = require("./src/services/database.service");
