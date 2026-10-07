@@ -1561,17 +1561,28 @@ export default function RailwayMap() {
   const rerouteTrackData = useMemo(() => {
     if (!emergencyReroute || routePoints.length < 2 || emergencyReroute.strategy !== "CHORD_BYPASS") return null;
 
+    const currentTrainNum = String(selectedTrain?.train_number || "").trim();
+    const currentTrainId = normalizeId(selectedTrain?.train_id);
+    const rerouteTrainNum = String(emergencyReroute.trainNumber || "").trim();
+    const rerouteTrainId = normalizeId(emergencyReroute.trainId);
+
+    const isMatch = (!rerouteTrainNum && !rerouteTrainId) ||
+                    (rerouteTrainNum && currentTrainNum === rerouteTrainNum) ||
+                    (rerouteTrainId && currentTrainId === rerouteTrainId);
+
     // Check if bypass path or full route was cached in sessionStorage by What-If simulation
     let cachedReroutePath = null;
     try {
-      const key1 = `reroute_path_${emergencyReroute.trainId}`;
-      const key2 = `reroute_path_${emergencyReroute.trainNumber}`;
-      const raw = sessionStorage.getItem(key1) || sessionStorage.getItem(key2);
+      const key1 = `reroute_path_${currentTrainId || emergencyReroute.trainId}`;
+      const key2 = `reroute_path_${currentTrainNum || emergencyReroute.trainNumber}`;
+      const raw = sessionStorage.getItem(key2) || sessionStorage.getItem(key1);
       if (raw) cachedReroutePath = JSON.parse(raw);
     } catch (e) {}
 
     const scheduledCodes = routeStations.map((r) => r.station?.station_code).filter(Boolean);
-    const bypassOverride = emergencyReroute.bypassPath || cachedReroutePath?.bypass_path || null;
+    const bypassOverride = isMatch
+      ? (emergencyReroute.bypassPath || cachedReroutePath?.bypass_path || null)
+      : (cachedReroutePath?.bypass_path || null);
 
     // Resolve optimal railway graph bypass
     const resolved = resolveBypassRoute({

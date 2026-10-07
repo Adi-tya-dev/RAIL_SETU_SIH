@@ -406,23 +406,36 @@ async function simulate(id, body = {}) {
 
 async function simulateEmergency(body = {}) {
   let dbTrains = [];
+  let dbBlock = null;
   try {
-    const prisma = require("../config/db.config");
-    dbTrains = await prisma.train.findMany({
-      include: {
-        train_routes: {
-          include: { station: true },
-          orderBy: { sequence_number: "asc" },
+    const prisma = require("../config/prisma");
+    const [trains, block] = await Promise.all([
+      prisma.train.findMany({
+        include: {
+          source_station: true,
+          destination_station: true,
+          train_routes: {
+            include: { station: true },
+            orderBy: { sequence_number: "asc" },
+          },
+          train_block_movements: {
+            include: { block: true },
+          },
         },
-        train_block_movements: {
-          include: { block: true },
-        },
-      },
-    });
+      }),
+      body.block_code
+        ? prisma.block.findFirst({
+            where: { block_code: body.block_code },
+            include: { track: { include: { section: true } } },
+          })
+        : null,
+    ]);
+    dbTrains = trains;
+    dbBlock = block;
   } catch (err) {
     // Fallback if DB unavailable
   }
-  return algorithmService.simulateEmergencyReroute({ ...body, dbTrains });
+  return algorithmService.simulateEmergencyReroute({ ...body, dbTrains, dbBlock });
 }
 
 module.exports = { findAll, findById, generate, simulate, simulateEmergency };

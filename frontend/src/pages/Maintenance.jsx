@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRoute } from "../hooks/useRoute";
 import { Calendar } from "lucide-react";
 import { listMaintenance, getMaintenance } from "../api/maintenance.api";
 import { useApiQuery } from "../hooks/useApi";
@@ -28,38 +29,9 @@ const EMPTY_FILTERS = {
   sectionId: "",
 };
 
-function matchTaskDay(task, dayFilter) {
-  if (!dayFilter || dayFilter === "all") return true;
-  const dLower = String(dayFilter).toLowerCase();
-  const taskStart = task.preferred_start || task.requested_at || task.created_at;
-  const taskDateStr = taskStart ? new Date(taskStart).toISOString().slice(0, 10) : "";
-
-  const realToday = new Date().toISOString().slice(0, 10);
-  const realTomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-  
-  // A week from today
-  const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
-
-  if (dLower === "today") {
-    return taskDateStr === realToday;
-  }
-  if (dLower === "tomorrow") {
-    return taskDateStr === realTomorrow;
-  }
-  if (dLower === "week") {
-    return taskDateStr >= realToday && taskDateStr <= nextWeek;
-  }
-  if (dLower === "overdue") {
-    if (task.status === "COMPLETED") return false;
-    return task.deadline && new Date(task.deadline) < new Date();
-  }
-  if (dLower.includes("-")) {
-    return taskDateStr === dLower;
-  }
-  return true;
-}
-
 export default function Maintenance() {
+  const routePath = useRoute();
+  const dateInputRef = useRef(null);
   const todayDate = new Date();
   const todayShortStr = todayDate.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
   
@@ -88,35 +60,33 @@ export default function Maintenance() {
 
   // Auto-open task if ?taskId=... or ?id=... is present in URL, and handle ?day=... or ?date=...
   useEffect(() => {
-    function parseParams() {
-      const raw = window.location.hash.includes("?")
-        ? window.location.hash.split("?")[1]
-        : window.location.search.replace(/^\?/, "");
-      const qParams = new URLSearchParams(raw);
-      const taskId = qParams.get("taskId") || qParams.get("id");
-      if (taskId) {
-        getMaintenance(taskId).then((res) => {
-          if (res?.data) setSelected(res.data);
-        }).catch(() => {});
-      }
-      const dayParam = qParams.get("day") || qParams.get("date");
-      if (dayParam) {
-        setFilters((f) => ({ ...f, day: dayParam.toLowerCase() }));
-      }
-      const deptParam = qParams.get("department") || qParams.get("dept");
-      if (deptParam) {
-        setFilters((f) => ({ ...f, department: deptParam.toUpperCase() }));
-      }
-      const statusParam = qParams.get("status");
-      if (statusParam) {
-        setFilters((f) => ({ ...f, status: statusParam.toUpperCase() }));
-      }
+    const raw = routePath.includes("?")
+      ? routePath.split("?")[1]
+      : (window.location.hash.includes("?")
+          ? window.location.hash.split("?")[1]
+          : window.location.search.replace(/^\?/, ""));
+    const qParams = new URLSearchParams(raw);
+    const taskId = qParams.get("taskId") || qParams.get("id");
+    if (taskId) {
+      getMaintenance(taskId).then((res) => {
+        if (res?.data) setSelected(res.data);
+      }).catch(() => {});
     }
-
-    parseParams();
-    window.addEventListener("hashchange", parseParams);
-    return () => window.removeEventListener("hashchange", parseParams);
-  }, []);
+    const dayParam = qParams.get("day") || qParams.get("date");
+    if (dayParam) {
+      setFilters((f) => ({ ...f, day: dayParam.toLowerCase() }));
+    } else if (qParams.has("day") && !dayParam) {
+      setFilters((f) => ({ ...f, day: "" }));
+    }
+    const deptParam = qParams.get("department") || qParams.get("dept");
+    if (deptParam) {
+      setFilters((f) => ({ ...f, department: deptParam.toUpperCase() }));
+    }
+    const statusParam = qParams.get("status");
+    if (statusParam) {
+      setFilters((f) => ({ ...f, status: statusParam.toUpperCase() }));
+    }
+  }, [routePath]);
 
   const params = useMemo(
     () => ({
@@ -142,7 +112,6 @@ export default function Maintenance() {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
       if (filters.criticality && String(r.criticality) !== filters.criticality) return false;
-      if (!matchTaskDay(r, filters.day)) return false;
       if (!q) return true;
       const haystack = [
         r.maintenance_task_id,
@@ -156,7 +125,7 @@ export default function Maintenance() {
         .toLowerCase();
       return haystack.includes(q);
     });
-  }, [rows, search, filters.criticality, filters.day]);
+  }, [rows, search, filters.criticality]);
 
   function setFilter(key, value) {
     setFilters((f) => ({ ...f, [key]: value }));
@@ -186,51 +155,136 @@ export default function Maintenance() {
 
       <section className="card">
         {/* Quick Day Selector Pills */}
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            padding: "14px 16px 10px",
-            borderBottom: "1px solid var(--border)",
-            flexWrap: "wrap",
-            alignItems: "center",
-          }}
-        >
-          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-3)", display: "flex", alignItems: "center", gap: 5 }}>
-            <Calendar size={13} color="var(--accent)" /> Day:
-          </span>
-          {[
-            { id: "", label: "All Days" },
-            { id: "today", label: `Today (${todayShortStr})`, highlight: true },
-            { id: "tomorrow", label: "Tomorrow / Next Shifts" },
-            { id: "week", label: "Next 7 Days" },
-            { id: "overdue", label: "Past / Overdue" },
-          ].map((pill) => {
-            const isActive = filters.day === pill.id;
-            return (
-              <button
-                key={pill.id}
-                type="button"
-                className={`btn btn--xs ${isActive ? "btn--primary" : "btn--secondary"}`}
-                style={{
-                  borderRadius: 16,
-                  padding: "3px 12px",
-                  fontSize: 11,
-                  fontWeight: isActive ? 700 : 500,
-                  border: isActive ? undefined : (pill.highlight ? "1px solid var(--amber)" : undefined),
-                  color: !isActive && pill.highlight ? "var(--amber)" : undefined,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 4,
-                }}
-                onClick={() => setFilter("day", pill.id)}
-              >
-                {pill.highlight && <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--amber)", display: "inline-block" }} />}
-                {pill.label}
-              </button>
-            );
-          })}
-        </div>
+        {/* Quick Day Selector Pills & Interactive Calendar Picker */}
+        {(() => {
+          const localTodayStr = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+          const todayFormatted = new Date().toLocaleDateString("en-US", { day: "numeric", month: "short" });
+          const isCustomDate = Boolean(filters.day && filters.day.includes("-"));
+
+          return (
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                padding: "14px 16px 10px",
+                borderBottom: "1px solid var(--border)",
+                flexWrap: "wrap",
+                alignItems: "center",
+              }}
+            >
+              {/* Clickable Calendar Day Trigger */}
+              <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (dateInputRef.current) {
+                      if (typeof dateInputRef.current.showPicker === "function") {
+                        try {
+                          dateInputRef.current.showPicker();
+                        } catch {
+                          dateInputRef.current.focus();
+                        }
+                      } else {
+                        dateInputRef.current.focus();
+                      }
+                    }
+                  }}
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: isCustomDate ? "var(--accent, #38bdf8)" : "var(--text-2)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    background: isCustomDate ? "var(--accent-dim, rgba(56, 189, 248, 0.12))" : "rgba(255, 255, 255, 0.04)",
+                    border: isCustomDate ? "1px solid var(--accent, #38bdf8)" : "1px solid var(--border)",
+                    borderRadius: 16,
+                    padding: "3px 10px",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                  title="Click to open calendar and choose a date"
+                >
+                  <Calendar size={14} color="var(--accent)" />
+                  <span>{isCustomDate ? `Day: ${filters.day}` : "Day:"}</span>
+                  {isCustomDate && (
+                    <span
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFilter("day", "");
+                      }}
+                      style={{
+                        marginLeft: 4,
+                        padding: "0 3px",
+                        cursor: "pointer",
+                        fontWeight: 700,
+                        fontSize: 11,
+                        color: "var(--text-3)",
+                      }}
+                      title="Clear date"
+                    >
+                      ✕
+                    </span>
+                  )}
+                </button>
+                <input
+                  ref={dateInputRef}
+                  type="date"
+                  value={isCustomDate ? filters.day : localTodayStr}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setFilter("day", e.target.value);
+                    }
+                  }}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    height: "100%",
+                    opacity: 0,
+                    pointerEvents: "none",
+                  }}
+                  tabIndex={-1}
+                  aria-label="Pick date from calendar"
+                />
+              </div>
+              {[
+                { id: "", label: "All Days" },
+                { id: "today", label: `Today (${todayFormatted})`, highlight: true },
+                { id: "tomorrow", label: "Tomorrow / Next Shifts" },
+                { id: "week", label: "Next 7 Days" },
+                { id: "overdue", label: "Past / Overdue" },
+              ].map((pill) => {
+                const isActive = (pill.id === "today" && (filters.day === "today" || filters.day === localTodayStr)) ||
+                                 (!pill.id && !filters.day) ||
+                                 (pill.id && filters.day === pill.id);
+                return (
+                  <button
+                    key={pill.id}
+                    type="button"
+                    className={`btn btn--xs ${isActive ? "btn--primary" : "btn--secondary"}`}
+                    style={{
+                      borderRadius: 16,
+                      padding: "3px 12px",
+                      fontSize: 11,
+                      fontWeight: isActive ? 700 : 500,
+                      border: isActive ? undefined : (pill.highlight ? "1px solid var(--amber)" : undefined),
+                      color: !isActive && pill.highlight ? "var(--amber)" : undefined,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                    onClick={() => setFilter("day", pill.id)}
+                  >
+                    {pill.highlight && <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--amber)", display: "inline-block" }} />}
+                    {pill.label}
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         <Filters
           tip={
@@ -258,13 +312,16 @@ export default function Maintenance() {
               aria-label="Filter by day"
             >
               <option value="">All</option>
-              <option value="today">Today</option>
+              <option value="today">Today ({new Date().toLocaleDateString("en-US", { day: "numeric", month: "short" })})</option>
               <option value="tomorrow">Tomorrow</option>
               <option value="week">Next 7 Days</option>
               <option value="overdue">Past / Overdue</option>
               {dynamicDates.map(d => (
                 <option key={d.value} value={d.value}>{d.label}{d.suffix || ""}</option>
               ))}
+              {filters.day && filters.day.includes("-") && !dynamicDates.some(d => d.value === filters.day) && (
+                <option value={filters.day}>{filters.day} (Calendar Selected)</option>
+              )}
             </select>
           </FilterField>
 
@@ -361,9 +418,25 @@ export default function Maintenance() {
           isEmpty={serverEmpty || clientEmpty}
           loadingMessage="Loading maintenance data…"
           emptyMessage={
-            clientEmpty
-              ? "No tasks match the current search or criticality filter."
-              : "No maintenance tasks found."
+            clientEmpty ? (
+              <div style={{ textAlign: "center", padding: "12px 0" }}>
+                <p style={{ margin: "0 0 10px 0" }}>No tasks match the current search or criticality filter.</p>
+                <Button size="xs" variant="outline" onClick={() => { setSearch(""); setFilter("criticality", ""); }}>
+                  Clear Search & Criticality Filter
+                </Button>
+              </div>
+            ) : filters.day ? (
+              <div style={{ textAlign: "center", padding: "12px 0" }}>
+                <p style={{ margin: "0 0 10px 0" }}>
+                  No maintenance tasks scheduled for {filters.day === "today" ? "today" : filters.day}.
+                </p>
+                <Button size="xs" variant="primary" onClick={() => setFilter("day", "")}>
+                  Show All Days
+                </Button>
+              </div>
+            ) : (
+              "No maintenance tasks found."
+            )
           }
           onRetry={() => reload()}
         >

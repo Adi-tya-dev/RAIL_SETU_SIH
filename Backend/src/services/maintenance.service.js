@@ -32,36 +32,60 @@ async function findAll(query) {
   const day = optionalString(query.day);
   if (day) {
     const dLower = day.toLowerCase();
-    if (dLower === "today") {
+    const now = new Date();
+    // Support both UTC and Indian Standard Time (IST is UTC+5:30)
+    const istOffsetMs = 5.5 * 3600000;
+    const istNow = new Date(now.getTime() + istOffsetMs);
+    const todayIstStr = istNow.toISOString().slice(0, 10);
+    const todayUtcStr = now.toISOString().slice(0, 10);
+
+    const tomorrowIstStr = new Date(istNow.getTime() + 86400000).toISOString().slice(0, 10);
+    const tomorrowUtcStr = new Date(now.getTime() + 86400000).toISOString().slice(0, 10);
+
+    const weekEndIstStr = new Date(istNow.getTime() + 7 * 86400000).toISOString().slice(0, 10);
+
+    if (dLower === "today" || dLower === todayIstStr || dLower === todayUtcStr) {
+      // Matches tasks scheduled for today across UTC or IST, or currently in progress
+      where.OR = [
+        {
+          preferred_start: {
+            gte: new Date(`${todayUtcStr}T00:00:00.000Z`),
+            lte: new Date(`${todayIstStr}T23:59:59.999Z`),
+          },
+        },
+        {
+          status: "IN_PROGRESS",
+        },
+      ];
+    } else if (dLower === "tomorrow" || dLower === tomorrowIstStr || dLower === tomorrowUtcStr) {
       where.preferred_start = {
-        gte: new Date("2026-09-15T00:00:00.000Z"),
-        lt: new Date("2026-09-16T00:00:00.000Z"),
-      };
-    } else if (dLower === "tomorrow") {
-      where.preferred_start = {
-        gte: new Date("2026-09-16T00:00:00.000Z"),
-        lt: new Date("2026-09-20T00:00:00.000Z"),
+        gte: new Date(`${tomorrowUtcStr}T00:00:00.000Z`),
+        lte: new Date(`${tomorrowIstStr}T23:59:59.999Z`),
       };
     } else if (dLower === "week") {
       where.preferred_start = {
-        gte: new Date("2026-09-15T00:00:00.000Z"),
-        lte: new Date("2026-09-22T23:59:59.999Z"),
+        gte: new Date(`${todayUtcStr}T00:00:00.000Z`),
+        lte: new Date(`${weekEndIstStr}T23:59:59.999Z`),
       };
     } else if (dLower === "overdue") {
       where.status = { not: "COMPLETED" };
       where.deadline = {
-        lt: new Date("2026-09-16T00:00:00.000Z"),
+        lt: new Date(),
       };
     } else if (dLower.includes("-")) {
+      // Calendar date picker (YYYY-MM-DD)
+      // Encompass the entire day with generous timezone leeway (+/- 6 hours)
+      const dayStart = new Date(`${dLower}T00:00:00.000Z`);
+      const dayEnd = new Date(`${dLower}T23:59:59.999Z`);
       where.preferred_start = {
-        gte: new Date(`${dLower}T00:00:00.000Z`),
-        lt: new Date(`${dLower}T23:59:59.999Z`),
+        gte: new Date(dayStart.getTime() - 6 * 3600000),
+        lte: new Date(dayEnd.getTime() + 6 * 3600000),
       };
     }
   }
 
   try {
-    const [total, tasks] = await Promise.all([
+    let [total, tasks] = await Promise.all([
       prisma.maintenanceTask.count({ where }),
       prisma.maintenanceTask.findMany({
         where,
@@ -71,6 +95,27 @@ async function findAll(query) {
         include: listInclude,
       }),
     ]);
+
+    // If "today" returned 0 tasks due to no tasks scheduled strictly on current calendar day,
+    // dynamically fallback to active operational maintenance tasks (PENDING, APPROVED, IN_PROGRESS)
+    if (total === 0 && day && (day.toLowerCase() === "today" || day.toLowerCase() === new Date().toISOString().slice(0, 10))) {
+      const fallbackWhere = { ...where };
+      delete fallbackWhere.OR;
+      delete fallbackWhere.preferred_start;
+      fallbackWhere.status = { in: ["PENDING", "APPROVED", "IN_PROGRESS"] };
+      const [fallbackTotal, fallbackTasks] = await Promise.all([
+        prisma.maintenanceTask.count({ where: fallbackWhere }),
+        prisma.maintenanceTask.findMany({
+          where: fallbackWhere,
+          skip,
+          take,
+          orderBy: { priority: "desc" },
+          include: listInclude,
+        }),
+      ]);
+      total = fallbackTotal;
+      tasks = fallbackTasks;
+    }
 
     return {
       data: tasks,
@@ -104,24 +149,42 @@ async function findAll(query) {
   }
   if (day) {
     const dLower = day.toLowerCase();
+    const realToday = new Date().toISOString().slice(0, 10);
+    const realTomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const realWeekEnd = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+
     if (dLower === "today") {
-      filtered = filtered.filter((t) => (t.preferred_start ? new Date(t.preferred_start).toISOString().startsWith("2026-09-15") : false));
+      filtered = filtered.filter((t) => {
+        if (!t.preferred_start) return true;
+        const ds = new Date(t.preferred_start).toISOString().slice(0, 10);
+        return ds === "2026-09-15" || ds === "2026-09-18" || ds === realToday;
+      });
     } else if (dLower === "tomorrow") {
       filtered = filtered.filter((t) => {
         if (!t.preferred_start) return false;
         const ds = new Date(t.preferred_start).toISOString().slice(0, 10);
-        return ds === "2026-09-16" || ds === "2026-09-19";
+        return ds === "2026-09-16" || ds === "2026-09-19" || ds === realTomorrow;
       });
     } else if (dLower === "week") {
       filtered = filtered.filter((t) => {
         if (!t.preferred_start) return false;
         const ds = new Date(t.preferred_start).toISOString().slice(0, 10);
-        return ds >= "2026-09-15" && ds <= "2026-09-22";
+        const isDemo = ds >= "2026-09-15" && ds <= "2026-09-25";
+        const isReal = ds >= realToday && ds <= realWeekEnd;
+        return isDemo || isReal;
       });
     } else if (dLower === "overdue") {
-      filtered = filtered.filter((t) => t.status !== "COMPLETED" && t.deadline && new Date(t.deadline) < new Date("2026-09-16T00:00:00Z"));
+      filtered = filtered.filter((t) => t.status !== "COMPLETED" && t.deadline && new Date(t.deadline) < new Date());
     } else if (dLower.includes("-")) {
-      filtered = filtered.filter((t) => (t.preferred_start ? new Date(t.preferred_start).toISOString().startsWith(dLower) : false));
+      if (dLower === realToday) {
+        filtered = filtered.filter((t) => {
+          if (!t.preferred_start) return true;
+          const ds = new Date(t.preferred_start).toISOString().slice(0, 10);
+          return ds === realToday || ds === "2026-09-15" || ds === "2026-09-18";
+        });
+      } else {
+        filtered = filtered.filter((t) => (t.preferred_start ? new Date(t.preferred_start).toISOString().startsWith(dLower) : false));
+      }
     }
   }
 

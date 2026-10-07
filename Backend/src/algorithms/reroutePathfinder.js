@@ -195,12 +195,10 @@ function dijkstra(graph, start, goal, scheduledStopSet = new Set(), isVip = fals
  */
 function kShortestBypasses(blockedEdgePairs, start, goal, scheduledStopSet, isVip, k = 3) {
   const results = [];
-  const usedEdgeSets = []; // track which extra edges we've excluded
+  const excludedEdgePairs = [...blockedEdgePairs];
 
   for (let attempt = 0; attempt < k * 3 && results.length < k; attempt++) {
-    // Combine original blocked edges with those we're excluding for this attempt
-    const extraExclusions = usedEdgeSets[attempt] || [];
-    const graph = buildGraph([...blockedEdgePairs, ...extraExclusions]);
+    const graph = buildGraph(excludedEdgePairs);
     const result = dijkstra(graph, start, goal, scheduledStopSet, isVip);
 
     if (!result) break;
@@ -209,14 +207,15 @@ function kShortestBypasses(blockedEdgePairs, start, goal, scheduledStopSet, isVi
     const pathKey = result.path.join("→");
     if (!results.some((r) => r.path.join("→") === pathKey)) {
       results.push(result);
-      // For the next iteration, block the first interior edge of this path
-      // to force exploration of alternatives
+      // For the next iteration, exclude edges from this path to force exploration of alternatives
       if (result.path.length >= 3) {
-        const removeEdge = [result.path[1], result.path[2]];
-        usedEdgeSets.push([removeEdge]);
+        excludedEdgePairs.push([result.path[0], result.path[1]]);
+        excludedEdgePairs.push([result.path[1], result.path[2]]);
       } else {
         break;
       }
+    } else {
+      break;
     }
   }
 
@@ -282,9 +281,9 @@ function findBypassRoutes({ scheduledStops = [], blockCode = "B001", isVip = fal
     }
   }
 
-  // Fallback: if we can't identify by edge, use blocked nodes
+  // Fallback: if we can't identify by edge, check intermediate scheduled stops
   if (divergeIdx === -1) {
-    for (let i = 0; i < scheduledStops.length; i++) {
+    for (let i = 1; i < scheduledStops.length - 1; i++) {
       if (blockedNodeSet.has(scheduledStops[i])) {
         if (divergeIdx === -1) divergeIdx = Math.max(0, i - 1);
         convergeIdx = Math.min(scheduledStops.length - 1, i + 1);
@@ -319,6 +318,23 @@ function findBypassRoutes({ scheduledStops = [], blockCode = "B001", isVip = fal
   const convergeStation = scheduledStops[convergeIdx];
   const blockedInRoute  = scheduledStops.slice(divergeIdx + 1, convergeIdx);
 
+  // If diverge and converge are adjacent, check if direct edge is actually blocked
+  if (divergeIdx + 1 === convergeIdx && blockedInRoute.length === 0) {
+    const isDirectlyBlocked = blockedEdgePairs.some(
+      ([x, y]) => (x === divergeStation && y === convergeStation) || (x === convergeStation && y === divergeStation)
+    );
+    if (!isDirectlyBlocked) {
+      return {
+        diverge_station: null,
+        converge_station: null,
+        blocked_stations: [],
+        bypass_candidates: [],
+        no_bypass_found: false,
+        not_affected: true,
+      };
+    }
+  }
+
   // ── 2. Original distance calculation ────────────────────────────────────────
   // Sum up known edge distances for the blocked section of the scheduled route
   const allEdgesMap = new Map();
@@ -326,6 +342,7 @@ function findBypassRoutes({ scheduledStops = [], blockCode = "B001", isVip = fal
     allEdgesMap.set(`${a}|${b}`, dist);
     allEdgesMap.set(`${b}|${a}`, dist);
   }
+
   let originalDistKm = 0;
   for (let i = divergeIdx; i < convergeIdx; i++) {
     const key = `${scheduledStops[i]}|${scheduledStops[i + 1]}`;
@@ -341,7 +358,13 @@ function findBypassRoutes({ scheduledStops = [], blockCode = "B001", isVip = fal
     scheduledStopSet,
     isVip,
     MAX_PATHS
-  );
+  ).filter((c) => {
+    // If path is trivial [diverge, converge] without bypassing any blocked node, ignore
+    if (c.path.length === 2 && c.path[0] === divergeStation && c.path[1] === convergeStation && blockedInRoute.length === 0) {
+      return false;
+    }
+    return true;
+  });
 
   if (candidatePaths.length === 0) {
     return {

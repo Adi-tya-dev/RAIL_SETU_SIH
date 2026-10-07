@@ -69,6 +69,7 @@ export const STATIONS = {
   NDLS: { name: "New Delhi",                lat: 28.6448, lng: 77.2167, type: "MAJOR_TERMINAL" },
   DLI:  { name: "Old Delhi Junction",       lat: 28.6562, lng: 77.2150, type: "MAJOR_JUNCTION" },
   DEE:  { name: "Delhi Sarai Rohilla",      lat: 28.6706, lng: 77.1814, type: "JUNCTION" },
+  DEC:  { name: "Delhi Cantt",              lat: 28.5894, lng: 77.1264, type: "JUNCTION" },
   AGC:  { name: "Agra Cantt",               lat: 27.1767, lng: 78.0081, type: "JUNCTION" },
   MTJ:  { name: "Mathura Junction",         lat: 27.4924, lng: 77.6737, type: "JUNCTION" },
   GWL:  { name: "Gwalior Junction",         lat: 26.2183, lng: 78.1828, type: "JUNCTION" },
@@ -179,6 +180,7 @@ export const EDGES = [
 
   // ─── Delhi–Amritsar corridor ─────────────────────────────────────────────
   ["NDLS", "UMB",  200, 130, "MAIN",  60],
+  ["DLI",  "UMB",  195, 120, "MAIN",  60],
   ["UMB",  "LDH",   60, 120, "MAIN",  55],
   ["LDH",  "ASR",   90, 120, "MAIN",  55],
   ["UMB",  "CDG",   40, 110, "MAIN",  45],
@@ -203,10 +205,13 @@ export const EDGES = [
 
   ["NDLS", "DEE",   10,  60, "LOOP",  60],
   ["DLI",  "NDLS",   5,  60, "LOOP",  60],
+  ["DLI",  "DEE",    4,  50, "LOOP",  50],
+  ["NDLS", "DEC",   12,  65, "LOOP",  50],
+  ["DEC",  "DEE",    8,  55, "LOOP",  50],
 ];
 
 export const BLOCK_SEGMENTS = {
-  B001: [["KZJ", "NGP"], ["WL", "NGP"], ["NGP", "ET"], ["WR", "NGP"], ["NGP", "JBP"], ["G", "NGP"], ["BD", "NGP"], ["DURG", "NGP"]],
+  B001: [["NDLS", "DEE"]],
   B002: [["NDLS", "DEE"], ["DLI", "NDLS"]],
   B003: [["DDU", "GAYA"], ["ALD", "DDU"]],
   B004: [["NDLS", "CNB"], ["CNB", "LKO"]],
@@ -226,7 +231,7 @@ export const BLOCK_SEGMENTS = {
   B103: [["GDR", "NLR"]],
   B104: [["BZA", "KZJ"]],
   B105: [["SC", "WL"], ["KZJ", "WL"]],
-  B106: [["BPQ", "G"], ["G", "NGP"]],
+  B106: [["KZJ", "NGP"], ["WL", "NGP"], ["NGP", "ET"], ["WR", "NGP"], ["NGP", "JBP"], ["G", "NGP"], ["BD", "NGP"], ["DURG", "NGP"]],
   B107: [["MKP", "BPL"]],
   B108: [["RTM", "MKP"]],
 };
@@ -408,21 +413,25 @@ export function resolveBypassRoute({ scheduledStops = [], blockCode = "B001", by
     const divIdx = scheduledStops.indexOf(divergeStation);
     const convIdx = scheduledStops.indexOf(convergeStation);
 
-    const head = divIdx >= 0 ? scheduledStops.slice(0, divIdx) : [];
-    const tail = convIdx >= 0 ? scheduledStops.slice(convIdx + 1) : [];
+    // Guard: Only apply override if BOTH diverge AND converge stations belong to THIS train's route in order.
+    // If not, this bypass override belongs to another train and must NOT overwrite this train!
+    if (divIdx !== -1 && convIdx !== -1 && divIdx < convIdx) {
+      const head = scheduledStops.slice(0, divIdx);
+      const tail = scheduledStops.slice(convIdx + 1);
 
-    const fullRouteRaw = [...head, ...bypassPathOverride, ...tail];
-    const trackGeo = resolveTrackGeometry(fullRouteRaw, graph);
-    const waypoints = trackGeo.path;
-    const fullRoute = trackGeo.nodes.length > 0 ? trackGeo.nodes : fullRouteRaw;
+      const fullRouteRaw = [...head, ...bypassPathOverride, ...tail];
+      const trackGeo = resolveTrackGeometry(fullRouteRaw, graph);
+      const waypoints = trackGeo.path;
+      const fullRoute = trackGeo.nodes.length > 0 ? trackGeo.nodes : fullRouteRaw;
 
-    return {
-      divergeStation,
-      convergeStation,
-      bypassPath: bypassPathOverride,
-      fullRoute,
-      waypoints,
-    };
+      return {
+        divergeStation,
+        convergeStation,
+        bypassPath: bypassPathOverride,
+        fullRoute,
+        waypoints,
+      };
+    }
   }
 
   // Find diverge and converge stations

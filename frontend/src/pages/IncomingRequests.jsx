@@ -4,6 +4,7 @@ import { listIncomingRequests } from "../api/integration.api";
 import { injectSimulatorRequest } from "../api/events.api";
 import { useApiQuery } from "../hooks/useApi";
 import { useLiveEvents } from "../contexts/LiveEventsContext";
+import { useToast } from "../contexts/ToastContext";
 import {
   SOURCE_NAMES,
   SOURCE_TONE,
@@ -253,18 +254,26 @@ function InjectPanel({ onInjected }) {
 
 // ── Main page ────────────────────────────────────────────────────────────────
 export default function IncomingRequests() {
+  const toast = useToast();
   const [filters,      setFilters]      = useState(EMPTY_FILTERS);
   const [search,       setSearch]       = useState("");
   const [page,         setPage]         = useState(1);
   const [pageSize,     setPageSize]     = useState(DEFAULT_PAGE_SIZE);
   const [selectedTask, setSelectedTask] = useState(null);
 
-  const { liveStatus, newRequestCount, planUpdated, clearPlanUpdated } = useLiveEvents();
+  const {
+    liveStatus,
+    isAutoGenEnabled,
+    toggleAutoGen,
+    newRequestCount,
+    planUpdated,
+    clearPlanUpdated,
+  } = useLiveEvents();
 
   // Auto-refresh counter — increments whenever live events arrive
   const [liveRefreshKey, setLiveRefreshKey] = useState(0);
 
-  // Refresh the list whenever a new request arrives
+  // Automatically refresh the list whenever any new request arrives via live pub/sub
   useEffect(() => {
     if (newRequestCount > 0) {
       setLiveRefreshKey((k) => k + 1);
@@ -475,7 +484,7 @@ export default function IncomingRequests() {
           <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
             <span style={{ letterSpacing: "-0.02em" }}>Incoming Maintenance Requests</span>
 
-            {/* Live badge */}
+            {/* Live real-time connection badge */}
             <div
               style={{
                 display: "inline-flex",
@@ -493,7 +502,7 @@ export default function IncomingRequests() {
                 boxShadow: liveStatus === "live" ? "0 0 12px rgba(34,197,94,0.2)" : "none",
                 lineHeight: 1,
               }}
-              title={liveStatus === "live" ? "Live Pub/Sub WebSocket / SSE active" : "Status: " + liveStatus}
+              title="Real-time Pub/Sub event stream active — new requests automatically appear without refreshing"
             >
               <span
                 style={{
@@ -508,11 +517,23 @@ export default function IncomingRequests() {
               />
               <span>{liveStatus === "live" ? "LIVE" : liveStatus === "error" ? "Disconnected" : "Connecting…"}</span>
             </div>
-
-
           </div>
         }
         subtitle="Engineering, signalling and traction requests pulled from railway source systems (TMS / SMMS / TDMS)"
+        actions={
+          <Button
+            variant="primary"
+            onClick={() => {
+              reload();
+              toast.info("Refreshed incoming requests.");
+            }}
+            loading={loading}
+            loadingText="Loading…"
+            title="Manually fetch latest data"
+          >
+            Refresh Now
+          </Button>
+        }
       />
 
       {/* Plan-updated banner */}
@@ -533,11 +554,53 @@ export default function IncomingRequests() {
         ))}
       </div>
 
-      <SourceSyncBar onSynced={() => reload()} />
+      {/* Action controls row: Auto-generate toggle, Inject panel, Source sync */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: "var(--s4, 16px)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          {/* Auto-Gen button styled like Show Source Integration chip */}
+          <button
+            type="button"
+            onClick={() => {
+              toggleAutoGen();
+              toast.info(
+                isAutoGenEnabled
+                  ? "Simulator auto-generation DISABLED. Live automatic ingestion remains active!"
+                  : "Simulator auto-generation ENABLED. Demo requests will appear periodically."
+              );
+            }}
+            className="source-sync-restore-btn"
+            style={{
+              border: isAutoGenEnabled ? "1px solid #22c55e" : undefined,
+              color: isAutoGenEnabled ? "#22c55e" : undefined,
+              background: isAutoGenEnabled
+                ? "linear-gradient(135deg, rgba(34, 197, 94, 0.16), rgba(16, 185, 129, 0.16))"
+                : undefined,
+            }}
+            title={
+              isAutoGenEnabled
+                ? "Mock generator is continuously creating fake requests. Click to TURN OFF."
+                : "Mock generator is OFF. The UI is still LIVE — test it anytime by clicking '+ Inject Simulator Request'!"
+            }
+          >
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: "50%",
+                background: isAutoGenEnabled ? "#22c55e" : "#888",
+                boxShadow: isAutoGenEnabled ? "0 0 6px #22c55e" : "none",
+                display: "inline-block",
+              }}
+            />
+            <span>
+              Auto-Generate Mock Requests: <strong style={{ textTransform: "uppercase" }}>{isAutoGenEnabled ? "ON" : "OFF"}</strong>
+            </span>
+          </button>
 
-      {/* Test inject panel */}
-      <div style={{ marginBottom: "var(--s4, 16px)" }}>
-        <InjectPanel onInjected={() => setLiveRefreshKey((k) => k + 1)} />
+          <InjectPanel onInjected={() => setLiveRefreshKey((k) => k + 1)} />
+        </div>
+
+        <SourceSyncBar onSynced={() => reload()} />
       </div>
 
       <section className="card">

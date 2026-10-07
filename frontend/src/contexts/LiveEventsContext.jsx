@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { openEventStream } from "../api/events.api";
+import { openEventStream, toggleWatcher } from "../api/events.api";
 import { useToast } from "./ToastContext";
 
 const LiveEventsContext = createContext(null);
@@ -10,8 +10,14 @@ const DEPT_EMOJI   = { ENGINEERING: "🔧", SIGNAL: "📡", TRACTION: "⚡" };
 export function LiveEventsProvider({ children }) {
   const { pushToast } = useToast();
 
-  // Connection state
+  // Connection state — permanently stays live with backend SSE stream
   const [liveStatus, setLiveStatus] = useState("connecting"); // "connecting" | "live" | "error"
+
+  // Simulator background mock request auto-generation toggle (default OFF to prevent fake data climb)
+  const [isAutoGenEnabled, setIsAutoGenEnabled] = useState(() => {
+    const saved = localStorage.getItem("railsetu_auto_gen");
+    return saved !== null ? saved === "true" : false;
+  });
 
   // How many new requests have arrived since the page loaded
   const [newRequestCount, setNewRequestCount] = useState(0);
@@ -24,6 +30,21 @@ export function LiveEventsProvider({ children }) {
 
   const clearPlanUpdated = useCallback(() => setPlanUpdated(null), []);
 
+  const toggleAutoGen = useCallback((forcedState) => {
+    setIsAutoGenEnabled((prev) => {
+      const next = typeof forcedState === "boolean" ? forcedState : !prev;
+      localStorage.setItem("railsetu_auto_gen", String(next));
+      toggleWatcher({ autoGenEnabled: next }).catch(() => {});
+      return next;
+    });
+  }, []);
+
+  // Ensure backend simulator auto-gen respects user preference on mount
+  useEffect(() => {
+    toggleWatcher({ autoGenEnabled: isAutoGenEnabled }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Real-time EventSource stream stays permanently connected to the backend
   useEffect(() => {
     const closeStream = openEventStream({
       onConnected: () => {
@@ -62,7 +83,6 @@ export function LiveEventsProvider({ children }) {
       },
 
       onHeartbeat: () => {
-        // Keep-alive — just ensure status is live
         setLiveStatus("live");
       },
 
@@ -74,7 +94,14 @@ export function LiveEventsProvider({ children }) {
     return closeStream;
   }, [pushToast]);
 
-  const value = { liveStatus, newRequestCount, planUpdated, clearPlanUpdated };
+  const value = {
+    liveStatus,
+    isAutoGenEnabled,
+    toggleAutoGen,
+    newRequestCount,
+    planUpdated,
+    clearPlanUpdated,
+  };
 
   return (
     <LiveEventsContext.Provider value={value}>

@@ -74,3 +74,20 @@ export async function getWatcherStatus() {
   if (!res.ok) throw new Error(`Watcher status fetch failed: ${res.status}`);
   return res.json();
 }
+
+/**
+ * Toggle backend simulator watcher on or off.
+ * @param {boolean} [enabled]
+ */
+export async function toggleWatcher(enabled) {
+  const res = await fetch(`${API_BASE_URL}/integration/watcher/toggle`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled }),
+  });
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.message || `Toggle failed: ${res.status}`);
+  }
+  return res.json();
+}

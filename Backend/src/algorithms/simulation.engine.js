@@ -103,11 +103,18 @@ function simulateWhatIf(input) {
  *                              ^ Dijkstra found this section ^
  */
 function simulateEmergencyBlockAndReroute(input = {}) {
-  const blockCode = input.block_code || "B001";
+  const blockCode = input.block_code || input.dbBlock?.block_code || "B001";
   const closureMinutes = Number(input.duration_minutes || input.closure_duration_minutes || 90);
   const reason = input.reason || "RAIL_FRACTURE";
   const closureStart = input.closure_start ? new Date(input.closure_start) : new Date();
   const closureEnd = addMinutes(closureStart, closureMinutes);
+
+  // Derive block physical parameters from real DB block if available
+  const blockStartKm = Number(input.dbBlock?.start_chainage ?? 0);
+  const blockEndKm = Number(input.dbBlock?.end_chainage ?? 15);
+  const blockLengthKm = Math.max(3, Math.abs(blockEndKm - blockStartKm));
+  const trackType = input.dbBlock?.track?.track_type || "MAIN";
+  const hasParallelTrack = trackType !== "SINGLE";
 
   // Load train catalog from DB or fallback to seed provider
   let allTrains = [];
@@ -123,7 +130,7 @@ function simulateEmergencyBlockAndReroute(input = {}) {
   }
 
   // Find trains affected by this block
-  const affected = [];
+  let affected = [];
   for (const train of allTrains) {
     const moves = train.train_block_movements || [];
     const hitsBlock = moves.some((m) => {
@@ -131,6 +138,25 @@ function simulateEmergencyBlockAndReroute(input = {}) {
       return code === blockCode;
     });
     if (hitsBlock) affected.push(train);
+  }
+
+  // If DB trains don't have block movements recorded for this block, fallback to simulation seed dataset
+  if (affected.length === 0) {
+    try {
+      const provider = require("../services/seedData.provider");
+      const seedAffected = (provider.trains || []).filter((train) => {
+        const moves = train.train_block_movements || [];
+        return moves.some((m) => {
+          const code = m.block && m.block.block_code ? m.block.block_code : m.block_code;
+          return code === blockCode;
+        });
+      });
+      if (seedAffected.length > 0) {
+        affected = seedAffected;
+      }
+    } catch (err) {
+      // Fallback if not loaded
+    }
   }
 
   const candidateTrains = affected.length > 0 ? affected : allTrains.slice(0, 5);
@@ -160,7 +186,13 @@ function simulateEmergencyBlockAndReroute(input = {}) {
       stops = train.stops;
     }
     if (stops.length === 0) {
-      stops = ["NDLS", "DEE", "UMB"];
+      const src = train.source_station?.station_code || train.src;
+      const dst = train.destination_station?.station_code || train.dst;
+      if (src && dst) {
+        stops = [src, dst];
+      } else {
+        stops = ["NDLS", "DEE", "UMB"];
+      }
     }
 
     // =========================================================================
@@ -184,13 +216,24 @@ function simulateEmergencyBlockAndReroute(input = {}) {
       not_affected,
     } = pathfinderResult;
 
-    // If the train is not affected by this block, skip it
-    if (not_affected) return null;
+    const moves = train.train_block_movements || [];
+    const isDirectlyBlocked = moves.some((m) => {
+      const code = m.block && m.block.block_code ? m.block.block_code : m.block_code;
+      return code === blockCode;
+    });
+
+    // If the train is not affected by this block and doesn't hit it directly, skip it
+    if (not_affected && !isDirectlyBlocked) return null;
+
+    const safeDiverge = diverge_station || (stops.length > 1 ? stops[stops.length - 2] : stops[0]);
+    const safeConverge = converge_station || stops[stops.length - 1];
 
     // Strategy 1: Single Line Working (SLW)
     // SLW uses the adjacent parallel track. Original path 100% preserved.
-    // Not computed by Dijkstra — no geographic rerouting, same corridor.
-    const slwDelay  = isVip ? 15 : 22;
+    // Dynamic delay based on actual block length (km) under restricted pilot speed (IR GR 4.25)
+    const slwSpeed = isVip ? 40 : 30;
+    const slwTransitMin = Math.round((blockLengthKm / slwSpeed) * 60);
+    const slwDelay = Math.max(8, slwTransitMin + (isVip ? 5 : 10));
     const slwStrategy = {
       id:                      "SLW",
       name:                    "Single Line Working (SLW) on Parallel Track",
@@ -210,14 +253,22 @@ function simulateEmergencyBlockAndReroute(input = {}) {
     };
 
     // Strategy 2: Dynamic Dijkstra Bypass (Chord / Outer Line Diversion)
-    // Uses the pathfinder result — best candidate ranked by algorithm_score.
+    // Uses the pathfinder result — distributes candidates so multiple trains don't bottle-neck on the same single track.
     let chordStrategy;
+    let bestBypass = null;
     if (!no_bypass_found && bypass_candidates && bypass_candidates.length > 0) {
-      const bestBypass = bypass_candidates[0];
+      const candidateIndex = isVip
+        ? 0
+        : Math.min(bypass_candidates.length - 1, (parseInt(trainNum.slice(-1), 10) || 0) % bypass_candidates.length);
+      bestBypass = bypass_candidates[candidateIndex] || bypass_candidates[0];
+
+      const viaNodes = (bestBypass.path || []).slice(1, -1);
+      const viaLabel = viaNodes.length > 0 ? `via ${viaNodes.join(" - ")}` : "Direct";
+      const stratName = `Chord Diversion (${viaLabel})`;
 
       chordStrategy = {
         id:                      "CHORD_BYPASS",
-        name:                    "Dynamic Chord Line Diversion (Dijkstra Optimal)",
+        name:                    stratName,
         tag:                     `${bestBypass.stops_bypassed.length} Avoided (${bestBypass.preservation_pct}% Preserved)`,
         tone:                    bestBypass.preservation_pct >= 90 ? "green" : bestBypass.preservation_pct >= 75 ? "amber" : "red",
         stops_served:            bestBypass.stops_served,
@@ -258,16 +309,19 @@ function simulateEmergencyBlockAndReroute(input = {}) {
           (bestBypass.stops_bypassed.length > 0 ? ` Bus-bridge for: ${bestBypass.stops_bypassed.join(", ")}.` : " All commercial stops preserved."),
       };
     } else {
+      const skipped = blocked_stations && blocked_stations.length > 0 ? blocked_stations : [safeConverge];
+      const served = stops.filter((s) => !skipped.includes(s));
+      const presPct = stops.length > 0 ? Number(((served.length / stops.length) * 100).toFixed(1)) : 0;
       chordStrategy = {
         id:                      "CHORD_BYPASS",
         name:                    "Outer Chord Bypass (No Graph Route Found)",
         tag:                     "No bypass in railway network graph",
         tone:                    "red",
-        stops_served:            stops.slice(0, Math.ceil(stops.length / 2)),
-        stops_bypassed:          stops.slice(Math.ceil(stops.length / 2) + 1),
-        stops_avoided_count:     Math.floor(stops.length / 3),
-        preservation_pct:        67.0,
-        estimated_delay_minutes: 45,
+        stops_served:            served,
+        stops_bypassed:          skipped,
+        stops_avoided_count:     skipped.length,
+        preservation_pct:        presPct,
+        estimated_delay_minutes: closureMinutes,
         algorithm_score:         Infinity,
         regulatory_rule:         "IR Operating Manual Section 7",
         description:             `No connected bypass found in railway network graph for block ${blockCode}. Engineering team alerted for manual route assessment.`,
@@ -292,10 +346,10 @@ function simulateEmergencyBlockAndReroute(input = {}) {
       estimated_delay_minutes: holdDelay,
       algorithm_score:         holdDelay,
       regulatory_rule:         "Station Working Rules (SWR Appendix G)",
-      description:             `Train held at ${diverge_station || "preceding junction"} for ${holdDelay} minutes until line possession released. Zero stops bypassed. Full station amenities available.`,
+      description:             `Train held at ${safeDiverge || "preceding junction"} for ${holdDelay} minutes until line possession released. Zero stops bypassed. Full station amenities available.`,
       is_recommended:          false,
       reroute_path:            null,
-      stoppage_minimization_rationale: `Platform hold at ${diverge_station || "preceding junction"} ensures 100% passenger stoppage preservation. Optimal when closure duration <= 45 minutes.`,
+      stoppage_minimization_rationale: `Platform hold at ${safeDiverge || "preceding junction"} ensures 100% passenger stoppage preservation. Optimal when closure duration <= 45 minutes.`,
     };
 
     // Recommendation Logic
@@ -307,7 +361,10 @@ function simulateEmergencyBlockAndReroute(input = {}) {
     if (trainType === "GOODS" || trainType === "FREIGHT") {
       chordStrategy.is_recommended = true;
       recommendedId = "CHORD_BYPASS";
-      recommendationRationale = "Freight Service: Dijkstra-optimal bypass vacates high-capacity main line for priority passenger services.";
+    } else if (chordStrategy && chordStrategy.stops_avoided_count === 0 && chordStrategy.algorithm_score <= slwStrategy.algorithm_score) {
+      chordStrategy.is_recommended = true;
+      recommendedId = "CHORD_BYPASS";
+      recommendationRationale = `Dijkstra Optimal: Bypass via [${bestBypass.path.join(" -> ")}] achieves 100% stoppage preservation with +${chordStrategy.estimated_delay_minutes}m delay.`;
     } else if (slwStrategy.algorithm_score <= chordStrategy.algorithm_score && slwStrategy.algorithm_score <= holdStrategy.algorithm_score) {
       slwStrategy.is_recommended = true;
       recommendedId = "SLW";
@@ -317,8 +374,7 @@ function simulateEmergencyBlockAndReroute(input = {}) {
     } else if (!no_bypass_found && bypass_candidates && bypass_candidates.length > 0 && chordStrategy.algorithm_score < holdStrategy.algorithm_score) {
       chordStrategy.is_recommended = true;
       recommendedId = "CHORD_BYPASS";
-      const best = bypass_candidates[0];
-      recommendationRationale = `Dijkstra Optimal: Bypass via [${best.path.join(" -> ")}] achieves ${best.preservation_pct}% stoppage preservation with +${best.extra_time_min}m delay.`;
+      recommendationRationale = `Dijkstra Optimal: Bypass via [${bestBypass.path.join(" -> ")}] achieves ${bestBypass.preservation_pct}% stoppage preservation with +${bestBypass.extra_time_min}m delay.`;
     } else if (closureMinutes <= 30) {
       holdStrategy.is_recommended = true;
       recommendedId = "STATION_HOLD";
@@ -342,9 +398,9 @@ function simulateEmergencyBlockAndReroute(input = {}) {
       recommendation_rationale: recommendationRationale,
       pathfinder_metadata: {
         block_code:         blockCode,
-        diverge_station,
-        converge_station,
-        blocked_stations,
+        diverge_station:    diverge_station || safeDiverge,
+        converge_station:   converge_station || safeConverge,
+        blocked_stations:   blocked_stations && blocked_stations.length > 0 ? blocked_stations : [safeConverge],
         bypass_paths_found: (bypass_candidates || []).length,
         no_bypass_found,
         engine:             "Dijkstra Multi-Objective k-Shortest Paths",
@@ -360,20 +416,25 @@ function simulateEmergencyBlockAndReroute(input = {}) {
       }, 0) / rerouteOptions.length).toFixed(1)
     : "100.0";
 
+  const hasChordBypass = rerouteOptions.some((t) =>
+    t.strategies.some((s) => s.id === "CHORD_BYPASS" && s.reroute_path?.bypass_path?.length > 0)
+  );
+
   return {
     emergency_event: {
       block_code:               blockCode,
+      block_name:               input.dbBlock?.track?.track_name || input.dbBlock?.track?.section?.section_name || blockCode,
       reason,
       closure_start:            closureStart.toISOString(),
       closure_end:              closureEnd.toISOString(),
       closure_duration_minutes: closureMinutes,
     },
     metrics: {
-      affected_trains_count:             candidateTrains.length,
+      affected_trains_count:             rerouteOptions.length,
       vip_trains_count:                  rerouteOptions.filter((t) => t.is_vip).length,
       average_stoppage_preservation_pct: `${avgPreservation}%`,
-      slw_available:                     true,
-      chord_bypass_available:            true,
+      slw_available:                     hasParallelTrack,
+      chord_bypass_available:            hasChordBypass,
       pathfinder_engine:                 "Dijkstra Multi-Objective (k-Shortest Paths on IR Network Graph)",
     },
     reroute_plans: rerouteOptions,

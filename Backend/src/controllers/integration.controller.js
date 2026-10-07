@@ -1,8 +1,7 @@
 const integrationService = require("../services/integration.service");
 const { ApiError } = require("../utils/validation.util");
-const { SOURCE_NAMES } = require("../integration/config");
 const sseManager = require("../events/sseManager");
-const { getStatus: getWatcherStatus, injectTask } = require("../events/simulatorWatcher");
+const { getStatus: getWatcherStatus, injectTask, toggleWatcher: toggleWatcherService } = require("../events/simulatorWatcher");
 
 async function sources(req, res) {
   const data = await integrationService.describeSources();
@@ -98,6 +97,17 @@ function watcherStatus(req, res) {
   res.json({ success: true, data: getWatcherStatus() });
 }
 
+/**
+ * POST /api/integration/watcher/toggle
+ * Pauses or resumes the background watcher & auto-generation.
+ * Body: { enabled?: boolean }
+ */
+function toggleWatcher(req, res) {
+  const body = req.body || {};
+  const status = toggleWatcherService(body);
+  res.json({ success: true, data: status });
+}
+
 // ─── Simulator inject ────────────────────────────────────────────────────────
 /**
  * POST /api/integration/simulator/:source/inject
@@ -177,6 +187,6 @@ async function onlineStatus(req, res) {
 module.exports = {
   sources, runSync, listSyncs, latestSync,
   listRequests, listErrors, coa,
-  events, watcherStatus, injectSimulatorRequest,
+  events, watcherStatus, toggleWatcher, injectSimulatorRequest,
   fetchOnlineTrains, onlineStatus,
 };

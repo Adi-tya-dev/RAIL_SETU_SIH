@@ -77,6 +77,7 @@ const STATIONS = {
   NDLS: { name: "New Delhi",                lat: 28.6448, lng: 77.2167, type: "MAJOR_TERMINAL" },
   DLI:  { name: "Old Delhi Junction",       lat: 28.6562, lng: 77.2150, type: "MAJOR_JUNCTION" },
   DEE:  { name: "Delhi Sarai Rohilla",      lat: 28.6706, lng: 77.1814, type: "JUNCTION" },
+  DEC:  { name: "Delhi Cantt",              lat: 28.5894, lng: 77.1264, type: "JUNCTION" },
   AGC:  { name: "Agra Cantt",               lat: 27.1767, lng: 78.0081, type: "JUNCTION" },
   MTJ:  { name: "Mathura Junction",         lat: 27.4924, lng: 77.6737, type: "JUNCTION" },
   GWL:  { name: "Gwalior Junction",         lat: 26.2183, lng: 78.1828, type: "JUNCTION" },
@@ -200,6 +201,7 @@ const EDGES = [
 
   // ─── Delhi–Amritsar corridor ─────────────────────────────────────────────
   ["NDLS", "UMB",  200, 130, "MAIN",  60],
+  ["DLI",  "UMB",  195, 120, "MAIN",  60],
   ["UMB",  "LDH",   60, 120, "MAIN",  55],
   ["LDH",  "ASR",   90, 120, "MAIN",  55],
   ["UMB",  "CDG",   40, 110, "MAIN",  45],
@@ -260,6 +262,9 @@ const EDGES = [
   // ─── DEE / BGZ connections ─────────────────────────────────────────────────
   ["NDLS", "DEE",   10,  60, "LOOP",  60],
   ["DLI",  "NDLS",   5,  60, "LOOP",  60],
+  ["DLI",  "DEE",    4,  50, "LOOP",  50],
+  ["NDLS", "DEC",   12,  65, "LOOP",  50],
+  ["DEC",  "DEE",    8,  55, "LOOP",  50],
   ["DDU",  "BSB",   18,  80, "MAIN",  50],
 ];
 
@@ -271,8 +276,8 @@ const EDGES = [
  * Format: block_code → array of [stationA, stationB] pairs that are BLOCKED.
  */
 const BLOCK_SEGMENTS = {
-  // ─── Central Indian Corridor ────────────────────────────────────────────
-  B001: [["KZJ", "NGP"], ["WL", "NGP"], ["NGP", "ET"], ["WR", "NGP"], ["NGP", "JBP"], ["G", "NGP"], ["BD", "NGP"], ["DURG", "NGP"]], // Nagpur junction block (Vidarbha sector)
+  // ─── Northern Corridor (SEC-DLJP Delhi-Jaipur & Delhi Terminal) ─────────
+  B001: [["NDLS", "DEE"]],                                  // Delhi - Subzi Mandi / Sarai Rohilla sector
   B002: [["NDLS", "DEE"], ["DLI", "NDLS"]],                // Delhi-Sarai Rohilla sector
   B003: [["DDU", "GAYA"], ["ALD", "DDU"]],                  // Mughal Sarai-Gaya sector
   B004: [["NDLS", "CNB"], ["CNB", "LKO"]],                  // Kanpur-Delhi (UP main)
@@ -292,7 +297,7 @@ const BLOCK_SEGMENTS = {
   B103: [["GDR", "NLR"]],                                   // Gudur-Nellore sector
   B104: [["BZA", "KZJ"]],                                   // Vijayawada-Kazipet sector
   B105: [["SC", "WL"], ["KZJ", "WL"]],                     // Warangal sector
-  B106: [["BPQ", "G"], ["G", "NGP"]],                      // Balharshah-Gondia (chord itself)
+  B106: [["KZJ", "NGP"], ["WL", "NGP"], ["NGP", "ET"], ["WR", "NGP"], ["NGP", "JBP"], ["G", "NGP"], ["BD", "NGP"], ["DURG", "NGP"]], // Nagpur junction block (Vidarbha sector)
   B107: [["MKP", "BPL"]],                                   // Maksi-Bhopal chord
   B108: [["RTM", "MKP"]],                                   // Ratlam-Maksi chord
 };

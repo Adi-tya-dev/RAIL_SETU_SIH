@@ -48,11 +48,28 @@ export default function Simulation() {
   const [mode, setMode] = useState("emergency");
 
   // Emergency simulation state
+  const [availableBlocks, setAvailableBlocks] = useState(BLOCKS);
   const [emergencyBlock, setEmergencyBlock] = useState("B001");
   const [emergencyReason, setEmergencyReason] = useState("RAIL_FRACTURE");
   const [emergencyDuration, setEmergencyDuration] = useState(90);
   const [emergencySimulating, setEmergencySimulating] = useState(false);
   const [emergencyResult, setEmergencyResult] = useState(null);
+
+  useEffect(() => {
+    fetch("/api/blocks")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const list = data?.data || [];
+        if (Array.isArray(list) && list.length > 0) {
+          const formatted = list.map((b) => ({
+            code: b.block_code,
+            name: `${b.block_code} (${b.track?.section?.section_name || "Corridor"} · ${b.track?.track_name || b.track?.track_code || "Main Line"})`,
+          }));
+          setAvailableBlocks(formatted);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Original delay simulation state
   const [planId, setPlanId] = useState("");
@@ -214,7 +231,7 @@ export default function Simulation() {
                   aria-label="Select corridor block"
                   required
                 >
-                  {BLOCKS.map((b) => (
+                  {availableBlocks.map((b) => (
                     <option key={b.code} value={b.code}>
                       {b.name}
                     </option>

@@ -19,7 +19,6 @@ const TABS = [
 
 export default function CoaData() {
   const [activeTab, setActiveTab] = useState("blocks");
-  const [search, setSearch] = useState("");
 
   const fetcher = useCallback(() => getCoaData(), []);
   const { data, loading, error, reload } = useApiQuery(fetcher, []);
@@ -32,25 +31,6 @@ export default function CoaData() {
   const isAvailable = (b) => b?.availability === "AVAILABLE" || b?.availability === true || b?.status === "AVAILABLE";
   const availableBlocks = blocks.filter(isAvailable).length;
   const unavailableBlocks = blocks.filter((b) => !isAvailable(b)).length;
-
-  const filteredTimetable = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return timetable;
-    return timetable.filter((t) =>
-      [t?.train_number, t?.train_name, t?.station_code].join(" ").toLowerCase().includes(q)
-    );
-  }, [timetable, search]);
-
-  const filteredGoods = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return goods;
-    return goods.filter((g) =>
-      [g?.external_ref, g?.section_code, g?.service, g?.origin_station_code, g?.destination_station_code, g?.train_number]
-        .join(" ")
-        .toLowerCase()
-        .includes(q)
-    );
-  }, [goods, search]);
 
   const blockColumns = useMemo(
     () => [
@@ -178,19 +158,6 @@ export default function CoaData() {
       <PageHeader
         title="COA Corridor & Availability Data"
         subtitle="Corridor block availability, timetable and goods-trains published by COA"
-        actions={
-          <div style={{ position: "relative" }}>
-            <input
-              type="text"
-              className="input"
-              style={{ width: 240 }}
-              placeholder={activeTab === "goods" ? "Search service, section, route…" : "Search train, station…"}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              aria-label="Search COA data"
-            />
-          </div>
-        }
       />
 
       <div className="summary-grid" style={{ marginBottom: "var(--s5)" }}>
@@ -210,10 +177,7 @@ export default function CoaData() {
               role="tab"
               aria-selected={activeTab === tab.key}
               className={`tab${activeTab === tab.key ? " is-active" : ""}`}
-              onClick={() => {
-                setActiveTab(tab.key);
-                setSearch("");
-              }}
+              onClick={() => setActiveTab(tab.key)}
             >
               {tab.label}
               <span style={{ marginLeft: 6, opacity: 0.65 }}>
@@ -227,18 +191,10 @@ export default function CoaData() {
           renderTable(blockColumns, blocks, "No COA block availability records. Run a sync to import corridor data.")}
 
         {activeTab === "timetable" &&
-          (search && filteredTimetable.length === 0 ? (
-            <div className="state state--empty">No timetable rows match the current search.</div>
-          ) : (
-            renderTable(timetableColumns, filteredTimetable, "No COA timetable rows. Run a sync to import corridor data.")
-          ))}
+          renderTable(timetableColumns, timetable, "No COA timetable rows. Run a sync to import corridor data.")}
 
         {activeTab === "goods" &&
-          (search && filteredGoods.length === 0 ? (
-            <div className="state state--empty">No goods forecast rows match the current search.</div>
-          ) : (
-            renderTable(goodsColumns, filteredGoods, "No COA goods-train forecasts. Run a sync to import corridor data.")
-          ))}
+          renderTable(goodsColumns, goods, "No COA goods-train forecasts. Run a sync to import corridor data.")}
       </section>
     </>
   );

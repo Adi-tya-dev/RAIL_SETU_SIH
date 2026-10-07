@@ -17,8 +17,9 @@ router.get("/coa",             integrationController.coa);
 // Events: "connected", "heartbeat", "new_request", "plan_updated"
 router.get("/events", integrationController.events);
 
-// ── Watcher diagnostics ──────────────────────────────────────────────────────
-router.get("/watcher/status", integrationController.watcherStatus);
+// ── Watcher diagnostics & control ───────────────────────────────────────────
+router.get("/watcher/status",  integrationController.watcherStatus);
+router.post("/watcher/toggle", integrationController.toggleWatcher);
 
 // ── Simulator request injection (for testing live flow) ──────────────────────
 // POST /api/integration/simulator/TMS/inject    { request_id, ... }

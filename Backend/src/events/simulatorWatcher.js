@@ -223,11 +223,56 @@ function stopWatcher() {
   logger.info("[simulatorWatcher] Stopped.");
 }
 
+function toggleAutoGen(enabled) {
+  const shouldRun = enabled !== undefined ? Boolean(enabled) : !state.autoGenTimer;
+  if (shouldRun) {
+    if (!state.autoGenTimer) {
+      state.autoGenTimer = setInterval(() => {
+        generateNewRequest();
+      }, AUTO_GEN_INTERVAL_MS);
+      state.autoGenTimer.unref();
+      logger.info("[simulatorWatcher] Simulator Auto-Generation enabled.");
+    }
+  } else {
+    if (state.autoGenTimer) {
+      clearInterval(state.autoGenTimer);
+      state.autoGenTimer = null;
+      logger.info("[simulatorWatcher] Simulator Auto-Generation disabled.");
+    }
+  }
+
+  // Ensure polling timer stays running so real-time push and manual injections work
+  if (WATCHER_ENABLED && !state.pollTimer) {
+    tick();
+    state.pollTimer = setInterval(tick, POLL_INTERVAL_MS);
+    state.pollTimer.unref();
+  }
+
+  return getStatus();
+}
+
+function toggleWatcher(options) {
+  if (typeof options === "boolean") {
+    return toggleAutoGen(options);
+  }
+  if (options && typeof options === "object") {
+    if (options.autoGenEnabled !== undefined) {
+      return toggleAutoGen(options.autoGenEnabled);
+    }
+    if (options.enabled !== undefined) {
+      return toggleAutoGen(options.enabled);
+    }
+  }
+  return toggleAutoGen();
+}
+
 function getStatus() {
+  const isRunning = Boolean(state.pollTimer);
   return {
     enabled:          WATCHER_ENABLED,
+    running:          isRunning,
     poll_interval_ms: POLL_INTERVAL_MS,
-    auto_gen_enabled: AUTO_GEN_ENABLED,
+    auto_gen_enabled: Boolean(state.autoGenTimer),
     auto_gen_interval_ms: AUTO_GEN_INTERVAL_MS,
     last_check:       state.lastCheck,
     new_since_start:  state.newSinceStart,
@@ -235,10 +280,10 @@ function getStatus() {
     sources: SOURCES.map((s) => ({
       code:       s.code,
       department: s.department,
-      seen_count: state.seenRefs[s.code].size,
-      injected:   injectedCatalogs[s.code].length,
+      seen_count: state.seenRefs[s.code]?.size || 0,
+      injected:   injectedCatalogs[s.code]?.length || 0,
     })),
   };
 }
 
-module.exports = { startWatcher, stopWatcher, getStatus, injectTask };
+module.exports = { startWatcher, stopWatcher, toggleWatcher, toggleAutoGen, getStatus, injectTask };
